@@ -59,10 +59,10 @@ type StudioStatus struct {
 	} `json:"meters"`
 }
 
-func NewEngine(cfg *Config) *Engine {
+func NewEngine(cfg *Config, version string) *Engine {
 	e := &Engine{
 		cfg:      cfg,
-		version:  "0.1.7",
+		version:  version,
 		rc:       make(map[int]float64),
 		lastSent: make(map[int]float64),
 		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},

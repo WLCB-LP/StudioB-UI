@@ -1,5 +1,6 @@
 package main
 
+
 import (
 	"encoding/json"
 	"flag"
@@ -12,6 +13,9 @@ import (
 	"stub-mixer/internal"
 )
 
+var version = "dev"
+
+
 func main() {
 	var cfgPath string
 	flag.StringVar(&cfgPath, "config", "config.yml", "Path to config.yml")
@@ -22,7 +26,7 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	engine := app.NewEngine(cfg)
+	engine := app.NewEngine(cfg, version)
 
 	mux := http.NewServeMux()
 

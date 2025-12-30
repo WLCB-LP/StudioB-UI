@@ -131,17 +131,15 @@ validate_and_repair_config() {
 }
 
 make_release_dir() {
-  local version
+  local version ts rel
   version="$(cat "${REPO_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')"
   [ -n "${version}" ] || version="0.0.0"
-
-  local ts rel
   ts="$(date +%Y%m%d-%H%M%S)"
   rel="${RELEASES_DIR}/${ts}-v${version}"
-
   mkdir -p "${rel}"
   echo "${rel}"
 }
+
 
 deploy_release() {
   log "Building and staging release…"
@@ -155,8 +153,12 @@ deploy_release() {
   pushd "${REPO_DIR}/engine" >/dev/null
   # Ensure module metadata is complete (creates/updates go.sum)
   sudo -u "${APP_USER}" bash -lc "cd \"${REPO_DIR}/engine\" && go mod tidy"
+  VER="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
   sudo -u "${APP_USER}" env -i HOME="/home/${APP_USER}" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-    /usr/bin/go build -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine
+    VER="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
+sudo -u "${APP_USER}" env -i HOME="/home/${APP_USER}" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  /usr/bin/go build -ldflags "-X main.version=${VER}" \
+  -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine
   popd >/dev/null
 
   chmod 755 "${rel}/${ENGINE_BIN}"

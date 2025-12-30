@@ -1,80 +1,82 @@
+\
 #!/usr/bin/env bash
 set -euo pipefail
 
-WATCH_DIR="/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
+# Polling-based deploy watcher (NAS-safe)
+# Watches TMP_DIR for *.zip and deploys the newest zip when its content changes.
+# Uses a SHA256 signature to allow re-deploying the "same filename" if rebuilt.
+
+TMP_DIR="/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
 ARCHIVE_DIR="/mnt/NAS/Engineering/Audio Network/Studio B/UI"
-DEST="/home/wlcb/devel/StudioB-UI"
-OWNER="wlcb:wlcb"
+STATE_DIR="/home/wlcb/.StudioB-UI/state"
+STATE_FILE="${STATE_DIR}/last_zip.sig"
+SLEEP=5
 
-WORK="/tmp/stub-ui-deploy"
-LOCK="/tmp/stub-ui-watch.lock"
+REPO_DIR="/home/wlcb/devel/StudioB-UI"
+DEPLOY_TMP="/tmp/stub-ui-deploy"
 
-RSYNC_EXCLUDES=(
-  "--exclude=.git/"
-  "--exclude=.gitignore"
-  "--exclude=.github/"
-  "--exclude=.releases/"
-  "--exclude=config.yml"
-  "--exclude=logs/"
-)
+log() { echo "[watcher] $*"; }
 
-log() { echo "[stub-ui-watch] $*"; }
+mkdir -p "${STATE_DIR}"
+touch "${STATE_FILE}"
 
-need_tools() {
-  command -v inotifywait >/dev/null 2>&1 || { echo "Missing inotifywait (install inotify-tools)"; exit 1; }
-  command -v rsync >/dev/null 2>&1 || { echo "Missing rsync"; exit 1; }
-  command -v unzip >/dev/null 2>&1 || { echo "Missing unzip"; exit 1; }
-  command -v flock >/dev/null 2>&1 || { echo "Missing flock (util-linux)"; exit 1; }
-}
+shopt -s nullglob
 
-deploy_zip() {
+zip_sig() {
+  # signature: sha256 + size, to reduce very rare edge cases
   local zip="$1"
-  local base
-  base="$(basename "$zip")"
-
-  log "Processing: $base"
-
-  rm -rf "$WORK"
-  mkdir -p "$WORK/src" "$ARCHIVE_DIR" "$DEST"
-
-  unzip -q "$zip" -d "$WORK/src"
-
-  rsync -a --delete     "${RSYNC_EXCLUDES[@]}"     "$WORK/src/" "$DEST/"
-
-  log "Rsync completed to $DEST"
-  log "Fixing ownership: $OWNER"
-  chown -R "$OWNER" "$DEST"
-
-  mkdir -p "$DEST/logs"
-  chown -R "$OWNER" "$DEST/logs"
-  echo "$(date -Is) deployed $base" >> "$DEST/logs/deploy.log"
-
-  mv -f "$zip" "$ARCHIVE_DIR/$base"
-  log "Moved $base to archive directory"
+  sha256sum "$zip" | awk '{print $1}'
 }
 
-main() {
-  need_tools
+deploy() {
+  local zip="$1"
+  log "Deploying: ${zip}"
 
-  exec 9>"$LOCK"
-  if ! flock -n 9; then
-    log "Watcher already running, exiting."
-    exit 0
+  rm -rf "${DEPLOY_TMP}"
+  mkdir -p "${DEPLOY_TMP}"
+  unzip -q "$zip" -d "${DEPLOY_TMP}"
+
+  # Copy into repo working tree (preserve repo metadata and logs)
+  rsync -a --delete \
+    --exclude='.git/' \
+    --exclude='.github/' \
+    --exclude='logs/' \
+    "${DEPLOY_TMP}/" "${REPO_DIR}/"
+
+  chown -R wlcb:wlcb "${REPO_DIR}" || true
+
+  # Move zip to archive (after successful copy)
+  mv "$zip" "${ARCHIVE_DIR}/"
+
+  # Run installer (self-healing; rebuilds engine & updates runtime symlink)
+  sudo "${REPO_DIR}/install.sh"
+}
+
+while true; do
+  zips=( "${TMP_DIR}"/*.zip )
+  if (( ${#zips[@]} == 0 )); then
+    sleep "${SLEEP}"
+    continue
   fi
 
-  log "Watching: $WATCH_DIR"
-
-  shopt -s nullglob
-  for z in "$WATCH_DIR"/*.zip; do
-    deploy_zip "$z"
+  # Pick newest by mtime
+  newest="${zips[0]}"
+  newest_mtime=$(stat -c %Y "${newest}" 2>/dev/null || echo 0)
+  for z in "${zips[@]}"; do
+    m=$(stat -c %Y "$z" 2>/dev/null || echo 0)
+    if (( m > newest_mtime )); then
+      newest="$z"
+      newest_mtime=$m
+    fi
   done
 
-  inotifywait -m -e close_write,moved_to --format "%w%f" "$WATCH_DIR" | while IFS= read -r file; do
-    case "$file" in
-      *.zip) deploy_zip "$file" ;;
-      *) : ;;
-    esac
-  done
-}
+  sig="$(zip_sig "${newest}")"
+  last_sig="$(cat "${STATE_FILE}" 2>/dev/null || true)"
 
-main "$@"
+  if [[ -n "${sig}" && "${sig}" != "${last_sig}" ]]; then
+    echo "${sig}" > "${STATE_FILE}"
+    deploy "${newest}"
+  fi
+
+  sleep "${SLEEP}"
+done
