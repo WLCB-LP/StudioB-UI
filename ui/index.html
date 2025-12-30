@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Studio B Mixer</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">WLCB • Studio B</div>
+    <nav class="tabs">
+      <button class="tab active" data-page="studio">Studio</button>
+      <button class="tab" data-page="engineering">Engineering</button>
+    </nav>
+    <div class="status" id="connStatus">Connecting…</div>
+  </header>
+
+  <main>
+    <section id="page-studio" class="page">
+      <h1>Studio</h1>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Mics</h2>
+          <div class="controls">
+            <button class="btn toggle" data-rc="121" data-label="Host">Host Mic</button>
+            <button class="btn toggle" data-rc="122" data-label="Guest 1">Guest 1</button>
+            <button class="btn toggle" data-rc="123" data-label="Guest 2">Guest 2</button>
+            <button class="btn toggle" data-rc="124" data-label="Guest 3">Guest 3</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Speakers</h2>
+          <label class="row">
+            <span>Level</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.7" data-rc="160" class="slider" />
+            <span class="val" data-val-for="160">—</span>
+          </label>
+          <div class="row">
+            <button class="btn toggle" data-rc="161">Speaker Mute</button>
+            <div class="lamp" id="lamp560">
+              <div class="dot"></div>
+              <div class="txt">AUTO-MUTED</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Program Meter</h2>
+          <div class="meters">
+            <div class="meter"><div class="fill" id="m411"></div><div class="lbl">L</div></div>
+            <div class="meter"><div class="fill" id="m412"></div><div class="lbl">R</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Speaker Meter</h2>
+          <div class="meters">
+            <div class="meter"><div class="fill" id="m460"></div><div class="lbl">L</div></div>
+            <div class="meter"><div class="fill" id="m461"></div><div class="lbl">R</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Remote Studio Return</h2>
+          <div class="meters">
+            <div class="meter"><div class="fill" id="m462"></div><div class="lbl">L</div></div>
+            <div class="meter"><div class="fill" id="m463"></div><div class="lbl">R</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-engineering" class="page hidden">
+      <h1>Engineering</h1>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Program Master (Engineering)</h2>
+          <label class="row">
+            <span>Gain</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.7" data-rc="111" class="slider" />
+            <span class="val" data-val-for="111">—</span>
+          </label>
+          <div class="row">
+            <button class="btn toggle" data-rc="131">Program Master Mute</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Service</h2>
+          <div class="row">
+            <button class="btn" id="btnReconnect">Reconnect DSP</button>
+          </div>
+
+          <h3>Releases</h3>
+          <div class="row">
+            <input class="text" id="adminPin" type="password" placeholder="Admin PIN" />
+          </div>
+          <div class="row">
+            <button class="btn warn" id="btnUpdate">Update</button>
+            <button class="btn warn" id="btnRollback">Rollback…</button>
+          </div>
+
+          <div class="row">
+            <select class="text" id="releaseSelect"></select>
+          </div>
+
+          <div class="small" id="svcMsg"></div>
+        </div>
+
+        <div class="card">
+          <h2>Engine</h2>
+          <pre id="engineInfo" class="pre">Loading…</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
