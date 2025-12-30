@@ -1,4 +1,3 @@
-\
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -6,14 +5,14 @@ set -euo pipefail
 # Watches TMP_DIR for *.zip and deploys the newest zip when its content changes.
 # Uses a SHA256 signature to allow re-deploying the "same filename" if rebuilt.
 
-TMP_DIR="/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
-ARCHIVE_DIR="/mnt/NAS/Engineering/Audio Network/Studio B/UI"
-STATE_DIR="/home/wlcb/.StudioB-UI/state"
+TMP_DIR="${TMP_DIR:-/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp}"
+ARCHIVE_DIR="${ARCHIVE_DIR:-/mnt/NAS/Engineering/Audio Network/Studio B/UI}"
+STATE_DIR="${STATE_DIR:-/home/wlcb/.StudioB-UI/state}"
 STATE_FILE="${STATE_DIR}/last_zip.sig"
-SLEEP=5
+SLEEP="${SLEEP:-5}"
 
-REPO_DIR="/home/wlcb/devel/StudioB-UI"
-DEPLOY_TMP="/tmp/stub-ui-deploy"
+REPO_DIR="${REPO_DIR:-/home/wlcb/devel/StudioB-UI}"
+DEPLOY_TMP="${DEPLOY_TMP:-/tmp/stub-ui-deploy}"
 
 log() { echo "[watcher] $*"; }
 
@@ -27,6 +26,83 @@ zip_sig() {
   local zip="$1"
   sha256sum "$zip" | awk '{print $1}'
 }
+
+git_sync() {
+  # Optional: mirror ZIP contents into a git repo and push to remote.
+  # Enable by setting GIT_SYNC_REMOTE (and optionally GIT_SYNC_BRANCH, GIT_SYNC_DIR, GIT_SYNC_TOKEN).
+  local src="$1"   # extracted folder (DEPLOY_TMP)
+  local zip="$2"
+  local remote="${GIT_SYNC_REMOTE:-}"
+  [[ -z "${remote}" ]] && return 0
+
+  local dir="${GIT_SYNC_DIR:-/home/wlcb/.StudioB-UI/git-sync}"
+  local branch="${GIT_SYNC_BRANCH:-main}"
+  local token="${GIT_SYNC_TOKEN:-}"
+  local author_name="${GIT_SYNC_AUTHOR_NAME:-StudioB Watcher}"
+  local author_email="${GIT_SYNC_AUTHOR_EMAIL:-watcher@localhost}"
+
+  if [[ ! -d "${dir}/.git" ]]; then
+    log "git-sync: cloning ${remote} -> ${dir}"
+    rm -rf "${dir}"
+    if [[ -n "${token}" && "${remote}" =~ ^https:// ]]; then
+      # inject token into https URL (kept out of process list as much as possible)
+      remote_auth="$(echo "${remote}" | sed -E "s#^https://#https://${token}@#")"
+      git clone --branch "${branch}" --depth 1 "${remote_auth}" "${dir}"
+    else
+      git clone --branch "${branch}" --depth 1 "${remote}" "${dir}"
+    fi
+  fi
+
+  # Sync files from ZIP extract into repo working tree, excluding runtime/ and other host-only state.
+  log "git-sync: syncing content into repo"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete \
+      --exclude ".StudioB-UI/" \
+      --exclude "runtime/" \
+      --exclude "state/" \
+      --exclude ".git/" \
+      "${src}/" "${dir}/"
+  else
+    # crude fallback: wipe and copy
+    find "${dir}" -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
+    cp -a "${src}/." "${dir}/"
+  fi
+
+  ( cd "${dir}"
+    git config user.name "${author_name}"
+    git config user.email "${author_email}"
+
+    if git diff --quiet && git diff --cached --quiet; then
+      git add -A
+    else
+      git add -A
+    fi
+
+    if git diff --cached --quiet; then
+      log "git-sync: no changes to commit"
+      return 0
+    fi
+
+    local ver=""
+    if [[ -f VERSION ]]; then ver="$(cat VERSION | tr -d '\r\n')"; fi
+    local msg="Auto-import from ZIP: $(basename "${zip}")"
+    if [[ -n "${ver}" ]]; then msg="${msg} (v${ver})"; fi
+
+    git commit -m "${msg}"
+
+    # Tag the version if it looks like a release and not already tagged.
+    if [[ -n "${ver}" ]]; then
+      if ! git rev-parse "v${ver}" >/dev/null 2>&1; then
+        git tag "v${ver}" || true
+      fi
+    fi
+
+    log "git-sync: pushing ${branch} (and tags)"
+    git push origin "${branch}"
+    git push --tags || true
+  )
+}
+
 
 deploy() {
   local zip="$1"

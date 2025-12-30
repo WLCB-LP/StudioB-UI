@@ -28,6 +28,14 @@ type Config struct {
 		Deadband  float64 `yaml:"deadband"`
 	} `yaml:"meters"`
 
+	Updates struct {
+		Mode        string `yaml:"mode"`          // "zip" (default) or "git"
+		GitHubRepo  string `yaml:"github_repo"`   // e.g. "WLCB/StudioB-UI"
+		AssetSuffix string `yaml:"asset_suffix"`  // e.g. ".zip" (default)
+		WatchTmpDir string `yaml:"watch_tmp_dir"` // where to drop downloaded zips for the watcher
+		TokenEnv    string `yaml:"token_env"`     // env var name holding GitHub token (optional)
+	} `yaml:"updates"`
+
 	RCAllowlist []int `yaml:"rc_allowlist"`
 }
 
@@ -54,6 +62,22 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.Admin.PIN == "" {
 		cfg.Admin.PIN = "CHANGE_ME"
+	}
+
+	if cfg.Updates.Mode == "" {
+		cfg.Updates.Mode = "zip"
+	}
+		if cfg.Updates.GitHubRepo == "" {
+		cfg.Updates.GitHubRepo = "WLCB-LP/StudioB-UI"
+	}
+if cfg.Updates.AssetSuffix == "" {
+		cfg.Updates.AssetSuffix = ".zip"
+	}
+	if cfg.Updates.WatchTmpDir == "" {
+		cfg.Updates.WatchTmpDir = "/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
+	}
+	if cfg.Updates.TokenEnv == "" {
+		cfg.Updates.TokenEnv = "GITHUB_TOKEN"
 	}
 	if len(cfg.RCAllowlist) == 0 {
 		return nil, fmt.Errorf("rc_allowlist is empty")

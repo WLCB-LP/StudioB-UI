@@ -19,6 +19,8 @@ CONFIG_FILE="${CONFIG_FILE:-${BASE_DIR}/config/config.yml}"
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/studiob-ui}"
 NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/studiob-ui}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-/etc/systemd/system/stub-engine.service}"
+ENGINE_ENV_FILE="${ENGINE_ENV_FILE:-/etc/stub-engine.env}"
+WATCH_ENV_FILE="${WATCH_ENV_FILE:-/etc/stub-ui-watch.env}"
 
 log() { echo "[install] $*"; }
 
@@ -92,6 +94,14 @@ dsp:
 ui:
   http_listen: "127.0.0.1:8787"
   public_base_url: "http://localhost"
+
+updates:
+  mode: "zip"
+  github_repo: "WLCB-LP/StudioB-UI"
+  asset_suffix: ".zip"
+  watch_tmp_dir: "/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
+  token_env: "GITHUB_TOKEN"
+
 admin:
   pin: "CHANGE_ME"
 meters:
@@ -215,6 +225,31 @@ NGINX
   systemctl restart nginx
 }
 
+write_env_files() {
+  log "Writing systemd environment files…"
+  # Engine env (optional secrets like GITHUB_TOKEN)
+  cat > "${ENGINE_ENV_FILE}" <<EOF
+# Stub engine environment
+# Optional: set a GitHub token to avoid rate limits when checking releases.
+# GITHUB_TOKEN=...
+EOF
+  chmod 600 "${ENGINE_ENV_FILE}"
+
+  # Watcher env (optional git sync after successful deploy)
+  cat > "${WATCH_ENV_FILE}" <<EOF
+# Stub UI watcher environment
+# Enable git sync by setting remote and credentials.
+GIT_SYNC_REMOTE=https://github.com/WLCB-LP/StudioB-UI.git
+GIT_SYNC_BRANCH=main
+GIT_SYNC_DIR=/home/${APP_USER}/.StudioB-UI/git-sync
+GIT_SYNC_AUTHOR_NAME=StudioB Watcher
+GIT_SYNC_AUTHOR_EMAIL=watcher@wlcb.local
+# For HTTPS remotes, set token:
+# GIT_SYNC_TOKEN=...
+EOF
+  chmod 600 "${WATCH_ENV_FILE}"
+}
+
 configure_systemd() {
   log "Configuring systemd service…"
   cat > "${SYSTEMD_UNIT}" <<SYSTEMD
@@ -228,6 +263,7 @@ Type=simple
 User=${APP_USER}
 Group=${APP_GROUP}
 WorkingDirectory=${CURRENT_DIR}
+EnvironmentFile=-${ENGINE_ENV_FILE}
 ExecStart=${CURRENT_DIR}/${ENGINE_BIN} --config ${CONFIG_FILE}
 Restart=always
 RestartSec=2
@@ -270,6 +306,7 @@ main() {
   apt_install
   ensure_user
   ensure_dirs
+  write_env_files
   ensure_git_origin
   write_default_config_if_missing
   validate_and_repair_config

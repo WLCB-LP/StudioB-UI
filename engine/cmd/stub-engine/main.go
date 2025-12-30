@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"encoding/json"
 	"flag"
@@ -14,7 +13,6 @@ import (
 )
 
 var version = "dev"
-
 
 func main() {
 	var cfgPath string
@@ -82,6 +80,12 @@ func main() {
 		}
 		engine.Reconnect()
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Update check (GitHub latest release). No admin PIN required; safe read-only.
+	mux.HandleFunc("/api/update/check", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.CheckUpdateCached())
 	})
 
 	// Admin update/rollback

@@ -6,6 +6,7 @@ RequiresMountsFor=/mnt/NAS/Engineering\x20Audio\x20Network/Studio\x20B/UI/tmp /m
 
 [Service]
 Type=simple
+EnvironmentFile=-/etc/stub-ui-watch.env
 ExecStart=/bin/bash /usr/local/bin/stub-ui-watch.sh
 Restart=always
 RestartSec=2
