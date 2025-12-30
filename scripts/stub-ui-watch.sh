@@ -115,7 +115,6 @@ deploy() {
   # Copy into repo working tree (preserve repo metadata and logs)
   rsync -a --delete \
     --exclude='.git/' \
-    --exclude='.github/' \
     --exclude='logs/' \
     "${DEPLOY_TMP}/" "${REPO_DIR}/"
 
