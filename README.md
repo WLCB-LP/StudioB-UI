@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.1.6
+# STUB Mixer UI (Studio B) — Release 0.1.7
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -20,14 +20,19 @@ Run:
   - Rollback: checkout a prior git tag and reinstall
 
 
-## Runtime layout (Option B)
-- Repo (source): /home/wlcb/devel/StudioB-UI
-- Runtime: /opt/studiob-ui/current (symlink)
-- Releases: /opt/studiob-ui/releases/<stamp>-<gitsha>
-- Config: /etc/studiob-ui/config.yml
-- Logs: /var/log/studiob-ui/
-- State: /var/lib/studiob-ui/
+## API
+- `GET /api/health` — health + version
+- `GET /api/state` — full RC snapshot (debug)
+- `GET /api/studio/status` — stable Studio UI contract (speaker + meters)
+- `POST /api/rc/<id>` — set allowlisted RC value (debug / interim)
+- `POST /api/reconnect` — operator-safe reconnect (stub)
 
+## Runtime layout (LOCKED)
+**Repo (source of truth):** `/home/wlcb/devel/StudioB-UI`
 
-## Runtime base
-This release keeps the Git repo at `/home/wlcb/devel/StudioB-UI` and installs runtime/config/logs under `/home/wlcb/.StudioB-UI`.
+**Runtime / config / logs (Node-RED style):** `/home/wlcb/.StudioB-UI/`
+- `config/config.yml`
+- `runtime/releases/<timestamp-tag>/`
+- `runtime/current -> runtime/releases/<timestamp-tag>`
+- `logs/`
+- `state/`

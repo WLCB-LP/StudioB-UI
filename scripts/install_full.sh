@@ -131,12 +131,15 @@ validate_and_repair_config() {
 }
 
 make_release_dir() {
-  local sha tag stamp rel
-  sha="$(git -C "${REPO_DIR}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-  tag="$(git -C "${REPO_DIR}" describe --tags --always 2>/dev/null || echo "${sha}")"
-  stamp="$(date +%Y%m%d-%H%M%S)"
-  rel="${RELEASES_DIR}/${stamp}-${tag}"
-  mkdir -p "${rel}/web" "${rel}/scripts"
+  local version
+  version="$(cat "${REPO_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  [ -n "${version}" ] || version="0.0.0"
+
+  local ts rel
+  ts="$(date +%Y%m%d-%H%M%S)"
+  rel="${RELEASES_DIR}/${ts}-v${version}"
+
+  mkdir -p "${rel}"
   echo "${rel}"
 }
 

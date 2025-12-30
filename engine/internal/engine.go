@@ -32,10 +32,37 @@ type Engine struct {
 	clients   map[*websocket.Conn]bool
 }
 
+// StudioStatus is a UI-friendly snapshot for the Studio page.
+// Values are normalized 0.0..1.0 for v1.
+// RC mapping (future DSP integration):
+//   Speaker Level: RC 160
+//   Speaker Mute:  RC 161
+//   Auto-mute:     RC 560 (read-only)
+//   Meters:        411/412 (program), 460/461 (speakers), 462/463 (remote return)
+type StudioStatus struct {
+	Ok      bool   `json:"ok"`
+	Time    string `json:"ts"`
+	Version string `json:"version"`
+	Mode    string `json:"mode"`
+	Speaker struct {
+		Level    float64 `json:"level"`
+		Mute     bool    `json:"mute"`
+		AutoMute bool    `json:"automute"`
+	} `json:"speaker"`
+	Meters struct {
+		SpkL float64 `json:"spkL"`
+		SpkR float64 `json:"spkR"`
+		PgmL float64 `json:"pgmL"`
+		PgmR float64 `json:"pgmR"`
+		RsrL float64 `json:"rsrL"`
+		RsrR float64 `json:"rsrR"`
+	} `json:"meters"`
+}
+
 func NewEngine(cfg *Config) *Engine {
 	e := &Engine{
 		cfg:      cfg,
-		version:  "0.1.2",
+		version:  "0.1.7",
 		rc:       make(map[int]float64),
 		lastSent: make(map[int]float64),
 		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
@@ -46,6 +73,17 @@ func NewEngine(cfg *Config) *Engine {
 	for _, id := range cfg.RCAllowlist {
 		e.rc[id] = 0
 		e.lastSent[id] = math.NaN()
+	}
+
+	// Friendly defaults for v1 UI
+	if e.allowed(160) {
+		e.rc[160] = 0.75
+	}
+	if e.allowed(161) {
+		e.rc[161] = 0
+	}
+	if e.allowed(560) {
+		e.rc[560] = 0
 	}
 
 	// Start mock meter generator and publisher
@@ -90,6 +128,34 @@ func (e *Engine) StateSnapshot() map[string]any {
 		"time":    time.Now().UTC().Format(time.RFC3339),
 	}
 	return out
+}
+
+// StudioStatusSnapshot returns a stable schema snapshot for the Studio UI.
+// This is intentionally separate from /api/state (debug) so the UI can depend on it.
+func (e *Engine) StudioStatusSnapshot() StudioStatus {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	var s StudioStatus
+	s.Ok = true
+	s.Time = time.Now().UTC().Format(time.RFC3339)
+	s.Version = e.version
+	s.Mode = e.cfg.DSP.Mode
+
+	// Controls
+	s.Speaker.Level = e.rc[160]
+	s.Speaker.Mute = e.rc[161] >= 0.5
+	s.Speaker.AutoMute = e.rc[560] >= 0.5
+
+	// Meters
+	s.Meters.PgmL = e.rc[411]
+	s.Meters.PgmR = e.rc[412]
+	s.Meters.SpkL = e.rc[460]
+	s.Meters.SpkR = e.rc[461]
+	s.Meters.RsrL = e.rc[462]
+	s.Meters.RsrR = e.rc[463]
+
+	return s
 }
 
 func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {

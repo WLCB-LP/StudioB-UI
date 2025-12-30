@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"stub-mixer/internal/app"
+	"stub-mixer/internal"
 )
 
 func main() {
@@ -41,6 +41,12 @@ func main() {
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(engine.StateSnapshot())
+	})
+
+	// Studio UI status (stable contract)
+	mux.HandleFunc("/api/studio/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.StudioStatusSnapshot())
 	})
 
 	// Set RC (allowlisted)
