@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.1.2
+# STUB Mixer UI (Studio B) — Release 0.1.6
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -27,3 +27,7 @@ Run:
 - Config: /etc/studiob-ui/config.yml
 - Logs: /var/log/studiob-ui/
 - State: /var/lib/studiob-ui/
+
+
+## Runtime base
+This release keeps the Git repo at `/home/wlcb/devel/StudioB-UI` and installs runtime/config/logs under `/home/wlcb/.StudioB-UI`.

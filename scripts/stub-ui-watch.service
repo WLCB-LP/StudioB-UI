@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch Studio B UI release folder and deploy updates
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/NAS/Engineering\x20Audio\x20Network/Studio\x20B/UI/tmp /mnt/NAS/Engineering\x20Audio\x20Network/Studio\x20B/UI
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/stub-ui-watch.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

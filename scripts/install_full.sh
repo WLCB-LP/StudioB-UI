@@ -3,15 +3,21 @@ set -euo pipefail
 
 APP_USER="${APP_USER:-wlcb}"
 APP_GROUP="${APP_GROUP:-wlcb}"
+
+# Source repo (git working tree)
 REPO_DIR="${REPO_DIR:-/home/wlcb/devel/StudioB-UI}"
-RUNTIME_BASE="${RUNTIME_BASE:-/opt/studiob-ui}"
+
+# Node-RED style base (runtime/config/logs/state)
+BASE_DIR="${BASE_DIR:-/home/wlcb/.StudioB-UI}"
+RUNTIME_BASE="${RUNTIME_BASE:-${BASE_DIR}/runtime}"
 CURRENT_DIR="${CURRENT_DIR:-${RUNTIME_BASE}/current}"
 RELEASES_DIR="${RELEASES_DIR:-${RUNTIME_BASE}/releases}"
-APP_DIR="${APP_DIR:-${CURRENT_DIR}}"
+
 ENGINE_BIN="${ENGINE_BIN:-stub-engine}"
-CONFIG_FILE="${CONFIG_FILE:-/etc/studiob-ui/config.yml}"
-NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/stub-mixer}"
-NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/stub-mixer}"
+CONFIG_FILE="${CONFIG_FILE:-${BASE_DIR}/config/config.yml}"
+
+NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/studiob-ui}"
+NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/studiob-ui}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-/etc/systemd/system/stub-engine.service}"
 
 log() { echo "[install] $*"; }
@@ -30,7 +36,7 @@ apt_install() {
   apt-get install -y --no-install-recommends \
     ca-certificates curl git rsync unzip jq \
     nginx inotify-tools \
-    golang-go
+    golang-go util-linux
 }
 
 ensure_user() {
@@ -44,20 +50,14 @@ ensure_user() {
 
 ensure_dirs() {
   log "Ensuring directories…"
-  mkdir -p "${REPO_DIR}"
+  mkdir -p "${BASE_DIR}"
+  mkdir -p "${BASE_DIR}/config" "${BASE_DIR}/logs" "${BASE_DIR}/state"
   mkdir -p "${RELEASES_DIR}"
-  mkdir -p /var/log/studiob-ui
-  mkdir -p /var/lib/studiob-ui
-  mkdir -p /etc/studiob-ui
-  chown -R "${APP_USER}:${APP_GROUP}" "${REPO_DIR}"
-  chown -R "${APP_USER}:${APP_GROUP}" "${RELEASES_DIR}"
-  chown -R "${APP_USER}:${APP_GROUP}" /var/log/studiob-ui /var/lib/studiob-ui
-  chmod 750 /etc/studiob-ui
+  chown -R "${APP_USER}:${APP_GROUP}" "${BASE_DIR}"
+  chmod 750 "${BASE_DIR}/config"
 }
 
-
 ensure_git_origin() {
-  # Ensure the repo has an SSH origin set correctly (required for update/rollback).
   if [[ -d "${REPO_DIR}/.git" ]]; then
     local want="git@github.com:WLCB-LP/StudioB-UI.git"
     if git -C "${REPO_DIR}" remote get-url origin >/dev/null 2>&1; then
@@ -72,7 +72,7 @@ ensure_git_origin() {
       git -C "${REPO_DIR}" remote add origin "${want}"
     fi
   else
-    log "NOTE: ${REPO_DIR} is not a git repo yet; update/rollback will require cloning git@github.com:WLCB-LP/StudioB-UI.git"
+    log "NOTE: ${REPO_DIR} is not a git repo yet."
   fi
 }
 
@@ -86,9 +86,9 @@ write_default_config_if_missing() {
   cat > "${CONFIG_FILE}" <<'YAML'
 # Studio B engine config
 dsp:
-  host: "192.168.0.10"   # TODO: set to Studio B Radius IP
-  port: 48631            # TODO: set to Symetrix control port (if needed)
-  mode: "mock"           # "mock" or "symetrix" (future)
+  host: "192.168.0.10"
+  port: 48631
+  mode: "mock"
 ui:
   http_listen: "127.0.0.1:8787"
   public_base_url: "http://localhost"
@@ -98,37 +98,32 @@ meters:
   publish_hz: 20
   deadband: 0.01
 rc_allowlist:
-  # Input mutes
   - 121
   - 122
   - 123
   - 124
-  # Program
   - 111
   - 131
-  # Program meters
   - 411
   - 412
-  # Speakers
   - 160
   - 161
   - 460
   - 461
   - 560
-  # Remote Studio Return meters
   - 462
   - 463
 YAML
+
   chown "${APP_USER}:${APP_GROUP}" "${CONFIG_FILE}"
   chmod 640 "${CONFIG_FILE}"
 }
 
 validate_and_repair_config() {
   log "Validating config…"
-  # Basic checks; repair common issues.
-  if ! grep -q "admin:" "${CONFIG_FILE}"; then
+  if ! grep -q "^admin:" "${CONFIG_FILE}"; then
     log "Config missing admin section; repairing."
-    echo -e "\nadmin:\n  pin: \"CHANGE_ME\"\n" >> "${CONFIG_FILE}"
+    printf "\nadmin:\n  pin: \"CHANGE_ME\"\n" >> "${CONFIG_FILE}"
   fi
   if grep -q 'pin: "CHANGE_ME"' "${CONFIG_FILE}"; then
     log "WARNING: admin.pin is CHANGE_ME. Set it before exposing Engineering page."
@@ -136,9 +131,9 @@ validate_and_repair_config() {
 }
 
 make_release_dir() {
-  local sha stamp tag rel
+  local sha tag stamp rel
   sha="$(git -C "${REPO_DIR}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-  tag="$(git -C "${REPO_DIR}" describe --tags --always 2>/dev/null || echo ${sha})"
+  tag="$(git -C "${REPO_DIR}" describe --tags --always 2>/dev/null || echo "${sha}")"
   stamp="$(date +%Y%m%d-%H%M%S)"
   rel="${RELEASES_DIR}/${stamp}-${tag}"
   mkdir -p "${rel}/web" "${rel}/scripts"
@@ -150,12 +145,18 @@ deploy_release() {
   local rel
   rel="$(make_release_dir)"
 
-  log "Building engine -> ${rel}/stub-engine"
+  # Ensure release dir writable by app user (created while running as root)
+  chown -R "${APP_USER}:${APP_GROUP}" "${rel}"
+
+  log "Building engine -> ${rel}/${ENGINE_BIN}"
   pushd "${REPO_DIR}/engine" >/dev/null
+  # Ensure module metadata is complete (creates/updates go.sum)
+  sudo -u "${APP_USER}" bash -lc "cd \"${REPO_DIR}/engine\" && go mod tidy"
   sudo -u "${APP_USER}" env -i HOME="/home/${APP_USER}" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-    /usr/bin/go build -o "${rel}/stub-engine" ./cmd/stub-engine
+    /usr/bin/go build -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine
   popd >/dev/null
-  chmod 755 "${rel}/stub-engine"
+
+  chmod 755 "${rel}/${ENGINE_BIN}"
   chown -R "${APP_USER}:${APP_GROUP}" "${rel}"
 
   log "Installing UI assets -> ${rel}/web"
@@ -168,11 +169,8 @@ deploy_release() {
   log "Switching current symlink -> ${rel}"
   ln -sfn "${rel}" "${CURRENT_DIR}"
 
-  log "Recording releases"
-  echo "${rel}" > /var/lib/studiob-ui/last_release.txt
-}/web"
-  rsync -a --delete "${APP_DIR}/ui/" "${APP_DIR}/web/"
-  chown -R "${APP_USER}:${APP_GROUP}" "${APP_DIR}/web"
+  echo "${rel}" > "${BASE_DIR}/state/last_release.txt"
+  chown "${APP_USER}:${APP_GROUP}" "${BASE_DIR}/state/last_release.txt" || true
 }
 
 configure_nginx() {
@@ -182,22 +180,19 @@ server {
   listen 80;
   server_name _;
 
-  root /opt/studiob-ui/current/web;
+  root /home/wlcb/.StudioB-UI/runtime/current/web;
   index index.html;
 
-  # Static UI
   location / {
     try_files $uri $uri/ /index.html;
   }
 
-  # API -> engine
   location /api/ {
     proxy_pass http://127.0.0.1:8787/api/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
   }
 
-  # WebSocket -> engine
   location /ws {
     proxy_pass http://127.0.0.1:8787/ws;
     proxy_http_version 1.1;
@@ -233,33 +228,36 @@ Restart=always
 RestartSec=2
 Environment=GOMAXPROCS=2
 
-# Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=false
-ReadWritePaths=${CURRENT_DIR} /etc/studiob-ui /var/log/studiob-ui /var/lib/studiob-ui
-AmbientCapabilities=
-CapabilityBoundingSet=
+ReadWritePaths=${CURRENT_DIR} ${BASE_DIR}
 
 [Install]
 WantedBy=multi-user.target
 SYSTEMD
 
   systemctl daemon-reload
-  systemctl enable stub-engine
+  systemctl enable --now stub-engine
   systemctl restart stub-engine
+}
+
+install_watcher() {
+  log "Installing folder watcher service…"
+  install -m 0755 "${REPO_DIR}/scripts/stub-ui-watch.sh" /usr/local/bin/stub-ui-watch.sh
+  install -m 0644 "${REPO_DIR}/scripts/stub-ui-watch.service" /etc/systemd/system/stub-ui-watch.service
+  systemctl daemon-reload
+  systemctl enable --now stub-ui-watch
+  systemctl restart stub-ui-watch
 }
 
 health_check() {
   log "Running health checks…"
-  if ! systemctl is-active --quiet stub-engine; then
-    echo "stub-engine is not running."
-    journalctl -u stub-engine --no-pager -n 50
-    exit 1
-  fi
+  systemctl is-active --quiet stub-engine
+  curl -fsS http://127.0.0.1:8787/api/health >/dev/null
   curl -fsS http://127.0.0.1/api/health >/dev/null
-  log "OK: engine responds to /api/health"
+  log "OK: engine responds and nginx proxy is healthy"
 }
 
 main() {
@@ -273,6 +271,7 @@ main() {
   deploy_release
   configure_nginx
   configure_systemd
+  install_watcher
   health_check
   log "Install complete. Open: http://<vm-ip>/"
   log "IMPORTANT: set admin.pin in ${CONFIG_FILE}"
