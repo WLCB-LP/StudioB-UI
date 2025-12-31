@@ -108,7 +108,41 @@ log "Fast-forwarding main..."
 git_cmd checkout -q main
 git_cmd pull --ff-only origin main
 
-log "Running full installer (root)..."
-run_root "${SCRIPT_DIR}/install_full.sh"
+
+
+# If this script is executed from inside the stub-engine systemd unit, systemd
+# sandboxing (ProtectSystem=full) can make /etc read-only for *this entire
+# process tree*, even when running as root via sudo.
+#
+# The full installer needs to update files under /etc (env files, sudoers, nginx,
+# systemd units). If /etc is read-only, we re-run the installer in a transient
+# systemd unit (systemd-run), which is not constrained by the stub-engine unit.
+needs_unconfined_install() {
+  local testfile
+  testfile="/etc/.studiob-ui-write-test.$$"
+  if touch "${testfile}" 2>/dev/null; then
+    rm -f "${testfile}" >/dev/null 2>&1 || true
+    return 1  # no, we do NOT need unconfined
+  fi
+  return 0    # yes, we need unconfined
+}
+
+run_install_full() {
+  if needs_unconfined_install; then
+    log "Detected read-only /etc (likely systemd sandbox). Running install_full.sh via systemd-run..."
+    if command -v systemd-run >/dev/null 2>&1; then
+      systemd-run --quiet --collect --wait --pipe         --unit=studiob-ui-install-full         /bin/bash "${SCRIPT_DIR}/install_full.sh"
+      return $?
+    fi
+    echo "[admin-update][ERROR] /etc is read-only and systemd-run is not available." >&2
+    return 1
+  fi
+
+  log "Running full installer (root)..."
+  run_root "${SCRIPT_DIR}/install_full.sh"
+}
+
+
+run_install_full
 
 log "Admin update complete."

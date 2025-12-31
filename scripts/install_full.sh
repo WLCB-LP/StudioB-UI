@@ -280,8 +280,10 @@ Environment=GOMAXPROCS=2
 NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=full
+# NOTE: Updates may need to write /etc (sudoers, env files) and /etc/nginx;
+# ReadWritePaths above whitelists those paths even with ProtectSystem=full.
 ProtectHome=false
-ReadWritePaths=${CURRENT_DIR} ${BASE_DIR}
+ReadWritePaths=/home/wlcb/.StudioB-UI/runtime/current /home/wlcb/.StudioB-UI/runtime /home/wlcb/.StudioB-UI/state /etc /etc/systemd/system /etc/nginx /usr/local/bin /usr/local/sbin
 
 [Install]
 WantedBy=multi-user.target
