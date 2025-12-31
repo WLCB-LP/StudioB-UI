@@ -338,6 +338,54 @@ function wireUI(){
     if(pin) savePin(pin);
   });
 
+  // Engineering: Config editor (v0.2.1)
+  // This edits ~/.StudioB-UI/config.json so settings persist across updates/rollbacks.
+  $("#btnCfgLoad").addEventListener("click", async ()=>{
+    const pin = $("#adminPin").value.trim();
+    if(!pin) return alert("Enter Admin PIN.");
+    $("#cfgMsg").textContent = "Loading…";
+    try{
+      const resp = await fetchJSON("/api/admin/config/file", { headers: {"X-Admin-PIN": pin} }, 1200);
+      if(resp && resp.config){
+        $("#cfgMode").value = (resp.config.mode || "mock");
+        $("#cfgDspIp").value = (resp.config.dsp && resp.config.dsp.ip) ? resp.config.dsp.ip : "";
+        $("#cfgDspPort").value = (resp.config.dsp && resp.config.dsp.port) ? resp.config.dsp.port : "";
+      }
+      const path = resp.path || "~/.StudioB-UI/config.json";
+      const exists = resp.exists ? "exists" : "missing";
+      $("#cfgMsg").textContent = "Loaded (" + exists + "): " + path;
+      if(resp.error){ $("#cfgMsg").textContent += " — WARNING: " + resp.error; }
+    }catch(e){
+      $("#cfgMsg").textContent = "Load failed: " + e.message;
+    }
+  });
+
+  $("#btnCfgSave").addEventListener("click", async ()=>{
+    const pin = $("#adminPin").value.trim();
+    if(!pin) return alert("Enter Admin PIN.");
+    const body = {
+      mode: $("#cfgMode").value,
+      dsp: {
+        ip: $("#cfgDspIp").value.trim(),
+        port: parseInt($("#cfgDspPort").value, 10) || 0
+      }
+    };
+    $("#cfgMsg").textContent = "Saving…";
+    try{
+      await fetch("/api/admin/config/file", {
+        method: "PUT",
+        headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
+        body: JSON.stringify(body)
+      }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
+      $("#cfgMsg").textContent = "Saved. Reloading effective config…";
+      // Refresh /api/config view (and mode pill) immediately.
+      await loadConfigPill();
+      $("#cfgMsg").textContent = "Saved and applied.";
+    }catch(e){
+      $("#cfgMsg").textContent = "Save failed: " + e.message;
+    }
+  });
+
   $("#btnUpdate").addEventListener("click", async ()=>{
     const pin = $("#adminPin").value.trim();
     if(!pin) return alert("Enter Admin PIN.");
@@ -473,9 +521,9 @@ async function pollUpdate(){
     // Prefer /api/health because it reflects the running engine even if the WebSocket
     // hasn't reconnected yet (for example, immediately after an update/restart).
     const health = await fetch("/api/health").then(r=>r.json());
-    const latestObj = await fetch("/api/updates/latest").then(r=>r.json());
-    const current = (health.version || "").toString().trim();
-    const latest = (latestObj.latest || "").toString().trim().replace(/^v/,"");
+    const upd = await fetch("/api/update/check").then(r=>r.json());
+    const current = (health.version || upd.currentVersion || "").toString().trim();
+    const latest = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");
 
     // Keep global state in sync with reality.
     // This fixes the “Update available” banner sticking around until the user refreshes.
@@ -509,6 +557,21 @@ async function pollUpdate(){
         btn.title = "No updates available";
       }
     }
+    // Surface update-check diagnostics on Engineering page.
+    // This is intentionally operator-friendly: if the update pill never shows, this tells us WHY.
+    const ucm = document.getElementById("updateCheckMsg");
+    if(ucm){
+      const ok = !!(upd && upd.ok);
+      const notes = (upd && (upd.notes || "")) ? String(upd.notes) : "";
+      const checked = (upd && upd.checkedAt) ? String(upd.checkedAt) : "";
+      if(ok){
+        ucm.textContent = "Update check: ok" + (latest ? (" (latest v" + latest + ")") : "");
+        ucm.title = checked ? ("Last checked: " + checked) : "";
+      }else{
+        ucm.textContent = "Update check: failed";
+        ucm.title = (notes ? notes : "No details") + (checked ? ("\nLast checked: " + checked) : "");
+      }
+    }
 
     // If an update was initiated and the version changed, proactively refresh the page.
     // This ensures the UI JS/CSS bundle always matches the running engine.
@@ -526,6 +589,11 @@ async function pollUpdate(){
       btn.classList.remove("flash");
       btn.textContent = "Update";
       btn.title = "Update check failed";
+    const ucm = document.getElementById("updateCheckMsg");
+    if(ucm){
+      ucm.textContent = "Update check: failed";
+      ucm.title = (e && e.message) ? e.message : "Unknown error";
+    }
     }
   }
 }

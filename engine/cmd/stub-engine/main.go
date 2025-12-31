@@ -70,7 +70,64 @@ func main() {
 			"sources": cfg.Meta,
 		})
 	})
-	mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
+	
+	// Admin config file editor (Engineering page).
+	// This edits ONLY ~/.StudioB-UI/config.json (outside of repo/releases) so upgrades do not overwrite settings.
+	mux.HandleFunc("/api/admin/config/file", func(w http.ResponseWriter, r *http.Request) {
+		if !engine.CheckAdmin(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.Method {
+		case http.MethodGet:
+			cfg, exists, raw, err := internal.ReadEditableConfig()
+			resp := map[string]any{
+				"ok":     err == nil,
+				"exists": exists,
+				"raw":    raw,
+				"config": cfg,
+			}
+			if p, perr := internal.ConfigFilePath(); perr == nil {
+				resp["path"] = p
+			}
+			if err != nil {
+				resp["error"] = err.Error()
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+
+		case http.MethodPut:
+			var body internal.EditableConfig
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, "bad json", http.StatusBadRequest)
+				return
+			}
+			p, err := internal.WriteEditableConfig(body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			// Hot-reload so operator sees immediate effect in /api/config.
+			if err := engine.ReloadConfig(); err != nil {
+				// File saved, but reload failed. Return 500 with details so operator can act.
+				http.Error(w, "config saved to "+p+" but reload failed: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok":   true,
+				"path": p,
+			})
+			return
+
+		default:
+			http.Error(w, "GET or PUT required", http.StatusMethodNotAllowed)
+			return
+		}
+	})
+
+mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		info := engine.CheckUpdateCached()
 		latest := info.LatestVersion

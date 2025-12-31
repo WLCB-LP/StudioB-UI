@@ -160,6 +160,33 @@
             <button class="btn warn" id="btnRollback">Rollback…</button>
           </div>
           <div class="small" id="svcMsg"></div>
+          <div class="small" id="updateCheckMsg"></div>
+        </div>
+
+
+        <div class="card">
+          <h2>Configuration</h2>
+          <div class="small">Edits <code>~/.StudioB-UI/config.json</code> (persisted across updates).</div>
+          <div class="row">
+            <label class="lbl">Mode</label>
+            <select class="select" id="cfgMode">
+              <option value="mock">mock (default)</option>
+              <option value="live">live (reserved)</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="lbl">DSP IP</label>
+            <input class="text" id="cfgDspIp" type="text" placeholder="e.g. 192.168.1.50" />
+          </div>
+          <div class="row">
+            <label class="lbl">DSP Port</label>
+            <input class="text" id="cfgDspPort" type="number" min="1" max="65535" placeholder="e.g. 48631" />
+          </div>
+          <div class="row">
+            <button class="btn" id="btnCfgLoad">Load</button>
+            <button class="btn warn" id="btnCfgSave">Save</button>
+          </div>
+          <div class="small" id="cfgMsg"></div>
         </div>
 
         <div class="card">
@@ -176,6 +203,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.1.39"></script>
+  <script src="/app.js?v=0.2.1"></script>
 </body>
 </html>

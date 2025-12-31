@@ -311,6 +311,32 @@ func (e *Engine) Reconnect() {
 	log.Printf("reconnect requested (mode=%s)", e.cfg.DSP.Mode)
 }
 
+
+// ReloadConfig reloads the YAML config and re-applies JSON/env overrides.
+//
+// This is intentionally conservative: it only changes in-memory config.
+// It does NOT restart services and does NOT touch runtime releases.
+func (e *Engine) ReloadConfig() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	yamlPath := ""
+	if e.cfg != nil {
+		yamlPath = strings.TrimSpace(e.cfg.Meta.YAMLPath)
+	}
+	if yamlPath == "" {
+		return fmt.Errorf("cannot reload config: YAML path unknown")
+	}
+
+	newCfg, err := LoadConfig(yamlPath)
+	if err != nil {
+		return err
+	}
+	e.cfg = newCfg
+	log.Printf("config reloaded (mode=%s dsp=%s:%d)", e.cfg.DSP.Mode, e.cfg.DSP.Host, e.cfg.DSP.Port)
+	return nil
+}
+
 func normalizeVersion(v string) string {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")

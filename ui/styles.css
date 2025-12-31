@@ -144,6 +144,17 @@ main{padding:18px}
   outline:none;
 }
 
+.select{
+  width:100%;
+  background:var(--card2);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:12px 12px;
+  border-radius:12px;
+  outline:none;
+}
+
+
 .slider{width:100%}
 .val{
   width:64px;

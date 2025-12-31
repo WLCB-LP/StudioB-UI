@@ -1,5 +1,11 @@
 ## v0.2.0 (2025-12-31)
 
+## v0.2.1 - 2025-12-31
+
+- Engineering: add config editor for ~/.StudioB-UI/config.json (mode + DSP IP/port) with validation, backups, and atomic writes.
+- Updates: improve visibility into update-check failures (UI displays last check status/details).
+
+
 - Add mode plumbing (mock vs live) with env + JSON config overrides and new `/api/config` endpoint.
 - No behavior changes to mock mode; live mode is reserved for future DSP control.
 
