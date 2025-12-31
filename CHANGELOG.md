@@ -1,3 +1,8 @@
+## v0.2.4 - 2025-12-31
+
+### Fixed
+- Fix UI-triggered updates failing due to nginx config error: removed a duplicate `location = /index.html` block that caused `nginx -t` to fail.
+
 ## v0.2.3 - 2025-12-31
 
 ### Fixed

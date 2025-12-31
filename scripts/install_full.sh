@@ -216,12 +216,6 @@ server {
     add_header Cache-Control "no-store" always;
   }
 
-  # Never cache index.html. This ensures operators pick up new cache-busted JS/CSS
-  # immediately after an update.
-  location = /index.html {
-    add_header Cache-Control "no-store";
-  }
-
   location /api/ {
     proxy_pass http://127.0.0.1:8787/api/;
     proxy_http_version 1.1;
