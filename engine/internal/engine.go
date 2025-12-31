@@ -487,7 +487,17 @@ func (e *Engine) runAdminScript(action string, args ...string) {
 	}
 
 	all := append([]string{script}, args...)
-	cmd := exec.Command("bash", all...)
+
+	// IMPORTANT:
+	// Admin scripts must be executed with elevated privileges so they can:
+	// - restart system services (systemctl)
+	// - update /etc/nginx/* and reload nginx
+	// - write /etc/sudoers.d/*
+	//
+	// The engine runs as an unprivileged user, so we invoke them via sudo in
+	// non-interactive mode. install_full.sh provisions a sudoers rule that
+	// allows these specific scripts to run without a password.
+	cmd := exec.Command("sudo", "-n", "bash", all...)
 	cmd.Dir = repoDir
 
 	out, err := cmd.CombinedOutput()

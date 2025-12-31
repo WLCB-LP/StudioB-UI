@@ -319,7 +319,10 @@ configure_sudoers() {
   cat > "${sudoers_file}" <<EOF
 # Managed by StudioB-UI install_full.sh — DO NOT EDIT BY HAND.
 # Allow StudioB UI engine (running as ${APP_USER}) to run controlled privileged actions.
-${APP_USER} ALL=(root) NOPASSWD: /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/install_full.sh, /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-rollback.sh
+${APP_USER} ALL=(root) NOPASSWD: \
+  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/install_full.sh, \
+  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-update.sh, \
+  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-rollback.sh
 EOF
 
   chmod 0440 "${sudoers_file}"
