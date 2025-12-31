@@ -401,21 +401,30 @@ func (e *Engine) fetchLatestRelease() UpdateInfo {
 	cur := normalizeVersion(e.version)
 	info.UpdateAvailable = (latest != "" && latest != cur)
 
-	// Pick an asset ending with AssetSuffix (default .zip). Fall back to zipball_url.
+	// Pick a release asset ZIP only (never fall back to zipball).
+	// We only trust packaged StudioB-UI_*.zip assets.
 	suffix := e.cfg.Updates.AssetSuffix
 	if suffix == "" {
-		suffix = ".zip"
-	}
-	for _, a := range payload.Assets {
-		if strings.HasSuffix(strings.ToLower(a.Name), strings.ToLower(suffix)) {
-			info.DownloadURL = a.BrowserDownloadURL
-			break
-		}
-	}
-	if info.DownloadURL == "" {
-		info.DownloadURL = payload.ZipballURL
+        	suffix = ".zip"
 	}
 
+	for _, a := range payload.Assets {
+        	name := strings.ToLower(a.Name)
+	        if strings.HasPrefix(name, "studiob-ui_") &&
+                   strings.HasSuffix(name, strings.ToLower(suffix)) &&
+           	   a.BrowserDownloadURL != "" {
+
+                	info.DownloadURL = a.BrowserDownloadURL
+                	break
+	        }
+	}
+
+	// If no valid ZIP asset exists, refuse the update.
+	// Do NOT fall back to zipball.
+	if info.DownloadURL == "" {
+        	info.UpdateAvailable = false
+	        info.Notes = "latest release has no StudioB-UI_*.zip asset"
+	}
 	info.Ok = true
 	return info
 }
