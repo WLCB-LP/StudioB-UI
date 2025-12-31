@@ -344,9 +344,17 @@ function wireUI(){
     if(!confirm("Update to the latest version from GitHub? (This will run the installer and restart the engine)")) return;
 
     // Best-effort: remember what we're aiming for so we can auto-refresh when it actually lands.
-    // The UI previously did a fixed-delay reload, which can happen *before* the engine restarts,
-    // leaving the page showing the "Update" pill until a manual refresh.
+    // IMPORTANT: during an update the engine restarts. That can break the WebSocket and/or leave
+    // the UI with a stale version banner until the user manually refreshes.
+    // We mark an in-progress update so pollUpdate() can detect a version change via /api/health
+    // and refresh automatically.
     const expected = (state.update && state.update.latest) ? state.update.latest : null;
+    state.update = state.update || {};
+    state.update.inProgress = true;
+    state.update.startVersion = state.version || null;
+    // Disable buttons to prevent double-submits.
+    $("#btnUpdate").disabled = true;
+    $("#btnRollback").disabled = true;
     try{
       await fetch("/api/updates/apply", {
         method:"POST",
@@ -358,9 +366,14 @@ function wireUI(){
         : "Update queued. Waiting for the service to restart… (page will refresh automatically)";
 
       // Start a watchdog that will reload the page once the engine comes back on the new version.
+      // (pollUpdate() also watches for a version change and will refresh as soon as it sees one.)
       waitForVersion(expected);
     }catch(e){
       $("#svcMsg").textContent = "Update failed: " + e.message;
+      state.update = state.update || {};
+      state.update.inProgress = false;
+      $("#btnUpdate").disabled = false;
+      $("#btnRollback").disabled = false;
     }
   });
 
@@ -457,10 +470,23 @@ if(__upPill){
 requestAnimationFrame(meterAnimate);
 async function pollUpdate(){
   try{
-    const v = await fetch("/api/version").then(r=>r.json());
+    // Prefer /api/health because it reflects the running engine even if the WebSocket
+    // hasn't reconnected yet (for example, immediately after an update/restart).
+    const health = await fetch("/api/health").then(r=>r.json());
     const latestObj = await fetch("/api/updates/latest").then(r=>r.json());
-    const current = (v.version || "").toString().trim();
+    const current = (health.version || "").toString().trim();
     const latest = (latestObj.latest || "").toString().trim().replace(/^v/,"");
+
+    // Keep global state in sync with reality.
+    // This fixes the “Update available” banner sticking around until the user refreshes.
+    if(current){
+      state.version = current;
+      setVersionPill(current);
+    }
+    if(health && health.mode){
+      state.mode = health.mode;
+      setModePill(health.mode);
+    }
     state.update.ok = !!current;
     state.update.available = !!(latest && current && current !== latest);
     state.update.current = current;
@@ -482,6 +508,14 @@ async function pollUpdate(){
         btn.textContent = "Update";
         btn.title = "No updates available";
       }
+    }
+
+    // If an update was initiated and the version changed, proactively refresh the page.
+    // This ensures the UI JS/CSS bundle always matches the running engine.
+    if(state.update && state.update.inProgress && state.update.startVersion && current && current !== state.update.startVersion){
+      state.update.inProgress = false;
+      setStatus("Update applied (v" + current + "). Refreshing…");
+      setTimeout(hardReload, 800);
     }
   }catch(e){
     // ignore; no spam
