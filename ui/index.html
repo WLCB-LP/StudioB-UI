@@ -3,8 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!--
+    IMPORTANT:
+    This UI is served as static files behind nginx.
+    Browsers can aggressively cache index.html/app.js/styles.css, which can cause
+    an operator to *appear* stuck on an older UI after an update.
+
+    We deliberately ask the browser not to cache index.html so it can quickly
+    discover the new cache-busted asset URLs after an update.
+  -->
+  <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=0.2.3" />
 </head>
 <body>
   <header class="topbar">
@@ -166,7 +176,7 @@
 
         <div class="card">
           <h2>Configuration</h2>
-          <div class="small">Edits <code>~/.StudioB-UI/config.json</code> (persisted across updates).</div>
+          <div class="small">Edits <code>~/.StudioB-UI/config/config.yml</code> (persisted across updates).</div>
           <div class="row">
             <label class="lbl">Mode</label>
             <select class="select" id="cfgMode">
@@ -203,6 +213,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.2.1"></script>
+  <script src="/app.js?v=0.2.3"></script>
 </body>
 </html>

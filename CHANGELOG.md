@@ -1,16 +1,27 @@
+## v0.2.3 - 2025-12-31
+
+### Fixed
+- Eliminated "stale UI after update" confusion:
+  - `ui/index.html` now has explicit `no-store` hints and versioned cache-busters for **both** `app.js` and `styles.css`.
+  - UI auto-detects "new engine / old UI" mismatch and triggers a one-time hard refresh.
+- Engineering config editor now targets the canonical config file: `~/.StudioB-UI/config/config.yml`.
+
+### Ops
+- Installer syncs UI asset cache-busters to `VERSION` at install time.
+- nginx config adds `Cache-Control: no-store` for `/index.html`.
+
 ## v0.2.2 - 2025-12-31
 
 - Fix: engine build failure during update/install (Go package import aliasing) that prevented UI-triggered updates from completing.
 
-## v0.2.0 (2025-12-31)
-
 ## v0.2.1 - 2025-12-31
 
-- Engineering: add config editor for ~/.StudioB-UI/config.json (mode + DSP IP/port) with validation, backups, and atomic writes.
+- Engineering: add config editor (mode + DSP IP/port) with validation, backups, and atomic writes.
 - Updates: improve visibility into update-check failures (UI displays last check status/details).
 
+## v0.2.0 - 2025-12-31
 
-- Add mode plumbing (mock vs live) with env + JSON config overrides and new `/api/config` endpoint.
+- Add mode plumbing (mock vs live) with env + config overrides and new `/api/config` endpoint.
 - No behavior changes to mock mode; live mode is reserved for future DSP control.
 
 # Changelog

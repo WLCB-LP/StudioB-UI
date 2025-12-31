@@ -1,6 +1,12 @@
 // StudioB-UI (Studio page) – stable contract polling + named RC control
 const POLL_MS = 250;
 
+// UI_BUILD_VERSION MUST match VERSION for this release.
+// This is used to detect "new engine / old UI" mismatches caused by browser caching.
+// If the engine version differs, we trigger a one-time hardReload() to pull the
+// new cache-busted assets.
+const UI_BUILD_VERSION = "0.2.3";
+
 const state = {
   connected: false,
   lastOkAt: 0,
@@ -531,6 +537,19 @@ async function pollUpdate(){
       state.version = current;
       setVersionPill(current);
     }
+
+    // If the engine version differs from the UI bundle version, we are almost
+    // certainly running stale cached JS/CSS. Trigger a one-time hard reload.
+    // This prevents "I updated but it still looks old" confusion.
+    try{
+      const did = sessionStorage.getItem("studiob_autorefresh_done") === "1";
+      if(!did && current && UI_BUILD_VERSION && String(current) !== String(UI_BUILD_VERSION)){
+        sessionStorage.setItem("studiob_autorefresh_done", "1");
+        setStatus(`New engine v${current} detected (UI v${UI_BUILD_VERSION}). Refreshing…`);
+        setTimeout(hardReload, 600);
+        return;
+      }
+    }catch(_e){ /* ignore */ }
     if(health && health.mode){
       state.mode = health.mode;
       setModePill(health.mode);

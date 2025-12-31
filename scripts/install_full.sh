@@ -181,6 +181,9 @@ deploy_release() {
   chown -R "${APP_USER}:${APP_GROUP}" "${rel}"
 
   log "Installing UI assets -> ${rel}/web"
+  # Ensure ui/index.html cache-buster query strings match VERSION for this release.
+  # This prevents the operator from getting "stuck" on an older cached app.js/styles.css.
+  bash "${REPO_DIR}/scripts/sync_ui_cachebuster.sh"
   rsync -a --delete "${REPO_DIR}/ui/" "${rel}/web/"
 
   log "Installing runtime scripts -> ${rel}/scripts"
@@ -206,6 +209,17 @@ server {
 
   location / {
     try_files $uri $uri/ /index.html;
+  }
+
+  # Prevent "stale UI" after updates. index.html should always be revalidated.
+  location = /index.html {
+    add_header Cache-Control "no-store" always;
+  }
+
+  # Never cache index.html. This ensures operators pick up new cache-busted JS/CSS
+  # immediately after an update.
+  location = /index.html {
+    add_header Cache-Control "no-store";
   }
 
   location /api/ {
