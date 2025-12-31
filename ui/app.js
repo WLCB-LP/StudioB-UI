@@ -326,14 +326,23 @@ function wireUI(){
     const pin = $("#adminPin").value.trim();
     if(!pin) return alert("Enter Admin PIN.");
     if(!confirm("Update to the latest version from GitHub? (This will run the installer and restart the engine)")) return;
+
+    // Best-effort: remember what we're aiming for so we can auto-refresh when it actually lands.
+    // The UI previously did a fixed-delay reload, which can happen *before* the engine restarts,
+    // leaving the page showing the "Update" pill until a manual refresh.
+    const expected = (state.update && state.update.latest) ? state.update.latest : null;
     try{
       await fetch("/api/updates/apply", {
         method:"POST",
         headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
         body: "{}"
       }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
-      $("#svcMsg").textContent = "Update queued. Watcher will deploy when download completes. UI may disconnect briefly during restart.";
-      setTimeout(()=>location.reload(), 2500);
+      $("#svcMsg").textContent = expected
+        ? `Update queued. Waiting for ${expected}… (page will refresh automatically)`
+        : "Update queued. Waiting for the service to restart… (page will refresh automatically)";
+
+      // Start a watchdog that will reload the page once the engine comes back on the new version.
+      waitForVersion(expected);
     }catch(e){
       $("#svcMsg").textContent = "Update failed: " + e.message;
     }
@@ -353,7 +362,8 @@ function wireUI(){
         body: JSON.stringify({ version: pick })
       }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
       $("#svcMsg").textContent = "Rollback started. Page will recover when service restarts.";
-      setTimeout(()=>location.reload(), 2500);
+      // Reload when the engine comes back (version may change).
+      waitForVersion(null);
     }catch(e){
       $("#svcMsg").textContent = "Rollback failed: " + e.message;
     }
@@ -362,6 +372,49 @@ function wireUI(){
 
 wireUI();
 pollLoop();
+
+// After an update/rollback, the engine restarts. We keep polling health until it returns,
+// then reload when the expected version is seen (or when any version change is detected).
+async function waitForVersion(expectedVersion){
+  const start = Date.now();
+  const maxMs = 3 * 60 * 1000; // 3 minutes
+  const before = state.engine && state.engine.version ? state.engine.version : null;
+
+  const tick = async ()=>{
+    // Stop after timeout
+    if(Date.now() - start > maxMs){
+      $("#svcMsg").textContent = "Update is still running. If the page doesn’t refresh, try reloading.";
+      return;
+    }
+
+    try{
+      // Cache-bust to avoid intermediary caches during restart.
+      const h = await fetchJSON(`/api/health?_=${Date.now()}`, {}, 1200);
+      const v = h && h.version ? h.version : null;
+
+      // If caller provided an expected version, wait for it.
+      if(expectedVersion && v === expectedVersion){
+        location.reload();
+        return;
+      }
+
+      // If we don't know the expected version, reload on any version change.
+      if(!expectedVersion && before && v && v !== before){
+        location.reload();
+        return;
+      }
+
+      // Still not there; keep waiting.
+      setTimeout(tick, 1500);
+    }catch(_e){
+      // During restart / proxy flaps we may get network errors or non-JSON. Keep trying.
+      setTimeout(tick, 1500);
+    }
+  };
+
+  // Small delay so we don't hammer the service immediately.
+  setTimeout(tick, 800);
+}
 
 // Update check: poll GitHub releases via engine (once/minute)
 async function updateLoop(){
