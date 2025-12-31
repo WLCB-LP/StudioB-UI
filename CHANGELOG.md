@@ -25,3 +25,7 @@
 ### Bug Fixes
 
 * **ui:** enable update check polling and indicator ([e2187a3](https://github.com/WLCB-LP/StudioB-UI/commit/e2187a35ead5c00bd74df47e9e9c4acf7b6b774e))
+
+## 0.1.36
+- Fix UI cache-busting version.
+- Make admin update run install_full.sh via systemd-run when available (avoids systemd sandbox /etc RO issues).

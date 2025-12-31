@@ -128,14 +128,16 @@ needs_unconfined_install() {
 }
 
 run_install_full() {
-  if needs_unconfined_install; then
-    log "Detected read-only /etc (likely systemd sandbox). Running install_full.sh via systemd-run..."
-    if command -v systemd-run >/dev/null 2>&1; then
-      systemd-run --quiet --collect --wait --pipe         --unit=studiob-ui-install-full         /bin/bash "${SCRIPT_DIR}/install_full.sh"
-      return $?
-    fi
-    echo "[admin-update][ERROR] /etc is read-only and systemd-run is not available." >&2
-    return 1
+  # When invoked from the stub-engine systemd unit, systemd sandboxing can make
+  # parts of the filesystem read-only for this entire process tree (even as root).
+  #
+  # The most reliable fix is to always run install_full.sh in a transient unit
+  # via systemd-run (if available). This escapes the stub-engine unit sandbox
+  # while still running locally and synchronously.
+  if command -v systemd-run >/dev/null 2>&1; then
+    log "Running install_full.sh via systemd-run (sandbox-safe)..."
+    systemd-run --quiet --collect --wait --pipe --unit=studiob-ui-install-full /bin/bash "${SCRIPT_DIR}/install_full.sh"
+    return $?
   fi
 
   log "Running full installer (root)..."
