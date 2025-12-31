@@ -5,7 +5,9 @@ APP_USER="${APP_USER:-wlcb}"
 APP_GROUP="${APP_GROUP:-wlcb}"
 
 # Source repo (git working tree)
-REPO_DIR="${REPO_DIR:-/home/wlcb/devel/StudioB-UI}"
+# Default to the directory containing this install.sh (repo root).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-${SCRIPT_DIR}}"
 
 # Node-RED style base (runtime/config/logs/state)
 BASE_DIR="${BASE_DIR:-/home/wlcb/.StudioB-UI}"
@@ -96,7 +98,7 @@ ui:
   public_base_url: "http://localhost"
 
 updates:
-  mode: "zip"
+  mode: "git"
   github_repo: "WLCB-LP/StudioB-UI"
   asset_suffix: ".zip"
   watch_tmp_dir: "/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
@@ -164,9 +166,11 @@ deploy_release() {
   # Ensure module metadata is complete (creates/updates go.sum)
   sudo -u "${APP_USER}" bash -lc "cd \"${REPO_DIR}/engine\" && go mod tidy"
   VER="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
-  sudo -u "${APP_USER}" env -i HOME="/home/${APP_USER}" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-    VER="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
-sudo -u "${APP_USER}" env -i HOME="/home/${APP_USER}" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+
+  sudo -u "${APP_USER}" env -i \
+  HOME="/home/${APP_USER}" \
+  PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  VER="${VER}" \
   /usr/bin/go build -ldflags "-X main.version=${VER}" \
   -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine
   popd >/dev/null
@@ -307,7 +311,7 @@ main() {
   ensure_user
   ensure_dirs
   write_env_files
-  ensure_git_origin
+  ensure_git_origin || true
   write_default_config_if_missing
   validate_and_repair_config
   deploy_release
