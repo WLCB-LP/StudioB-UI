@@ -139,6 +139,34 @@ git_commit_push() {
 
   log "git-sync: pushing ${GIT_SYNC_BRANCH}"
   sudo -u "${APP_USER}" git -C "${REPO_DIR}" push origin "${GIT_SYNC_BRANCH}"
+  ensure_version_tag
+}
+
+
+ensure_version_tag() {
+  local version tag
+  version="$(cat "${REPO_DIR}/VERSION" 2>/dev/null || true)"
+  tag="v${version}"
+
+  if [[ -z "${version}" ]]; then
+    log "[watcher] git-sync: VERSION missing; skipping tag"
+    return 0
+  fi
+
+  # If tag already exists on remote, do nothing.
+  if sudo -u "${APP_USER}" git -C "${REPO_DIR}" ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+    log "[watcher] git-sync: tag exists (${tag}); skipping"
+    return 0
+  fi
+
+  # Create annotated tag locally if missing.
+  if ! sudo -u "${APP_USER}" git -C "${REPO_DIR}" rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+    log "[watcher] git-sync: creating tag ${tag}"
+    sudo -u "${APP_USER}" git -C "${REPO_DIR}" tag -a "${tag}" -m "StudioB-UI ${tag}"
+  fi
+
+  log "[watcher] git-sync: pushing tag ${tag}"
+  sudo -u "${APP_USER}" git -C "${REPO_DIR}" push origin "${tag}"
 }
 
 deploy_zip_to_dev() {
