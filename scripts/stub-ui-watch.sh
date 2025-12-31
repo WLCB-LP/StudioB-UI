@@ -1,41 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load watcher environment (systemd EnvironmentFile is best-effort)
+if [ -f /etc/stub-ui-watch.env ]; then
+  set +u
+  . /etc/stub-ui-watch.env
+  set -u
+fi
 
-
-: "${ALLOW_ROLLBACK:=0}"
-
-# Load /etc/stub-ui-watch.env safely.
-# We do NOT "source" it directly because values may contain spaces (e.g. names),
-# which would break with `set -u` + unquoted assignment lines.
-load_env_file() {
-  local f="/etc/stub-ui-watch.env"
-  [[ -f "$f" ]] || return 0
-
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    # Strip CR (in case file was edited on Windows)
-    line="${line%$'\r'}"
-
-    # Skip comments / blank lines
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
-
-    # Parse KEY=VALUE (VALUE may contain spaces)
-    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
-      local key="${BASH_REMATCH[1]}"
-      local val="${BASH_REMATCH[2]}"
-
-      # Trim surrounding quotes if present
-      if [[ "$val" =~ ^\"(.*)\"$ ]]; then val="${BASH_REMATCH[1]}"; fi
-      if [[ "$val" =~ ^\'(.*)\'$ ]]; then val="${BASH_REMATCH[1]}"; fi
-
-      printf -v "$key" '%s' "$val"
-      export "$key"
-    fi
-  done < "$f"
-}
-
-load_env_file
 : "${ALLOW_ROLLBACK:=0}"
 
 MODE="${MODE:-zip}"
@@ -54,7 +26,7 @@ DEPLOY_TMP="${DEPLOY_TMP:-/tmp/stub-ui-deploy}"
 
 GIT_SYNC_REMOTE="${GIT_SYNC_REMOTE:-}"
 GIT_SYNC_BRANCH="${GIT_SYNC_BRANCH:-main}"
-GIT_SYNC_AUTHOR_NAME="${GIT_SYNC_AUTHOR_NAME:-StudioB Watcher}"
+GIT_SYNC_AUTHOR_NAME="${GIT_SYNC_AUTHOR_NAME:-WLCB}"
 GIT_SYNC_AUTHOR_EMAIL="${GIT_SYNC_AUTHOR_EMAIL:-watcher@localhost}"
 
 log(){ echo "[watcher] $*"; }

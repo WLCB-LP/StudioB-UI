@@ -245,12 +245,11 @@ EOF
   cat > "${WATCH_ENV_FILE}" <<EOF
 # Stub UI watcher environment
 # Enable git sync by setting remote and credentials.
-GIT_SYNC_REMOTE=git@github.com:WLCB-LP/StudioB-UI.git
+GIT_SYNC_REMOTE=https://github.com/WLCB-LP/StudioB-UI.git
 GIT_SYNC_BRANCH=main
 GIT_SYNC_DIR=/home/${APP_USER}/.StudioB-UI/git-sync
 GIT_SYNC_AUTHOR_NAME=WLCB
-GIT_SYNC_AUTHOR_EMAIL=wlcb@wlcb.local
-ALLOW_ROLLBACK=0
+GIT_SYNC_AUTHOR_EMAIL=watcher@wlcb.local
 # For HTTPS remotes, set token:
 # GIT_SYNC_TOKEN=...
 EOF

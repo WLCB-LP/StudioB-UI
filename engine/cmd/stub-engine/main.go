@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"stub-mixer/internal"
 	"strings"
+	"stub-mixer/internal"
 )
 
 var version = "dev"
@@ -38,6 +38,7 @@ func main() {
 			"time":    time.Now().UTC().Format(time.RFC3339),
 			"mode":    cfg.DSP.Mode,
 		})
+	})
 
 	// Version (stable, explicit)
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +74,6 @@ func main() {
 		go engine.Update()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-	})
 	})
 
 	// Snapshot
