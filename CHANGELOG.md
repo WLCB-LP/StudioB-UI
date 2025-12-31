@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.32
+
+- Release bump for update-path testing.
+
+
 ## [0.1.14](https://github.com/WLCB-LP/StudioB-UI/compare/v0.1.13...v0.1.14) (2025-12-31)
 
 
