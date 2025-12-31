@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+
+: "${ALLOW_ROLLBACK:=0}"
+# Load watcher environment (systemd EnvironmentFile is best-effort)
+if [ -f /etc/stub-ui-watch.env ]; then
+  set +u
+  . /etc/stub-ui-watch.env
+  set -u
+fi
+
 MODE="${MODE:-zip}"
 SLEEP="${SLEEP:-5}"
 
