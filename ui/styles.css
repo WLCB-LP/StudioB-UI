@@ -63,6 +63,8 @@ body{
   color:var(--fg);
 }
 .pill--muted{color:var(--muted)}
+.pill--warn{color:var(--warn);border-color:rgba(255,176,32,.45);background:rgba(255,176,32,.10)}
+.pill.flash{animation:flash 1s ease-in-out infinite}
 .pill.ok{border-color:rgba(55,214,122,.5); background:rgba(55,214,122,.10)}
 .pill.bad{border-color:rgba(255,90,122,.5); background:rgba(255,90,122,.10)}
 

@@ -362,6 +362,22 @@ function wireUI(){
 
 wireUI();
 pollLoop();
+
+// Update check: poll GitHub releases via engine (once/minute)
+async function updateLoop(){
+  await pollUpdate();
+  setTimeout(updateLoop, 60000);
+}
+updateLoop();
+
+// Clicking the update pill jumps to Engineering (PIN-gated)
+const __upPill = document.getElementById("updatePill");
+if(__upPill){
+  __upPill.addEventListener("click", ()=>{
+    const eng = document.querySelector('.tab[data-page="engineering"]');
+    if(eng) eng.click();
+  });
+}
 requestAnimationFrame(meterAnimate);
 async function pollUpdate(){
   try{
@@ -371,6 +387,12 @@ async function pollUpdate(){
     state.update.latest = u.latestVersion || "";
     state.update.checkedAt = u.checkedAt || "";
     const btn = document.getElementById("btnUpdate");
+    const up = document.getElementById("updatePill");
+    if(up){
+      up.classList.toggle("hidden", !state.update.available);
+      up.classList.toggle("flash", state.update.available);
+      up.textContent = state.update.available ? ("Update " + (state.update.latest||"?")) : "Update";
+    }
     if(btn){
       btn.classList.toggle("flash", state.update.available);
       btn.textContent = state.update.available ? ("Update Available (" + (state.update.latest||"?") + ")") : "Update (Release)";
@@ -379,6 +401,8 @@ async function pollUpdate(){
   }catch(e){
     // ignore; no spam
     const btn = document.getElementById("btnUpdate");
+    const up = document.getElementById("updatePill");
+    if(up){ up.classList.add("hidden"); up.classList.remove("flash"); }
     if(btn){
       btn.classList.remove("flash");
       btn.textContent = "Update (Release)";
