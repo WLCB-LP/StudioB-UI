@@ -325,9 +325,9 @@ function wireUI(){
   $("#btnUpdate").addEventListener("click", async ()=>{
     const pin = $("#adminPin").value.trim();
     if(!pin) return alert("Enter Admin PIN.");
-    if(!confirm("Queue latest GitHub release for deployment? (Watcher will deploy the ZIP)")) return;
+    if(!confirm("Update to the latest version from GitHub? (This will run the installer and restart the engine)")) return;
     try{
-      await fetch("/api/admin/update", {
+      await fetch("/api/updates/apply", {
         method:"POST",
         headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
         body: "{}"
@@ -381,22 +381,31 @@ if(__upPill){
 requestAnimationFrame(meterAnimate);
 async function pollUpdate(){
   try{
-    const u = await fetch("/api/update/check").then(r=>r.json());
-    state.update.ok = !!u.ok;
-    state.update.available = !!u.updateAvailable;
-    state.update.latest = u.latestVersion || "";
-    state.update.checkedAt = u.checkedAt || "";
+    const v = await fetch("/api/version").then(r=>r.json());
+    const latestObj = await fetch("/api/updates/latest").then(r=>r.json());
+    const current = (v.version || "").toString().trim();
+    const latest = (latestObj.latest || "").toString().trim().replace(/^v/,"");
+    state.update.ok = !!current;
+    state.update.available = !!(latest && current && current !== latest);
+    state.update.current = current;
+    state.update.latest = latest;
+
     const btn = document.getElementById("btnUpdate");
     const up = document.getElementById("updatePill");
-    if(up){
-      up.classList.toggle("hidden", !state.update.available);
-      up.classList.toggle("flash", state.update.available);
-      up.textContent = state.update.available ? ("Update " + (state.update.latest||"?")) : "Update";
-    }
-    if(btn){
-      btn.classList.toggle("flash", state.update.available);
-      btn.textContent = state.update.available ? ("Update Available (" + (state.update.latest||"?") + ")") : "Update (Release)";
-      btn.title = state.update.available ? "New release available on GitHub" : "Check GitHub releases (via engine)";
+    if(state.update.available){
+      if(up){ up.classList.remove("hidden"); up.classList.add("flash"); up.textContent = "Update v" + latest; }
+      if(btn){
+        btn.classList.add("flash");
+        btn.textContent = "Update to v" + latest;
+        btn.title = "Update available: v" + latest;
+      }
+    }else{
+      if(up){ up.classList.add("hidden"); up.classList.remove("flash"); }
+      if(btn){
+        btn.classList.remove("flash");
+        btn.textContent = "Update";
+        btn.title = "No updates available";
+      }
     }
   }catch(e){
     // ignore; no spam
@@ -405,8 +414,8 @@ async function pollUpdate(){
     if(up){ up.classList.add("hidden"); up.classList.remove("flash"); }
     if(btn){
       btn.classList.remove("flash");
-      btn.textContent = "Update (Release)";
-      btn.title = "Update check failed (engine/GitHub not configured)";
+      btn.textContent = "Update";
+      btn.title = "Update check failed";
     }
   }
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"stub-mixer/internal"
+	"strings"
 )
 
 var version = "dev"
@@ -37,6 +38,42 @@ func main() {
 			"time":    time.Now().UTC().Format(time.RFC3339),
 			"mode":    cfg.DSP.Mode,
 		})
+
+	// Version (stable, explicit)
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"version": engine.Version(),
+			"time":    time.Now().UTC().Format(time.RFC3339),
+			"mode":    cfg.DSP.Mode,
+		})
+	})
+
+	// Latest available version (git tags via engine update checker)
+	mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		info := engine.CheckUpdateCached()
+		latest := info.LatestVersion
+		if latest != "" && !strings.HasPrefix(latest, "v") {
+			latest = "v" + latest
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"latest": latest})
+	})
+
+	// Apply latest update (admin PIN required). Uses git/script-backed update flow.
+	mux.HandleFunc("/api/updates/apply", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			return
+		}
+		if !engine.CheckAdmin(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		go engine.Update()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
 	})
 
 	// Snapshot

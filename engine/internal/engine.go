@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"regexp"
 )
 
 // Stable RC identifiers (names) used by UI/engine.
@@ -329,13 +330,13 @@ func (e *Engine) CheckUpdateCached() UpdateInfo {
 		return c
 	}
 
-	info := e.fetchLatestRelease()
+	info := e.fetchLatestTag()
 	e.updateChecked = time.Now()
 	e.updateCached = &info
 	return info
 }
 
-func (e *Engine) fetchLatestRelease() UpdateInfo {
+func (e *Engine) fetchLatestTag() UpdateInfo {
 	info := UpdateInfo{Ok: false, CurrentVersion: e.version}
 	repo := strings.TrimSpace(e.cfg.Updates.GitHubRepo)
 	if repo == "" {
@@ -344,163 +345,75 @@ func (e *Engine) fetchLatestRelease() UpdateInfo {
 		return info
 	}
 
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/"+repo+"/releases/latest", nil)
+	// We intentionally avoid GitHub Releases/zipball logic. Source of truth is git tags.
+	remote := "https://github.com/" + repo + ".git"
+
+	cmd := exec.Command("git", "ls-remote", "--tags", "--refs", remote)
+	out, err := cmd.Output()
 	if err != nil {
 		info.Notes = err.Error()
 		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 		return info
 	}
-	req.Header.Set("User-Agent", "stub-engine/"+e.version)
 
-	token := ""
-	if e.cfg.Updates.TokenEnv != "" {
-		token = strings.TrimSpace(os.Getenv(e.cfg.Updates.TokenEnv))
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	tags := []string{}
+	re := regexp.MustCompile(`^refs/tags/v(\d+)\.(\d+)\.(\d+)$`)
+	for _, line := range splitLines(string(out)) {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ref := fields[1]
+			m := re.FindStringSubmatch(ref)
+		if m != nil {
+			// keep the full semver string without leading refs/tags/
+			tags = append(tags, "v"+m[1]+"."+m[2]+"."+m[3])
+		}
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		info.Notes = err.Error()
-		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
-		return info
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		info.Notes = fmt.Sprintf("github %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	if len(tags) == 0 {
+		info.Notes = "no semver tags found"
 		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 		return info
 	}
 
-	var payload struct {
-		TagName     string `json:"tag_name"`
-		HtmlURL     string `json:"html_url"`
-		PublishedAt string `json:"published_at"`
-		Assets      []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
-		ZipballURL string `json:"zipball_url"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		info.Notes = err.Error()
-		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
-		return info
-	}
+	// Sort tags by semver ascending, take last as latest.
+	sort.Slice(tags, func(i, j int) bool {
+		ai := strings.TrimPrefix(tags[i], "v")
+		aj := strings.TrimPrefix(tags[j], "v")
+		as := strings.Split(ai, ".")
+		bs := strings.Split(aj, ".")
+		atoi := func(s string) int {
+			n := 0
+			for _, ch := range s {
+				n = n*10 + int(ch-'0')
+			}
+			return n
+		}
+		amj, ami, apt := atoi(as[0]), atoi(as[1]), atoi(as[2])
+		bmj, bmi, bpt := atoi(bs[0]), atoi(bs[1]), atoi(bs[2])
+		if amj != bmj {
+			return amj < bmj
+		}
+		if ami != bmi {
+			return ami < bmi
+		}
+		return apt < bpt
+	})
 
-	latest := normalizeVersion(payload.TagName)
+	latestTag := tags[len(tags)-1]
+	latest := normalizeVersion(latestTag)
+
 	info.LatestVersion = latest
-	info.PageURL = payload.HtmlURL
-	info.PublishedAt = payload.PublishedAt
+	info.UpdateAvailable = normalizeVersion(e.version) != latest
+	info.PageURL = "https://github.com/" + repo
 	info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
-
-	cur := normalizeVersion(e.version)
-	info.UpdateAvailable = (latest != "" && latest != cur)
-
-	// Pick a release asset ZIP only (never fall back to zipball).
-	// We only trust packaged StudioB-UI_*.zip assets.
-	suffix := e.cfg.Updates.AssetSuffix
-	if suffix == "" {
-        	suffix = ".zip"
-	}
-
-	for _, a := range payload.Assets {
-        	name := strings.ToLower(a.Name)
-	        if strings.HasPrefix(name, "studiob-ui_") &&
-                   strings.HasSuffix(name, strings.ToLower(suffix)) &&
-           	   a.BrowserDownloadURL != "" {
-
-                	info.DownloadURL = a.BrowserDownloadURL
-                	break
-	        }
-	}
-
-	// If no valid ZIP asset exists, refuse the update.
-	// Do NOT fall back to zipball.
-	if info.DownloadURL == "" {
-        	info.UpdateAvailable = false
-	        info.Notes = "latest release has no StudioB-UI_*.zip asset"
-	}
 	info.Ok = true
 	return info
 }
 
 func (e *Engine) QueueUpdateLatest() error {
-	info := e.CheckUpdateCached()
-	if !info.Ok {
-		return fmt.Errorf("update check failed: %s", info.Notes)
-	}
-	if !info.UpdateAvailable {
-		return fmt.Errorf("no update available")
-	}
-	if info.DownloadURL == "" {
-		return fmt.Errorf("no download url")
-	}
-
-	// Download the release zip into the watcher tmp directory. The watcher will deploy it.
-	tmpDir := e.cfg.Updates.WatchTmpDir
-	if tmpDir == "" {
-		tmpDir = "/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp"
-	}
-	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-		return err
-	}
-
-	name := fmt.Sprintf("StudioB-UI_%s%s", info.LatestVersion, e.cfg.Updates.AssetSuffix)
-	if e.cfg.Updates.AssetSuffix == "" {
-		name = fmt.Sprintf("StudioB-UI_%s.zip", info.LatestVersion)
-	}
-	dest := filepath.Join(tmpDir, name)
-
-	req, err := http.NewRequest("GET", info.DownloadURL, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("User-Agent", "stub-engine/"+e.version)
-	token := ""
-	if e.cfg.Updates.TokenEnv != "" {
-		token = strings.TrimSpace(os.Getenv(e.cfg.Updates.TokenEnv))
-	}
-	if token != "" && strings.Contains(info.DownloadURL, "api.github.com") {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("download %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-	}
-
-	// Write atomically.
-	tmpFile := dest + ".part"
-	f, err := os.Create(tmpFile)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
-		_ = os.Remove(tmpFile)
-		return err
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(tmpFile)
-		return err
-	}
-	if err := os.Rename(tmpFile, dest); err != nil {
-		_ = os.Remove(tmpFile)
-		return err
-	}
-	log.Printf("queued update: %s", dest)
-	return nil
+	return fmt.Errorf("zip-based runtime updates are disabled; use git-based install workflow")
 }
 
 // Admin auth via X-Admin-PIN header
@@ -513,17 +426,10 @@ func (e *Engine) CheckAdmin(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }
 
-// Update:
-// - mode=git: git pull + reinstall (script-backed)
-// - mode=zip: check GitHub releases and drop newest zip into watcher tmp dir
+// Update (git-based only): runs the admin update script.
 func (e *Engine) Update() {
-	if strings.ToLower(strings.TrimSpace(e.cfg.Updates.Mode)) == "git" {
-		e.runAdminScript("update")
-		return
-	}
-	if err := e.QueueUpdateLatest(); err != nil {
-		log.Printf("update queue failed: %v", err)
-	}
+	// Always use git/script-backed updates. ZIP queueing is intentionally disabled.
+	e.runAdminScript("update")
 }
 
 // Rollback: checkout tag + reinstall

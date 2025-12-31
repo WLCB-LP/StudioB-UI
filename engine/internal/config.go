@@ -65,7 +65,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	if cfg.Updates.Mode == "" {
-		cfg.Updates.Mode = "zip"
+		cfg.Updates.Mode = "git"
 	}
 		if cfg.Updates.GitHubRepo == "" {
 		cfg.Updates.GitHubRepo = "WLCB-LP/StudioB-UI"
