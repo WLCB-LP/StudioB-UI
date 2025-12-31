@@ -25,6 +25,16 @@ APP_GROUP="${APP_GROUP:-wlcb}"
 DEPLOY_TMP="${DEPLOY_TMP:-/tmp/stub-ui-deploy}"
 
 GIT_SYNC_REMOTE="${GIT_SYNC_REMOTE:-}"
+
+# If GIT_SYNC_REMOTE is set to an HTTPS GitHub URL, convert to SSH so pushes (commits/tags)
+# work non-interactively using the VM's SSH key. This keeps "read" access over HTTPS possible,
+# but ensures our write operations succeed.
+if [[ -n "${GIT_SYNC_REMOTE}" && "${GIT_SYNC_REMOTE}" =~ ^https://github\.com/([^/]+)/([^/]+)\.git$ ]]; then
+  org="${BASH_REMATCH[1]}"
+  repo="${BASH_REMATCH[2]}"
+  GIT_SYNC_REMOTE="git@github.com:${org}/${repo}.git"
+fi
+
 GIT_SYNC_BRANCH="${GIT_SYNC_BRANCH:-main}"
 GIT_SYNC_AUTHOR_NAME="${GIT_SYNC_AUTHOR_NAME:-WLCB}"
 GIT_SYNC_AUTHOR_EMAIL="${GIT_SYNC_AUTHOR_EMAIL:-watcher@localhost}"
@@ -201,6 +211,9 @@ deploy_zip_to_dev() {
     --exclude='.git/' \
     --exclude='logs/' \
     "${src_root}/" "${REPO_DIR}/"
+
+  # Ensure scripts are executable even if the ZIP did not preserve mode bits
+  chmod +x "${REPO_DIR}/install.sh" "${REPO_DIR}/scripts/"*.sh 2>/dev/null || true
 
   # Normalize ownership for wlcb so git can operate
   chown -R "${APP_USER}:${APP_GROUP}" "${REPO_DIR}" || true
