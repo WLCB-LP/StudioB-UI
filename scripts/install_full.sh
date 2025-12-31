@@ -275,7 +275,9 @@ Restart=always
 RestartSec=2
 Environment=GOMAXPROCS=2
 
-NoNewPrivileges=true
+# NOTE: NoNewPrivileges breaks sudo (required for UI-driven Update/Rollback).
+# Leaving this disabled so admin-update can invoke sudo -n.
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=false
