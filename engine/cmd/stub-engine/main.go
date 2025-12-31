@@ -51,6 +51,25 @@ func main() {
 	})
 
 	// Latest available version (git tags via engine update checker)
+
+	// Config (read-only; safe subset). Useful for debugging mode + DSP connection config.
+	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "GET required", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"version": engine.Version(),
+			"time":    time.Now().UTC().Format(time.RFC3339),
+			"mode":    cfg.DSP.Mode,
+			"dsp": map[string]any{
+				"ip":   cfg.DSP.Host,
+				"port": cfg.DSP.Port,
+			},
+			"sources": cfg.Meta,
+		})
+	})
 	mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		info := engine.CheckUpdateCached()

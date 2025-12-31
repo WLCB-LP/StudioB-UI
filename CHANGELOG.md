@@ -1,3 +1,8 @@
+## v0.2.0 (2025-12-31)
+
+- Add mode plumbing (mock vs live) with env + JSON config overrides and new `/api/config` endpoint.
+- No behavior changes to mock mode; live mode is reserved for future DSP control.
+
 # Changelog
 
 ## v0.1.32
