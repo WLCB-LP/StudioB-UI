@@ -2,6 +2,3 @@
 
 # Runtime logs
 logs/
-
-# built binaries
-engine/stub-engine

@@ -1,221 +1,156 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${MODE:-zip}"
-SLEEP="${SLEEP:-5}"
+# Polling-based deploy watcher (NAS-safe)
+# Watches TMP_DIR for *.zip and deploys the newest zip when its content changes.
+# Uses a SHA256 signature to allow re-deploying the "same filename" if rebuilt.
 
 TMP_DIR="${TMP_DIR:-/mnt/NAS/Engineering/Audio Network/Studio B/UI/tmp}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-/mnt/NAS/Engineering/Audio Network/Studio B/UI}"
 STATE_DIR="${STATE_DIR:-/home/wlcb/.StudioB-UI/state}"
 STATE_FILE="${STATE_DIR}/last_zip.sig"
+SLEEP="${SLEEP:-5}"
 
 REPO_DIR="${REPO_DIR:-/home/wlcb/devel/StudioB-UI}"
-APP_USER="${APP_USER:-wlcb}"
-APP_GROUP="${APP_GROUP:-wlcb}"
-
 DEPLOY_TMP="${DEPLOY_TMP:-/tmp/stub-ui-deploy}"
 
-GIT_SYNC_REMOTE="${GIT_SYNC_REMOTE:-}"
-GIT_SYNC_BRANCH="${GIT_SYNC_BRANCH:-main}"
-GIT_SYNC_AUTHOR_NAME="${GIT_SYNC_AUTHOR_NAME:-StudioB Watcher}"
-GIT_SYNC_AUTHOR_EMAIL="${GIT_SYNC_AUTHOR_EMAIL:-watcher@localhost}"
-
-log(){ echo "[watcher] $*"; }
+log() { echo "[watcher] $*"; }
 
 mkdir -p "${STATE_DIR}"
 touch "${STATE_FILE}"
+
 shopt -s nullglob
 
-zip_version() {
-  # Try to read VERSION inside the zip without extracting the whole thing.
-  # Returns empty string if missing.
+zip_sig() {
+  # signature: sha256 + size, to reduce very rare edge cases
   local zip="$1"
-  unzip -p "$zip" VERSION 2>/dev/null | tr -d '\r\n[:space:]' || true
+  sha256sum "$zip" | awk '{print $1}'
 }
 
-repo_version() {
-  # Current dev repo VERSION (source of truth for "what we have now")
-  if [[ -f "${REPO_DIR}/VERSION" ]]; then
-    tr -d '\r\n[:space:]' < "${REPO_DIR}/VERSION"
-  else
-    echo ""
+git_sync() {
+  # Optional: mirror ZIP contents into a git repo and push to remote.
+  # Enable by setting GIT_SYNC_REMOTE (and optionally GIT_SYNC_BRANCH, GIT_SYNC_DIR, GIT_SYNC_TOKEN).
+  local src="$1"   # extracted folder (DEPLOY_TMP)
+  local zip="$2"
+  local remote="${GIT_SYNC_REMOTE:-}"
+  [[ -z "${remote}" ]] && return 0
+
+  local dir="${GIT_SYNC_DIR:-/home/wlcb/.StudioB-UI/git-sync}"
+  local branch="${GIT_SYNC_BRANCH:-main}"
+  local token="${GIT_SYNC_TOKEN:-}"
+  local author_name="${GIT_SYNC_AUTHOR_NAME:-StudioB Watcher}"
+  local author_email="${GIT_SYNC_AUTHOR_EMAIL:-watcher@localhost}"
+
+  if [[ ! -d "${dir}/.git" ]]; then
+    log "git-sync: cloning ${remote} -> ${dir}"
+    rm -rf "${dir}"
+    if [[ -n "${token}" && "${remote}" =~ ^https:// ]]; then
+      # inject token into https URL (kept out of process list as much as possible)
+      remote_auth="$(echo "${remote}" | sed -E "s#^https://#https://${token}@#")"
+      git clone --branch "${branch}" --depth 1 "${remote_auth}" "${dir}"
+    else
+      git clone --branch "${branch}" --depth 1 "${remote}" "${dir}"
+    fi
   fi
-}
 
-ver_to_sortkey() {
-  # Converts versions like 0.1.11f into a sortable key:
-  # major.minor.patch + optional suffix letters.
-  # Output format: "0000000000.0000000000.0000000000|suffix"
-  # so we can compare with string sort.
-  local v="$1"
-  local major=0 minor=0 patch=0 suffix=""
-  # split numeric part and optional trailing letters
-  if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)([a-zA-Z]*)$ ]]; then
-    major="${BASH_REMATCH[1]}"
-    minor="${BASH_REMATCH[2]}"
-    patch="${BASH_REMATCH[3]}"
-    suffix="${BASH_REMATCH[4]}"
-  elif [[ "$v" =~ ^([0-9]+)\.([0-9]+)([a-zA-Z]*)$ ]]; then
-    major="${BASH_REMATCH[1]}"
-    minor="${BASH_REMATCH[2]}"
-    patch="0"
-    suffix="${BASH_REMATCH[3]}"
+  # Sync files from ZIP extract into repo working tree, excluding runtime/ and other host-only state.
+  log "git-sync: syncing content into repo"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete \
+      --exclude ".StudioB-UI/" \
+      --exclude "runtime/" \
+      --exclude "state/" \
+      --exclude ".git/" \
+      "${src}/" "${dir}/"
   else
-    # Unknown format: treat as 0.0.0 and keep suffix for determinism
-    suffix="$v"
+    # crude fallback: wipe and copy
+    find "${dir}" -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
+    cp -a "${src}/." "${dir}/"
   fi
-  printf "%010d.%010d.%010d|%s" "$major" "$minor" "$patch" "${suffix,,}"
-}
 
-ver_lt() {
-  # returns 0 if $1 < $2
-  local a b
-  a="$(ver_to_sortkey "$1")"
-  b="$(ver_to_sortkey "$2")"
-  [[ "$a" < "$b" ]]
-}
+  ( cd "${dir}"
+    git config user.name "${author_name}"
+    git config user.email "${author_email}"
 
+    if git diff --quiet && git diff --cached --quiet; then
+      git add -A
+    else
+      git add -A
+    fi
 
-zip_sig() { sha256sum "$1" | awk '{print $1}'; }
-
-# Find a plausible repo root in extracted content (handles zipball top folder)
-find_repo_root() {
-  local base="$1"
-  # prefer a directory containing install.sh + engine/ + ui/ + scripts/
-  local d
-  while IFS= read -r -d '' d; do
-    if [[ -f "$d/install.sh" && -d "$d/engine" && -d "$d/ui" && -d "$d/scripts" ]]; then
-      echo "$d"
+    if git diff --cached --quiet; then
+      log "git-sync: no changes to commit"
       return 0
     fi
-  done < <(find "$base" -maxdepth 3 -type d -print0)
-  # fallback: if base itself matches
-  if [[ -f "$base/install.sh" && -d "$base/engine" && -d "$base/ui" && -d "$base/scripts" ]]; then
-    echo "$base"
-    return 0
-  fi
-  return 1
+
+    local ver=""
+    if [[ -f VERSION ]]; then ver="$(cat VERSION | tr -d '\r\n')"; fi
+    local msg="Auto-import from ZIP: $(basename "${zip}")"
+    if [[ -n "${ver}" ]]; then msg="${msg} (v${ver})"; fi
+
+    git commit -m "${msg}"
+
+    # Tag the version if it looks like a release and not already tagged.
+    if [[ -n "${ver}" ]]; then
+      if ! git rev-parse "v${ver}" >/dev/null 2>&1; then
+        git tag "v${ver}" || true
+      fi
+    fi
+
+    log "git-sync: pushing ${branch} (and tags)"
+    git push origin "${branch}"
+    git push --tags || true
+  )
 }
 
-git_commit_push() {
-  [[ -z "${GIT_SYNC_REMOTE}" ]] && { log "git-sync: disabled (GIT_SYNC_REMOTE empty)"; return 0; }
 
-  # Ensure origin is correct (run as wlcb)
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" remote get-url origin >/dev/null 2>&1 || \
-    sudo -u "${APP_USER}" git -C "${REPO_DIR}" remote add origin "${GIT_SYNC_REMOTE}" || true
-
-  local cur
-  cur="$(sudo -u "${APP_USER}" git -C "${REPO_DIR}" remote get-url origin 2>/dev/null || true)"
-  if [[ "${cur}" != "${GIT_SYNC_REMOTE}" ]]; then
-    log "git-sync: setting origin -> ${GIT_SYNC_REMOTE}"
-    sudo -u "${APP_USER}" git -C "${REPO_DIR}" remote set-url origin "${GIT_SYNC_REMOTE}"
-  fi
-
-  # Commit if changes
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" add -A
-
-  if sudo -u "${APP_USER}" git -C "${REPO_DIR}" diff --cached --quiet; then
-    log "git-sync: no changes to commit"
-    return 0
-  fi
-
-  local ver=""
-  [[ -f "${REPO_DIR}/VERSION" ]] && ver="$(tr -d '\r\n[:space:]' < "${REPO_DIR}/VERSION" || true)"
-  local msg="chore: import ZIP $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  [[ -n "${ver}" ]] && msg="chore: import ZIP (v${ver})"
-
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" config user.name "${GIT_SYNC_AUTHOR_NAME}"
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" config user.email "${GIT_SYNC_AUTHOR_EMAIL}"
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" commit -m "${msg}"
-
-  log "git-sync: pushing ${GIT_SYNC_BRANCH}"
-  sudo -u "${APP_USER}" git -C "${REPO_DIR}" push origin "${GIT_SYNC_BRANCH}"
-}
-
-deploy_zip_to_dev() {
+deploy() {
   local zip="$1"
-  log "ZIP ingest: ${zip}"
+  log "Deploying: ${zip}"
 
   rm -rf "${DEPLOY_TMP}"
   mkdir -p "${DEPLOY_TMP}"
   unzip -q "$zip" -d "${DEPLOY_TMP}"
 
-  # Safety: refuse downgrades unless explicitly allowed.
-  local cur_ver zip_ver
-  cur_ver="$(repo_version)"
-  zip_ver="$(zip_version "$zip")"
-
-  if [[ "${ALLOW_ROLLBACK}" != "1" && -n "${cur_ver}" && -n "${zip_ver}" ]]; then
-    if ver_lt "${zip_ver}" "${cur_ver}"; then
-      log "REFUSING ZIP rollback: zip=${zip_ver} < current=${cur_ver} (set ALLOW_ROLLBACK=1 to override)"
-      return 0
-    fi
-  fi
-
-  local src_root
-  src_root="$(find_repo_root "${DEPLOY_TMP}")" || {
-    log "ERROR: could not find repo root inside zip (needs install.sh + engine/ui/scripts)"
-    return 2
-  }
-
-  # rsync into dev working tree (preserve .git and logs)
-  mkdir -p "${REPO_DIR}"
+  # Copy into repo working tree (preserve repo metadata and logs)
   rsync -a --delete \
     --exclude='.git/' \
     --exclude='logs/' \
-    "${src_root}/" "${REPO_DIR}/"
+    "${DEPLOY_TMP}/" "${REPO_DIR}/"
 
-  # Normalize ownership for wlcb so git can operate
-  chown -R "${APP_USER}:${APP_GROUP}" "${REPO_DIR}" || true
+  chown -R wlcb:wlcb "${REPO_DIR}" || true
 
-  # Commit/push to GitHub (as wlcb)
-  git_commit_push
+  # Move zip to archive (after successful copy)
+  mv "$zip" "${ARCHIVE_DIR}/"
 
-  # Archive ZIP after successful ingest + push attempt
-  mkdir -p "${ARCHIVE_DIR}"
-  mv -f "$zip" "${ARCHIVE_DIR}/"
-
-  log "ZIP ingest complete"
-}
-
-pick_newest_zip() {
-  local zips=( "${TMP_DIR}"/*.zip )
-  (( ${#zips[@]} == 0 )) && return 1
-
-  local newest="${zips[0]}"
-  local newest_mtime
-  newest_mtime="$(stat -c %Y "${newest}" 2>/dev/null || echo 0)"
-
-  local z m
-  for z in "${zips[@]}"; do
-    m="$(stat -c %Y "$z" 2>/dev/null || echo 0)"
-    if (( m > newest_mtime )); then
-      newest="$z"
-      newest_mtime="$m"
-    fi
-  done
-
-  echo "${newest}"
+  # Run installer (self-healing; rebuilds engine & updates runtime symlink)
+  sudo "${REPO_DIR}/install.sh"
 }
 
 while true; do
-  if [[ "${MODE}" != "zip" ]]; then
+  zips=( "${TMP_DIR}"/*.zip )
+  if (( ${#zips[@]} == 0 )); then
     sleep "${SLEEP}"
     continue
   fi
 
-  newest="$(pick_newest_zip || true)"
-  if [[ -z "${newest:-}" ]]; then
-    sleep "${SLEEP}"
-    continue
-  fi
+  # Pick newest by mtime
+  newest="${zips[0]}"
+  newest_mtime=$(stat -c %Y "${newest}" 2>/dev/null || echo 0)
+  for z in "${zips[@]}"; do
+    m=$(stat -c %Y "$z" 2>/dev/null || echo 0)
+    if (( m > newest_mtime )); then
+      newest="$z"
+      newest_mtime=$m
+    fi
+  done
 
   sig="$(zip_sig "${newest}")"
   last_sig="$(cat "${STATE_FILE}" 2>/dev/null || true)"
 
   if [[ -n "${sig}" && "${sig}" != "${last_sig}" ]]; then
     echo "${sig}" > "${STATE_FILE}"
-    deploy_zip_to_dev "${newest}" || log "deploy failed (will retry on next change)"
+    deploy "${newest}"
   fi
 
   sleep "${SLEEP}"
