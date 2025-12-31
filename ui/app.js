@@ -22,6 +22,22 @@ const state = {
 function $(sel){ return document.querySelector(sel); }
 function $all(sel){ return Array.from(document.querySelectorAll(sel)); }
 
+// Force a refresh that is very likely to pull new JS/CSS after an update.
+// Some browsers will happily keep serving cached assets on a plain reload,
+// leaving the operator on a "new engine / old UI" mismatch until they
+// manually refresh.
+function hardReload(){
+  try{
+    const u = new URL(window.location.href);
+    // Preserve existing query params; just bump a cache buster.
+    u.searchParams.set("_r", String(Date.now()));
+    window.location.replace(u.toString());
+  }catch(_){
+    // Fallback if URL parsing fails for any reason.
+    window.location.reload();
+  }
+}
+
 function clamp01(x){
   const v = Number(x);
   if(Number.isNaN(v)) return 0;
@@ -383,7 +399,14 @@ async function waitForVersion(expectedVersion){
   const tick = async ()=>{
     // Stop after timeout
     if(Date.now() - start > maxMs){
-      $("#svcMsg").textContent = "Update is still running. If the page doesn’t refresh, try reloading.";
+      // Don't leave the operator stuck. Offer a one-click hard refresh.
+      $("#svcMsg").textContent = "Update is still running. If the page doesn’t refresh automatically, click Refresh.";
+      const btn = $("#updateBtn");
+      if(btn){
+        btn.disabled = false;
+        btn.textContent = "Refresh";
+        btn.onclick = () => hardReload();
+      }
       return;
     }
 
@@ -394,13 +417,13 @@ async function waitForVersion(expectedVersion){
 
       // If caller provided an expected version, wait for it.
       if(expectedVersion && v === expectedVersion){
-        location.reload();
+        hardReload();
         return;
       }
 
       // If we don't know the expected version, reload on any version change.
       if(!expectedVersion && before && v && v !== before){
-        location.reload();
+        hardReload();
         return;
       }
 
