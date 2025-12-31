@@ -307,6 +307,31 @@ health_check() {
   log "OK: engine responds and nginx proxy is healthy"
 }
 
+configure_sudoers() {
+  # Allow the unprivileged engine (running as ${APP_USER}) to run specific privileged scripts
+  # without prompting for a password. This is REQUIRED for "Update" and "Rollback" from the UI.
+  #
+  # We keep the allowed commands tightly scoped to the runtime scripts shipped with this app.
+  local sudoers_file="/etc/sudoers.d/studiob-ui"
+
+  log "Configuring sudoers..."
+
+  cat > "${sudoers_file}" <<EOF
+# Managed by StudioB-UI install_full.sh — DO NOT EDIT BY HAND.
+# Allow StudioB UI engine (running as ${APP_USER}) to run controlled privileged actions.
+${APP_USER} ALL=(root) NOPASSWD: /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/install_full.sh, /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-rollback.sh
+EOF
+
+  chmod 0440 "${sudoers_file}"
+
+  # Validate so we don't brick sudo.
+  if ! visudo -cf "${sudoers_file}" >/dev/null 2>&1; then
+    echo "[install][ERROR] sudoers validation failed; removing ${sudoers_file}" >&2
+    rm -f "${sudoers_file}"
+    exit 1
+  fi
+}
+
 main() {
   require_root
   apt_install
@@ -319,6 +344,7 @@ main() {
   deploy_release
   configure_nginx
   configure_systemd
+  configure_sudoers
   install_watcher
   health_check
   log "Install complete. Open: http://<vm-ip>/"

@@ -1,3 +1,54 @@
+normalize_github_remote() {
+  # Convert https://github.com/ORG/REPO(.git) -> git@github.com:ORG/REPO.git
+  # Leaves other remotes untouched.
+  local remote="$1"
+  if [[ "${remote}" =~ ^https://github\.com/([^/]+)/([^/]+)(\.git)?$ ]]; then
+    echo "git@github.com:${BASH_REMATCH[1]}/${BASH_REMATCH[2]}.git"
+    return 0
+  fi
+  echo "${remote}"
+}
+
+ensure_git_origin() {
+  local want_raw="${GIT_SYNC_REMOTE}"
+  local want
+  want="$(normalize_github_remote "${want_raw}")"
+  local have
+  have="$(ensure_git_origin
+  sudo_as_app git -C "${REPO_DIR}" remote get-url origin 2>/dev/null || true)"
+
+  if [[ -z "${have}" ]]; then
+    log "git-sync: setting origin -> ${want}"
+    sudo_as_app git -C "${REPO_DIR}" remote add origin "${want}"
+    return 0
+  fi
+
+  # Never downgrade from SSH to HTTPS for GitHub; SSH is required for push from this host.
+  if [[ "${have}" =~ ^git@github\.com: ]] && [[ "${want_raw}" =~ ^https://github\.com/ ]]; then
+    log "git-sync: origin is SSH and env requested HTTPS; keeping SSH (${have})"
+    return 0
+  fi
+
+  if [[ "${have}" != "${want}" ]]; then
+    log "git-sync: setting origin -> ${want}"
+    sudo_as_app git -C "${REPO_DIR}" remote set-url origin "${want}"
+  fi
+}
+
+push_version_tag_if_missing() {
+  local ver="$1"
+  local tag="v${ver}"
+
+  # If the tag already exists remotely, do nothing.
+  if sudo_as_app git -C "${REPO_DIR}" ls-remote --tags origin "refs/tags/${tag}" | grep -q "${tag}"; then
+    log "git-sync: tag ${tag} already exists on origin"
+    return 0
+  fi
+
+  log "git-sync: creating and pushing tag ${tag}"
+  sudo_as_app git -C "${REPO_DIR}" tag -a "${tag}" -m "StudioB-UI ${tag}" || true
+  sudo_as_app git -C "${REPO_DIR}" push origin "${tag}"
+}
 #!/usr/bin/env bash
 set -euo pipefail
 
