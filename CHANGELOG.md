@@ -1,3 +1,7 @@
+## v0.2.2 - 2025-12-31
+
+- Fix: engine build failure during update/install (Go package import aliasing) that prevented UI-triggered updates from completing.
+
 ## v0.2.0 (2025-12-31)
 
 ## v0.2.1 - 2025-12-31

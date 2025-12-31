@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"strings"
-	"stub-mixer/internal"
+
+	app "stub-mixer/internal"
 )
 
 var version = "dev"
@@ -70,7 +71,7 @@ func main() {
 			"sources": cfg.Meta,
 		})
 	})
-	
+
 	// Admin config file editor (Engineering page).
 	// This edits ONLY ~/.StudioB-UI/config.json (outside of repo/releases) so upgrades do not overwrite settings.
 	mux.HandleFunc("/api/admin/config/file", func(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +83,14 @@ func main() {
 
 		switch r.Method {
 		case http.MethodGet:
-			cfg, exists, raw, err := internal.ReadEditableConfig()
+			cfg, exists, raw, err := app.ReadEditableConfig()
 			resp := map[string]any{
 				"ok":     err == nil,
 				"exists": exists,
 				"raw":    raw,
 				"config": cfg,
 			}
-			if p, perr := internal.ConfigFilePath(); perr == nil {
+			if p, perr := app.ConfigFilePath(); perr == nil {
 				resp["path"] = p
 			}
 			if err != nil {
@@ -99,12 +100,12 @@ func main() {
 			return
 
 		case http.MethodPut:
-			var body internal.EditableConfig
+			var body app.EditableConfig
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				http.Error(w, "bad json", http.StatusBadRequest)
 				return
 			}
-			p, err := internal.WriteEditableConfig(body)
+			p, err := app.WriteEditableConfig(body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -127,7 +128,7 @@ func main() {
 		}
 	})
 
-mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/updates/latest", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		info := engine.CheckUpdateCached()
 		latest := info.LatestVersion
