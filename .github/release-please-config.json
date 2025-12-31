@@ -1,0 +1,14 @@
+{
+  "release-type": "simple",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "extra-files": [
+        "VERSION"
+      ]
+    }
+  },
+  "bump-minor-pre-major": true,
+  "include-v-in-tag": true,
+  "pull-request-title-pattern": "chore${scope}: release${component} ${version}"
+}
