@@ -362,7 +362,7 @@ func (e *Engine) fetchLatestTag() UpdateInfo {
 			continue
 		}
 		ref := fields[1]
-			m := re.FindStringSubmatch(ref)
+		m := re.FindStringSubmatch(ref)
 		if m != nil {
 			// keep the full semver string without leading refs/tags/
 			tags = append(tags, "v"+m[1]+"."+m[2]+"."+m[3])
@@ -497,7 +497,17 @@ func (e *Engine) runAdminScript(action string, args ...string) {
 	// The engine runs as an unprivileged user, so we invoke them via sudo in
 	// non-interactive mode. install_full.sh provisions a sudoers rule that
 	// allows these specific scripts to run without a password.
-	cmd := exec.Command("sudo", "-n", "bash", all...)
+	// NOTE (field issue / future-proofing):
+	// We avoid mixing fixed arguments + a slice expansion directly in the
+	// exec.Command() call.
+	//
+	// In the field we hit a compile-time error at this call site:
+	//   "too many arguments in call to exec.Command"
+	// Even though `exec.Command("sudo", "-n", "bash", all...)` is normally valid.
+	// Building the full arg slice first is unambiguous and keeps the code
+	// stable across toolchain versions.
+	cmdArgs := append([]string{"-n", "bash"}, all...)
+	cmd := exec.Command("sudo", cmdArgs...)
 	cmd.Dir = repoDir
 
 	out, err := cmd.CombinedOutput()
