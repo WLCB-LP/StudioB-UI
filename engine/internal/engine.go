@@ -20,6 +20,20 @@ import (
 	"regexp"
 )
 
+// NOTE ABOUT UPDATE CHECKS
+// -----------------------
+// We intentionally support *two* ways to determine the latest version:
+//   1) Remote tags via `git ls-remote` (preferred)
+//   2) Local tags via `git -C /home/wlcb/devel/StudioB-UI tag` (fallback)
+//
+// Why the fallback exists:
+// - The update *apply* path uses the local repo and may work even when the
+//   service (stub-engine) cannot reach the network due to sandboxing.
+// - Operators should not see "Update check: failed" if the system already
+//   knows the latest tag locally.
+//
+// This keeps the UI operator-friendly and avoids false alarms.
+
 // Stable RC identifiers (names) used by UI/engine.
 // These MUST remain stable; numeric IDs are internal / DSP-level wiring.
 var rcNameToID = map[string]int{
@@ -375,7 +389,19 @@ func (e *Engine) fetchLatestTag() UpdateInfo {
 	cmd := exec.Command("git", "ls-remote", "--tags", "--refs", remote)
 	out, err := cmd.Output()
 	if err != nil {
-		info.Notes = err.Error()
+		// Remote check failed. Fall back to local tags from the on-disk repo.
+		// This is *not* a perfect replacement for a remote check, but it is
+		// better than reporting "failed" when the system has enough info
+		// locally to say "up to date".
+		latestTag, lerr := latestLocalTag("/home/wlcb/devel/StudioB-UI")
+		if lerr != nil {
+			info.Notes = err.Error()
+			info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
+			return info
+		}
+		applyLatest(&info, repo, latestTag)
+		info.Ok = true
+		info.Notes = "offline: using local tags"
 		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 		return info
 	}
@@ -396,11 +422,63 @@ func (e *Engine) fetchLatestTag() UpdateInfo {
 	}
 
 	if len(tags) == 0 {
-		info.Notes = "no semver tags found"
+		// Remote worked, but no semver tags were found. Fall back to local tags.
+		latestTag, lerr := latestLocalTag("/home/wlcb/devel/StudioB-UI")
+		if lerr != nil {
+			info.Notes = "no semver tags found"
+			info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
+			return info
+		}
+		applyLatest(&info, repo, latestTag)
+		info.Ok = true
+		info.Notes = "remote had no semver tags; using local tags"
 		info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 		return info
 	}
 
+	latestTag := latestSemverTag(tags)
+	applyLatest(&info, repo, latestTag)
+	info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
+	info.Ok = true
+	return info
+}
+
+// applyLatest fills the common fields of UpdateInfo based on a semver tag.
+func applyLatest(info *UpdateInfo, repo string, latestTag string) {
+	latest := normalizeVersion(latestTag)
+	info.LatestVersion = latest
+	info.UpdateAvailable = normalizeVersion(info.CurrentVersion) != latest
+	info.PageURL = "https://github.com/" + repo
+}
+
+// latestLocalTag returns the latest semver tag from a local git repo.
+// This is intentionally "read-only" and does not perform any fetch.
+func latestLocalTag(repoPath string) (string, error) {
+	cmd := exec.Command("git", "-C", repoPath, "tag", "--list", "v*.*.*")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	tags := []string{}
+	for _, l := range splitLines(string(out)) {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		// Filter to strict semver tags only.
+		if regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(l) {
+			tags = append(tags, l)
+		}
+	}
+	if len(tags) == 0 {
+		return "", fmt.Errorf("no semver tags in local repo")
+	}
+	return latestSemverTag(tags), nil
+}
+
+// latestSemverTag returns the latest tag (highest semver) from a slice.
+// Tags must be formatted like vMAJOR.MINOR.PATCH.
+func latestSemverTag(tags []string) string {
 	// Sort tags by semver ascending, take last as latest.
 	sort.Slice(tags, func(i, j int) bool {
 		ai := strings.TrimPrefix(tags[i], "v")
@@ -424,16 +502,7 @@ func (e *Engine) fetchLatestTag() UpdateInfo {
 		}
 		return apt < bpt
 	})
-
-	latestTag := tags[len(tags)-1]
-	latest := normalizeVersion(latestTag)
-
-	info.LatestVersion = latest
-	info.UpdateAvailable = normalizeVersion(e.version) != latest
-	info.PageURL = "https://github.com/" + repo
-	info.CheckedAt = time.Now().UTC().Format(time.RFC3339)
-	info.Ok = true
-	return info
+	return tags[len(tags)-1]
 }
 
 func (e *Engine) QueueUpdateLatest() error {

@@ -34,9 +34,12 @@ fi
 tmp="${INDEX_HTML}.tmp"
 
 # Update BOTH app.js and styles.css query strings.
+# NOTE: In sed's default (basic) regex, '?' is literal unless escaped.
+# The previous pattern used '\\?' which GNU sed interprets as a regex
+# quantifier, so the replacement silently failed. We keep '?' UNESCAPED.
 sed \
-  -e "s|/app\\.js\\?v=[0-9.]*|/app.js?v=${VER}|g" \
-  -e "s|/styles\\.css\\?v=[0-9.]*|/styles.css?v=${VER}|g" \
+  -e "s|/app\\.js?v=[0-9.]*|/app.js?v=${VER}|g" \
+  -e "s|/styles\\.css?v=[0-9.]*|/styles.css?v=${VER}|g" \
   "${INDEX_HTML}" > "${tmp}"
 
 mv "${tmp}" "${INDEX_HTML}"

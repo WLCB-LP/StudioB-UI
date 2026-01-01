@@ -1,3 +1,7 @@
+## v0.2.6 - 2025-12-31
+
+- Updates: make update-check robust by falling back to local git tags when remote checks fail (prevents false "Update check: failed" when the system already knows the latest tag locally).
+
 ## v0.2.5 - 2025-12-31
 
 ### Fixed
