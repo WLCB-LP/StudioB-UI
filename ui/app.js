@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.12";
+const UI_BUILD_VERSION = "0.2.13";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -577,6 +577,7 @@ if(__upPill){
 }
 requestAnimationFrame(meterAnimate);
 async function pollUpdate(){
+  state.update = state.update || {};
   try{
     // Update-check should never falsely report "failed" just because ONE endpoint
     // is temporarily unreachable during restart / proxy flaps.
@@ -599,6 +600,20 @@ async function pollUpdate(){
     // Expose raw payload for quick operator debugging in the browser console.
     // Example: window.__lastUpdateCheck
     window.__lastUpdateCheck = upd;
+
+    // Render update-check results immediately after parsing so the UI
+    // never gets stuck showing the startup placeholder ("pending") just
+    // because a later, non-critical step throws.
+    const currFromUpd = (upd.currentVersion || "").toString().trim();
+    const latestFromUpd = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");
+    const updAvailFromUpd = (typeof upd.updateAvailable === "boolean")
+      ? !!upd.updateAvailable
+      : !!(latestFromUpd && currFromUpd && latestFromUpd !== currFromUpd);
+    const checkedFromUpd = (upd && upd.checkedAt) ? String(upd.checkedAt) : "";
+    const earlyMsg = updAvailFromUpd
+      ? ("Update available: v" + latestFromUpd)
+      : (currFromUpd ? ("Up to date (v" + currFromUpd + ")") : "Update check: ok");
+    setUpdateCheckMsg(earlyMsg, checkedFromUpd ? ("Last checked: " + checkedFromUpd) : "");
 
     let health = null;
     try{

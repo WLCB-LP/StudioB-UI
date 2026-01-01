@@ -1,3 +1,7 @@
+## v0.2.13 - 2026-01-01
+
+- UI: fix update-check rendering so the status message can never remain stuck on the startup “pending…” placeholder if a later non-critical step throws during polling. The UI now renders `/api/update/check` results immediately after parsing.
+
 ## v0.2.12 - 2026-01-01
 
 - UI: fix update-status messaging getting stuck on “Update check failed” in environments where sessionStorage is disabled (auto-refresh no longer aborts update rendering).
