@@ -5,7 +5,12 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.11";
+const UI_BUILD_VERSION = "0.2.12";
+
+// One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
+// survives a reload, but we also keep an in-memory flag so browsers with
+// disabled storage won't get stuck in a refresh loop.
+let autoRefreshDone = false;
 
 const state = {
   connected: false,
@@ -517,6 +522,13 @@ async function waitForVersion(expectedVersion){
 
 // Update check: poll GitHub releases via engine (once/minute)
 async function updateLoop(){
+  // On cold load, show a friendly placeholder so operators don't see a sticky
+  // "failed" banner while the first check is still in-flight.
+  // pollUpdate() will overwrite this on the first successful response.
+  if(!(state.update && state.update.lastMsg)){
+    state.update = state.update || {};
+    setUpdateCheckMsg("Update check: pending…", "Waiting for first successful check");
+  }
   await pollUpdate();
   setTimeout(updateLoop, 60000);
 }
@@ -610,12 +622,19 @@ async function pollUpdate(){
     // certainly running stale cached JS/CSS. Trigger a one-time hard reload.
     // This prevents "I updated but it still looks old" confusion.
     try{
-      const did = sessionStorage.getItem("studiob_autorefresh_done") === "1";
+      let did = autoRefreshDone;
+      try{
+        did = did || (sessionStorage.getItem("studiob_autorefresh_done") === "1");
+      }catch(_e){ /* storage may be disabled */ }
+
       if(!did && current && UI_BUILD_VERSION && String(current) !== String(UI_BUILD_VERSION)){
-        sessionStorage.setItem("studiob_autorefresh_done", "1");
+        autoRefreshDone = true;
+        try{ sessionStorage.setItem("studiob_autorefresh_done", "1"); }catch(_e){ /* ignore */ }
         setStatus(`New engine v${current} detected (UI v${UI_BUILD_VERSION}). Refreshing…`);
+        // IMPORTANT: do NOT return early. Some browsers disable storage and/or
+        // block the reload, which used to leave the page stuck showing
+        // "Update check failed" even though /api/update/check was healthy.
         setTimeout(hardReload, 600);
-        return;
       }
     }catch(_e){ /* ignore */ }
     if(health && health.mode){
@@ -725,11 +744,13 @@ async function pollUpdate(){
     }
 
     // Don't let a brief hiccup overwrite a recent successful check.
-    // If we *do* have a last known-good message, keep showing it. Otherwise show failed.
+    // If we *do* have a last known-good message, keep showing it.
+    // Otherwise, show a non-alarming retry message (the engine can legitimately
+    // be restarting during updates / nginx reloads).
     if(state.update.lastMsg){
       setUpdateCheckMsg(state.update.lastMsg, state.update.lastTitle);
     }else{
-      setUpdateCheckMsg("Update check: failed", state.update.lastErr);
+      setUpdateCheckMsg("Update check: retrying…", state.update.lastErr);
     }
   }
 }

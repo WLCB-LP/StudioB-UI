@@ -1,3 +1,8 @@
+## v0.2.12 - 2026-01-01
+
+- UI: fix update-status messaging getting stuck on “Update check failed” in environments where sessionStorage is disabled (auto-refresh no longer aborts update rendering).
+- UI: show a neutral “Update check: pending…” message until the first check completes.
+
 ## v0.2.11 - 2026-01-01
 
 ### Fixed
