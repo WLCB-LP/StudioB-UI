@@ -1,3 +1,12 @@
+## v0.2.15
+
+- Add a **watchdog** service (`stub-ui-watchdog`) that continuously monitors:
+  - `stub-engine`
+  - `nginx`
+  - `stub-ui-watch` (release folder watcher)
+  
+  It logs to journald and `/var/log/stub-ui-watchdog.log`, and performs safe auto-repair actions (restart services, reload nginx, repair a broken runtime `current` symlink). It can also repair nginx config by invoking `scripts/install_full.sh --configure-nginx-only`.
+
 ## v0.2.14
 - Test-only release: bump version to validate update notification and pipeline.
 

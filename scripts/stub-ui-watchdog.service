@@ -1,0 +1,23 @@
+[Unit]
+Description=Watchdog for Studio B UI (stub-engine, nginx, release watcher)
+After=network.target nginx.service
+Wants=nginx.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+# Use the currently deployed runtime scripts so watchdog updates automatically on release switch.
+ExecStart=/usr/bin/bash /home/wlcb/.StudioB-UI/runtime/current/scripts/stub-ui-watchdog.sh
+Restart=always
+RestartSec=5
+
+# Hardening (keep modest so we don't break diagnostics)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/var/log /home/wlcb/.StudioB-UI
+
+[Install]
+WantedBy=multi-user.target

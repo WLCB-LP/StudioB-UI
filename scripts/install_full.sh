@@ -311,9 +311,26 @@ install_watcher() {
   systemctl restart stub-ui-watch
 }
 
+install_watchdog() {
+  log "Installing watchdog service…"
+
+  # The watchdog service runs from the *current* runtime folder so it
+  # automatically updates as new releases are deployed.
+  install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.service" /etc/systemd/system/stub-ui-watchdog.service
+
+  # Ensure script is executable in the repo (it will be copied into releases
+  # as part of build_and_stage_release -> rsync scripts/).
+  chmod +x "${REPO_DIR}/scripts/stub-ui-watchdog.sh" || true
+
+  systemctl daemon-reload
+  systemctl enable --now stub-ui-watchdog
+  systemctl restart stub-ui-watchdog
+}
+
 health_check() {
   log "Running health checks…"
   systemctl is-active --quiet stub-engine
+  systemctl is-active --quiet stub-ui-watchdog
   curl -fsS http://127.0.0.1:8787/api/health >/dev/null
   curl -fsS http://127.0.0.1/api/health >/dev/null
   log "OK: engine responds and nginx proxy is healthy"
@@ -347,8 +364,33 @@ EOF
   fi
 }
 
+###############################################################################
+# Optional "one-shot" modes
+#
+# The watchdog can invoke this installer in a narrow, safe mode to repair
+# nginx config without doing a full rebuild/redeploy.
+###############################################################################
+
+MODE_FULL=1
+MODE_NGINX_ONLY=0
+if [[ "${1:-}" == "--configure-nginx-only" ]]; then
+  MODE_FULL=0
+  MODE_NGINX_ONLY=1
+fi
+
 main() {
   require_root
+
+  # Narrow, safe mode used by the watchdog.
+  if [[ "${MODE_NGINX_ONLY}" == "1" ]]; then
+    log "Running in --configure-nginx-only mode"
+    configure_nginx
+    systemctl reload nginx || true
+    nginx -t
+    log "nginx-only configuration complete"
+    return 0
+  fi
+
   apt_install
   ensure_user
   ensure_dirs
@@ -361,6 +403,7 @@ main() {
   configure_systemd
   configure_sudoers
   install_watcher
+  install_watchdog
   health_check
   log "Install complete. Open: http://<vm-ip>/"
   log "IMPORTANT: set admin.pin in ${CONFIG_FILE}"
