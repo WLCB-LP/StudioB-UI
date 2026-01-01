@@ -5,14 +5,23 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.5";
+const UI_BUILD_VERSION = "0.2.9";
 
 const state = {
   connected: false,
   lastOkAt: 0,
   version: "—",
   mode: "—",
-  update: { ok:false, available:false, latest:"", checkedAt:"" },
+  update: {
+    ok:false,
+    available:false,
+    latest:"",
+    checkedAt:"",
+    // UI-only diagnostics (never sent to the engine)
+    lastMsg:"",
+    lastTitle:"",
+    lastErr:"",
+  },
   // meter smoothing
   meters: {
     pgmL: { cur: 0, tgt: 0 },
@@ -513,6 +522,25 @@ async function updateLoop(){
 }
 updateLoop();
 
+// Keep the "Update check" message in sync even across transient network hiccups.
+// We deliberately do NOT want a sticky false "failed" message when the backend
+// is healthy (common during restarts / proxy flaps).
+function renderUpdateCheckMsg(){
+  const ucm = document.getElementById("updateCheckMsg");
+  if(!ucm) return;
+
+  // If we have a last known-good message, prefer it.
+  if(state.update && state.update.lastMsg){
+    ucm.textContent = state.update.lastMsg;
+    ucm.title = state.update.lastTitle || "";
+    return;
+  }
+
+  // Otherwise keep it honest.
+  ucm.textContent = "Update check: failed";
+  ucm.title = state.update && state.update.lastErr ? String(state.update.lastErr) : "No details";
+}
+
 // Clicking the update pill jumps to Engineering (PIN-gated)
 const __upPill = document.getElementById("updatePill");
 if(__upPill){
@@ -531,6 +559,9 @@ async function pollUpdate(){
     // We *optionally* consult /api/health for mode/version because it reflects the
     // running engine even if WebSocket hasn't reconnected yet.
     const upd = await fetch("/api/update/check").then(r=>r.json());
+    // Expose raw payload for quick operator debugging in the browser console.
+    // Example: window.__lastUpdateCheck
+    window.__lastUpdateCheck = upd;
 
     let health = null;
     try{
@@ -590,43 +621,54 @@ async function pollUpdate(){
     }
     // Surface update-check diagnostics on Engineering page.
     // This is intentionally operator-friendly: if the update pill never shows, this tells us WHY.
-    const ucm = document.getElementById("updateCheckMsg");
-    if(ucm){
+    // Compute a human-friendly message and store it on state so it can't get stuck
+    // in an old "failed" state.
+    let msg = "";
+    let title = "";
+
       // IMPORTANT: "Update check" is NOT the same thing as "Update available".
       // - The check can succeed and still have *no* update available (latest == current).
       // - The check can be "disabled" (repo not configured) without being a system failure.
       // This message should be operator-friendly and never falsely scream "failed".
 
-      const ok = !!(upd && upd.ok === true);
+      // Treat the check as "ok" if the engine explicitly says so OR if it
+      // returns the expected fields. This prevents a sticky false-negative UI
+      // if an older engine omits the boolean.
+      const ok = !!(upd && (upd.ok === true || upd.currentVersion || upd.latestVersion || typeof upd.updateAvailable === "boolean"));
       const notes = (upd && (upd.notes || "")) ? String(upd.notes) : "";
       const checked = (upd && upd.checkedAt) ? String(upd.checkedAt) : "";
 
       if(ok){
         if(state.update.available){
-          ucm.textContent = "Update available: v" + latest;
+          msg = "Update available: v" + latest;
         }else if(current){
-          ucm.textContent = "Up to date (v" + current + ")";
+          msg = "Up to date (v" + current + ")";
         }else{
-          ucm.textContent = "Update check: ok";
+          msg = "Update check: ok";
         }
-        ucm.title = checked ? ("Last checked: " + checked) : "";
+        title = checked ? ("Last checked: " + checked) : "";
       }else{
         // If the engine returns a clear reason (like "not configured"), show that as a
         // non-fatal state instead of "failed".
         const lower = notes.toLowerCase();
         if(lower.includes("not configured") || lower.includes("disabled")){
-          ucm.textContent = "Update check: disabled";
-          ucm.title = (notes ? notes : "Disabled") + (checked ? ("\nLast checked: " + checked) : "");
+          msg = "Update check: disabled";
+          title = (notes ? notes : "Disabled") + (checked ? ("\nLast checked: " + checked) : "");
         }else if(notes){
-          ucm.textContent = "Update check: failed";
-          ucm.title = notes + (checked ? ("\nLast checked: " + checked) : "");
+          msg = "Update check: failed";
+          title = notes + (checked ? ("\nLast checked: " + checked) : "");
         }else{
           // If we have no diagnostic info, keep it short but honest.
-          ucm.textContent = "Update check: failed";
-          ucm.title = checked ? ("Last checked: " + checked) : "No details";
+          msg = "Update check: failed";
+          title = checked ? ("Last checked: " + checked) : "No details";
         }
       }
-    }
+
+    // Store last computed message so transient failures can't make it stick forever.
+    state.update.lastMsg = msg;
+    state.update.lastTitle = title;
+    state.update.lastErr = "";
+    renderUpdateCheckMsg();
 
     // If an update was initiated and the version changed, proactively refresh the page.
     // This ensures the UI JS/CSS bundle always matches the running engine.
@@ -644,11 +686,9 @@ async function pollUpdate(){
       btn.classList.remove("flash");
       btn.textContent = "Update";
       btn.title = "Update check failed";
-    const ucm = document.getElementById("updateCheckMsg");
-    if(ucm){
-      ucm.textContent = "Update check: failed";
-      ucm.title = (e && e.message) ? e.message : "Unknown error";
-    }
+    // Don't let a brief hiccup overwrite a recent successful check.
+    state.update.lastErr = (e && e.message) ? e.message : "Unknown error";
+    renderUpdateCheckMsg();
     }
   }
 }

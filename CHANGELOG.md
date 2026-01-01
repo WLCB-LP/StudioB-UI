@@ -1,8 +1,7 @@
-## v0.2.8 - 2026-01-01
+## v0.2.9 - 2026-01-01
 
 ### Fixed
-- UI: update-check status no longer falsely reports failure if /api/health is temporarily unreachable; update status is always derived from /api/update/check, with /api/health treated as optional.
-- Ops: avoids the v0.2.7 /api/health duplicate-route panic by ensuring the engine registers /api/health only once.
+- UI: fix update-status correctness by ensuring the UI bundle's embedded build version is synced to `VERSION` (via `scripts/sync_ui_cachebuster.sh`). This prevents "new engine / old UI" false positives that could leave the update UI in a confusing state.
 
 
 ## v0.2.8 - 2026-01-01

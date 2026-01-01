@@ -15,6 +15,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${ROOT_DIR}/VERSION"
 INDEX_HTML="${ROOT_DIR}/ui/index.html"
+APP_JS="${ROOT_DIR}/ui/app.js"
 
 if [[ ! -f "${VERSION_FILE}" ]]; then
   echo "[sync_ui_cachebuster] ERROR: missing VERSION at ${VERSION_FILE}" >&2
@@ -22,6 +23,10 @@ if [[ ! -f "${VERSION_FILE}" ]]; then
 fi
 if [[ ! -f "${INDEX_HTML}" ]]; then
   echo "[sync_ui_cachebuster] ERROR: missing ui/index.html at ${INDEX_HTML}" >&2
+  exit 1
+fi
+if [[ ! -f "${APP_JS}" ]]; then
+  echo "[sync_ui_cachebuster] ERROR: missing ui/app.js at ${APP_JS}" >&2
   exit 1
 fi
 
@@ -43,4 +48,14 @@ sed \
   "${INDEX_HTML}" > "${tmp}"
 
 mv "${tmp}" "${INDEX_HTML}"
+
+# Also keep the UI's embedded build version in sync.
+# This is important because we use UI_BUILD_VERSION to detect "new engine / old UI"
+# mismatches and trigger a one-time hard reload.
+tmp_js="${APP_JS}.tmp"
+sed \
+  -e "s|^const UI_BUILD_VERSION = \"[0-9.]*\";|const UI_BUILD_VERSION = \"${VER}\";|" \
+  "${APP_JS}" > "${tmp_js}"
+mv "${tmp_js}" "${APP_JS}"
+
 echo "[sync_ui_cachebuster] Synced UI asset versions to v${VER}"
