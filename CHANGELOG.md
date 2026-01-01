@@ -1,5 +1,11 @@
 ## v0.2.15
 
+## v0.2.16 - 2026-01-01
+
+- Harden installer success checks for systemd units (watchdog + watcher).
+- Installer now logs to journald via `logger` for post-mortem debugging.
+
+
 - Add a **watchdog** service (`stub-ui-watchdog`) that continuously monitors:
   - `stub-engine`
   - `nginx`

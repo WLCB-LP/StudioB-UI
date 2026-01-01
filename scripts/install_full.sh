@@ -26,7 +26,32 @@ SYSTEMD_UNIT="${SYSTEMD_UNIT:-/etc/systemd/system/stub-engine.service}"
 ENGINE_ENV_FILE="${ENGINE_ENV_FILE:-/etc/stub-engine.env}"
 WATCH_ENV_FILE="${WATCH_ENV_FILE:-/etc/stub-ui-watch.env}"
 
-log() { echo "[install] $*"; }
+log() {
+  echo "[install] $*"
+  # Also write to journald so UI-triggered updates can be debugged via `journalctl`.
+  logger -t stub-ui-install -- "[install] $*" || true
+}
+
+assert_active() {
+  local unit="$1"
+  if ! systemctl is-active --quiet "${unit}"; then
+    log "ERROR: systemd unit is not active: ${unit}"
+    systemctl status "${unit}" --no-pager -l || true
+    return 1
+  fi
+  return 0
+}
+
+assert_file() {
+  local path="$1"
+  if [[ ! -f "${path}" ]]; then
+    log "ERROR: expected file missing: ${path}"
+    return 1
+  fi
+  return 0
+}
+
+
 
 require_root() {
   if [[ "$(id -u)" -ne 0 ]]; then
@@ -306,9 +331,13 @@ install_watcher() {
   log "Installing folder watcher service…"
   install -m 0755 "${REPO_DIR}/scripts/stub-ui-watch.sh" /usr/local/bin/stub-ui-watch.sh
   install -m 0644 "${REPO_DIR}/scripts/stub-ui-watch.service" /etc/systemd/system/stub-ui-watch.service
+
   systemctl daemon-reload
   systemctl enable --now stub-ui-watch
   systemctl restart stub-ui-watch
+
+  # Hard requirement: if the watcher isn't running, the install MUST fail loudly.
+  assert_active stub-ui-watch
 }
 
 install_watchdog() {
@@ -325,6 +354,12 @@ install_watchdog() {
   systemctl daemon-reload
   systemctl enable --now stub-ui-watchdog
   systemctl restart stub-ui-watchdog
+
+  # Hard requirement: watchdog MUST be running after install, or we abort.
+  assert_active stub-ui-watchdog
+
+  # Also sanity-check the runtime script path the unit will execute.
+  assert_file "${RUNTIME_DIR}/current/scripts/stub-ui-watchdog.sh"
 }
 
 health_check() {
