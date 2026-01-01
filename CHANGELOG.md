@@ -1,3 +1,9 @@
+## v0.2.7 - 2025-12-31
+
+- Fix: update-check notifications no longer show "failed" when `/api/health` is unavailable.
+- Engine: add `/api/health` endpoint (alias of `/api/version`) so UI can reliably fetch current version/mode.
+- UI: update-check now gracefully falls back to `/api/version` if `/api/health` fetch fails.
+
 ## v0.2.6 - 2025-12-31
 
 - Updates: make update-check robust by falling back to local git tags when remote checks fail (prevents false "Update check: failed" when the system already knows the latest tag locally).

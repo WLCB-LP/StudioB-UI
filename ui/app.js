@@ -526,7 +526,18 @@ async function pollUpdate(){
   try{
     // Prefer /api/health because it reflects the running engine even if the WebSocket
     // hasn't reconnected yet (for example, immediately after an update/restart).
-    const health = await fetch("/api/health").then(r=>r.json());
+    let health = {};
+    try{
+      health = await fetch("/api/health").then(r=>r.json());
+    }catch(e){
+      // Backward/compat: older engines may not expose /api/health.
+      // Fall back to /api/version so update notifications still work.
+      try{
+        health = await fetch("/api/version").then(r=>r.json());
+      }catch(_e){
+        health = {};
+      }
+    }
     const upd = await fetch("/api/update/check").then(r=>r.json());
     const current = (health.version || upd.currentVersion || "").toString().trim();
     const latest = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");

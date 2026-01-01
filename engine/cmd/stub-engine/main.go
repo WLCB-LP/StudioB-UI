@@ -51,6 +51,16 @@ func main() {
 		})
 	})
 
+	// Health (alias of /api/version). Some UI code prefers /api/health; keep this stable.
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"version": engine.Version(),
+			"time":    time.Now().UTC().Format(time.RFC3339),
+			"mode":    cfg.DSP.Mode,
+		})
+	})
+
 	// Latest available version (git tags via engine update checker)
 
 	// Config (read-only; safe subset). Useful for debugging mode + DSP connection config.
