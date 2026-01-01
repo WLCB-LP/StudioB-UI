@@ -1,3 +1,6 @@
+## v0.2.19
+- Test-only release bump to validate updater + watchdog enable/disable behavior.
+
 ## v0.2.18
 - Harden installer journald logging: add error/success traps and detailed failure output.
 - Ensure watchdog is (re)enabled and started during installs, even if previously stopped/disabled.
