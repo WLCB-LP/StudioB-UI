@@ -1,3 +1,7 @@
+
+## v0.2.25
+- Fix: installer no longer runs 'go mod tidy' during updates; builds with -mod=readonly and stable caches to prevent update failures.
+
 ## v0.2.24 (2026-01-01)
 
 ### Fixed

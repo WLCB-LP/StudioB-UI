@@ -291,15 +291,33 @@ deploy_release() {
   log "Building engine -> ${rel}/${ENGINE_BIN}"
   pushd "${REPO_DIR}/engine" >/dev/null
   # Ensure module metadata is complete (creates/updates go.sum)
-  sudo -u "${APP_USER}" bash -lc "cd \"${REPO_DIR}/engine\" && go mod tidy"
+  # NOTE: We intentionally do NOT run `go mod tidy` during installs/updates.
+  # It can mutate go.sum and may require network access.
+  # We rely on checked-in go.mod/go.sum and build in readonly mode instead.
+  # It can mutate go.sum and may require network access.
+  # We rely on checked-in go.mod/go.sum and build in readonly mode.
   VER="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
 
-  sudo -u "${APP_USER}" env -i \
-  HOME="/home/${APP_USER}" \
-  PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-  VER="${VER}" \
-  /usr/bin/go build -ldflags "-X main.version=${VER}" \
-  -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine
+  # Build in a minimal, deterministic environment.
+  # - We pin GOPATH so the module cache is stable across root/systemd-run contexts.
+  # - We build with -mod=readonly so Go will NOT attempt to edit go.sum or fetch new deps.
+  #   If a dependency is missing, the build will fail loudly and we'll capture the error.
+  BUILD_OUT="${rel}/.go-build.log"
+  : > "${BUILD_OUT}"
+
+  if ! sudo -u "${APP_USER}" env -i \
+    HOME="/home/${APP_USER}" \
+    PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    GOPATH="/home/${APP_USER}/go" \
+    GOMODCACHE="/home/${APP_USER}/go/pkg/mod" \
+    GOCACHE="/home/${APP_USER}/.cache/go-build" \
+    VER="${VER}" \
+    /usr/bin/go build -mod=readonly -ldflags "-X main.version=${VER}" \
+    -o "${rel}/${ENGINE_BIN}" ./cmd/stub-engine >"${BUILD_OUT}" 2>&1; then
+    log "ERROR: go build failed. Last 120 lines:"
+    tail -n 120 "${BUILD_OUT}" | sed -e "s/^/[go-build] /" || true
+    return 1
+  fi
   popd >/dev/null
 
   chmod 755 "${rel}/${ENGINE_BIN}"
