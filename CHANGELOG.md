@@ -1,3 +1,10 @@
+## v0.2.11 - 2026-01-01
+
+### Fixed
+- UI: finalize separation between **Admin action status** (update/rollback workflow) and **Update-check status** (GitHub/latest-version polling). During an in-progress update/rollback, transient update-check failures no longer overwrite the last known-good update-check message.
+- UI: make `/api/update/check` parsing more defensive (treat non-JSON responses as transient errors and keep the last known-good status).
+
+
 ## v0.2.10 - 2026-01-01
 
 ### Fixed

@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.10";
+const UI_BUILD_VERSION = "0.2.11";
 
 const state = {
   connected: false,
@@ -572,7 +572,18 @@ async function pollUpdate(){
     // We always trust /api/update/check for update status.
     // We *optionally* consult /api/health for mode/version because it reflects the
     // running engine even if WebSocket hasn't reconnected yet.
-    const upd = await fetch("/api/update/check").then(r=>r.json());
+    // NOTE:
+    // Operators previously saw a sticky "Update check failed" even when the backend
+    // was healthy. The most common cause was a transient non-JSON response during
+    // restarts (nginx/engine reload windows). If we cannot parse JSON, treat it as
+    // a transient error and *do not* clobber a recent successful message.
+    const updText = await fetch("/api/update/check").then(r=>r.text());
+    let upd = null;
+    try{
+      upd = JSON.parse(updText);
+    }catch(parseErr){
+      throw new Error("update/check returned non-JSON: " + String(updText).slice(0, 120));
+    }
     // Expose raw payload for quick operator debugging in the browser console.
     // Example: window.__lastUpdateCheck
     window.__lastUpdateCheck = upd;
@@ -700,11 +711,22 @@ async function pollUpdate(){
       btn.title = "Update check failed";
     }
 
+    // Separation of concerns:
+    // - Admin action status lives in #svcMsg
+    // - Update-check status lives in #updateCheckMsg
+    // During an update/rollback the service *will* restart, so update-check can briefly
+    // fail. That is expected and should not spam "failed" while the operator already
+    // sees "Update queued…".
+    state.update.lastErr = (e && e.message) ? e.message : "Unknown error";
+    if(state.update && state.update.inProgress && state.update.lastMsg){
+      // Keep the last known-good message during an in-progress update.
+      setUpdateCheckMsg(state.update.lastMsg, state.update.lastTitle);
+      return;
+    }
+
     // Don't let a brief hiccup overwrite a recent successful check.
     // If we *do* have a last known-good message, keep showing it. Otherwise show failed.
-    state.update.lastErr = (e && e.message) ? e.message : "Unknown error";
     if(state.update.lastMsg){
-      // Re-apply the last known-good message (in case the DOM was recreated)
       setUpdateCheckMsg(state.update.lastMsg, state.update.lastTitle);
     }else{
       setUpdateCheckMsg("Update check: failed", state.update.lastErr);
