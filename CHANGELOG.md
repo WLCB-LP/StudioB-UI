@@ -1,3 +1,9 @@
+## v0.2.10 - 2026-01-01
+
+### Fixed
+- UI: "Update check" status message is no longer sticky. It now always reflects the latest `/api/update/check` poll result (a prior transient failure cannot leave the UI stuck on "Update check: failed").
+
+
 ## v0.2.9 - 2026-01-01
 
 ### Fixed

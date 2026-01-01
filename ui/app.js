@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.9";
+const UI_BUILD_VERSION = "0.2.10";
 
 const state = {
   connected: false,
@@ -541,6 +541,20 @@ function renderUpdateCheckMsg(){
   ucm.title = state.update && state.update.lastErr ? String(state.update.lastErr) : "No details";
 }
 
+// Update the on-page message *and* keep our state snapshot in sync.
+// This is intentionally simple and "stateless": every successful poll
+// should overwrite any previous "failed" message.
+function setUpdateCheckMsg(msg, title){
+  // Keep state for debugging / tooltips.
+  state.update.lastMsg = msg || "";
+  state.update.lastTitle = title || "";
+
+  const ucm = document.getElementById("updateCheckMsg");
+  if(!ucm) return;
+  ucm.textContent = state.update.lastMsg;
+  ucm.title = state.update.lastTitle;
+}
+
 // Clicking the update pill jumps to Engineering (PIN-gated)
 const __upPill = document.getElementById("updatePill");
 if(__upPill){
@@ -664,11 +678,9 @@ async function pollUpdate(){
         }
       }
 
-    // Store last computed message so transient failures can't make it stick forever.
-    state.update.lastMsg = msg;
-    state.update.lastTitle = title;
+    // Overwrite any previous "failed" message with the latest known-good result.
     state.update.lastErr = "";
-    renderUpdateCheckMsg();
+    setUpdateCheckMsg(msg, title);
 
     // If an update was initiated and the version changed, proactively refresh the page.
     // This ensures the UI JS/CSS bundle always matches the running engine.
@@ -686,9 +698,16 @@ async function pollUpdate(){
       btn.classList.remove("flash");
       btn.textContent = "Update";
       btn.title = "Update check failed";
+    }
+
     // Don't let a brief hiccup overwrite a recent successful check.
+    // If we *do* have a last known-good message, keep showing it. Otherwise show failed.
     state.update.lastErr = (e && e.message) ? e.message : "Unknown error";
-    renderUpdateCheckMsg();
+    if(state.update.lastMsg){
+      // Re-apply the last known-good message (in case the DOM was recreated)
+      setUpdateCheckMsg(state.update.lastMsg, state.update.lastTitle);
+    }else{
+      setUpdateCheckMsg("Update check: failed", state.update.lastErr);
     }
   }
 }
