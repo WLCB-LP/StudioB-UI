@@ -1,3 +1,8 @@
+## v0.2.20 - 2026-01-01
+
+- Installer: preserve existing stub-ui-watchdog enable/disable state during updates; enable watchdog by default on fresh installs.
+- Installer: ensure watchdog stop/disable is respected when user has disabled it (no surprise restarts).
+
 ## v0.2.19
 - Test-only release bump to validate updater + watchdog enable/disable behavior.
 

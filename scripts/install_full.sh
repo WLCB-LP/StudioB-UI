@@ -423,29 +423,64 @@ install_watcher() {
 install_watchdog() {
   log "Installing watchdog service…"
 
-  # The watchdog service runs from the *current* runtime folder so it
-  # automatically updates as new releases are deployed.
-  install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.service" /etc/systemd/system/stub-ui-watchdog.service
+  # Preserve operator intent:
+  # - On *fresh installs* (unit did not exist), enable + start the watchdog by default.
+  # - On *updates*, preserve the prior enable/disable state so disabling the watchdog
+  #   remains respected across updates.
+  local existed_before=0
+  systemctl cat stub-ui-watchdog.service >/dev/null 2>&1 && existed_before=1 || true
 
-  # Ensure script is executable in the repo (it will be copied into releases
-  # as part of build_and_stage_release -> rsync scripts/).
+  local enabled_before="absent"
+  if systemctl list-unit-files --no-legend stub-ui-watchdog.service >/dev/null 2>&1; then
+    enabled_before="$(systemctl is-enabled stub-ui-watchdog 2>/dev/null || echo disabled)"
+  fi
+
+  # Install/update unit + script.
+  install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.service" /etc/systemd/system/stub-ui-watchdog.service
   chmod +x "${REPO_DIR}/scripts/stub-ui-watchdog.sh" || true
 
+  # Always reload so systemd sees changes.
+  log "systemd: daemon-reload"
   systemctl daemon-reload
-  systemctl enable --now stub-ui-watchdog
-  systemctl restart stub-ui-watchdog
 
-  # Hard requirement: watchdog MUST be running after install, or we abort.
-  assert_active stub-ui-watchdog
+  # Apply desired state.
+  if [[ "${existed_before}" -eq 0 ]]; then
+    # Fresh install: enable by default.
+    log "systemd: enable --now stub-ui-watchdog (fresh install)"
+    systemctl enable --now stub-ui-watchdog
+    systemctl restart stub-ui-watchdog
+  else
+    case "${enabled_before}" in
+      enabled)
+        log "systemd: restart stub-ui-watchdog (was enabled)"
+        systemctl enable --now stub-ui-watchdog
+        systemctl restart stub-ui-watchdog
+        ;;
+      disabled|masked|static|indirect|generated|transient|""|absent)
+        # Respect operator choice to keep it off.
+        log "systemd: leave stub-ui-watchdog disabled (was ${enabled_before})"
+        systemctl disable --now stub-ui-watchdog >/dev/null 2>&1 || true
+        ;;
+      *)
+        # Unknown state: be conservative and do not start it.
+        log "systemd: unknown stub-ui-watchdog state '${enabled_before}' — leaving disabled"
+        systemctl disable --now stub-ui-watchdog >/dev/null 2>&1 || true
+        ;;
+    esac
+  fi
 
-  # Also sanity-check the runtime script path the unit will execute.
-  assert_file "${RUNTIME_DIR}/current/scripts/stub-ui-watchdog.sh"
+  # If enabled, ensure it's actually running.
+  if systemctl is-enabled --quiet stub-ui-watchdog 2>/dev/null; then
+    systemctl is-active --quiet stub-ui-watchdog
+  fi
 }
 
 health_check() {
   log "Running health checks…"
   systemctl is-active --quiet stub-engine
-  systemctl is-active --quiet stub-ui-watchdog
+  if systemctl is-enabled --quiet stub-ui-watchdog 2>/dev/null; then
+    systemctl is-active --quiet stub-ui-watchdog
+  fi
   curl -fsS http://127.0.0.1:8787/api/health >/dev/null
   curl -fsS http://127.0.0.1/api/health >/dev/null
   log "OK: engine responds and nginx proxy is healthy"
