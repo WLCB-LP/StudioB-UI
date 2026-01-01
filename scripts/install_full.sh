@@ -537,7 +537,8 @@ configure_sudoers() {
 ${APP_USER} ALL=(root) NOPASSWD: \
   /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/install_full.sh, \
   /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-update.sh, \
-  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-rollback.sh
+  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-rollback.sh, \
+  /bin/bash /home/${APP_USER}/.StudioB-UI/runtime/*/scripts/admin-watchdog-start.sh
 EOF
 
   chmod 0440 "${sudoers_file}"

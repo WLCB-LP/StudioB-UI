@@ -34,6 +34,24 @@ CHECK_INTERVAL_SECONDS=15
 ENGINE_HEALTH_FAIL_THRESHOLD=2
 engine_fail_count=0
 
+# "Last known good" marker written by the watchdog when the system has
+# been healthy for a sustained period.
+LAST_GOOD_FILE="$RUNTIME_BASE/last_good.json"
+
+# How many consecutive fully-healthy loops are required before we record
+# the current release as "last known good".
+# 4 * 15s = ~60 seconds.
+GOOD_STREAK_REQUIRED=4
+good_streak=0
+
+# Rollback control.
+# If we keep failing health checks even after restarting stub-engine,
+# we can rollback runtime/current to the last known good release.
+ROLLBACK_FAIL_THRESHOLD=6
+fail_streak=0
+ROLLBACK_COOLDOWN_SECONDS=600
+last_rollback_epoch=0
+
 log() {
   local msg="$*"
   local ts
@@ -87,6 +105,94 @@ ensure_current_symlink() {
 
   ln -sfn "$newest" "$CURRENT_LINK"
   log "Repaired symlink: $CURRENT_LINK -> $newest"
+  return 0
+}
+
+current_release_path() {
+  # Resolve the current symlink to an absolute directory path.
+  # Returns empty string if it cannot be resolved.
+  if [[ -L "$CURRENT_LINK" ]]; then
+    readlink -f "$CURRENT_LINK" 2>/dev/null || true
+    return
+  fi
+  echo "" 
+}
+
+fetch_engine_version() {
+  # Best-effort: ask the engine for its version.
+  # Keep this extremely defensive; never break the watchdog if parsing fails.
+  local v
+  v="$(curl -fsS --max-time 2 http://127.0.0.1:8787/api/version 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]\+\)".*/\1/p' | head -n 1 || true)"
+  echo "${v}"
+}
+
+write_last_good() {
+  local path="$1"
+  if [[ -z "$path" ]] || [[ ! -d "$path" ]]; then
+    return 1
+  fi
+  local ts v
+  ts="$(date -Is)"
+  v="$(fetch_engine_version)"
+  cat >"$LAST_GOOD_FILE" <<EOF
+{"path":"$path","ts":"$ts","version":"$v"}
+EOF
+  log "Recorded last known good: $path (v${v:-unknown})"
+  return 0
+}
+
+read_last_good_path() {
+  if [[ ! -f "$LAST_GOOD_FILE" ]]; then
+    echo ""
+    return 0
+  fi
+  sed -n 's/.*"path"[[:space:]]*:[[:space:]]*"\([^"]\+\)".*/\1/p' "$LAST_GOOD_FILE" | head -n 1 || true
+}
+
+rollback_to_last_good() {
+  local now
+  now="$(date +%s)"
+  if (( now - last_rollback_epoch < ROLLBACK_COOLDOWN_SECONDS )); then
+    log "WARN: rollback suppressed (cooldown active)"
+    return 1
+  fi
+
+  local current target
+  current="$(current_release_path)"
+  target="$(read_last_good_path)"
+
+  # If we don't have a marker yet, fall back to "previous release" (newest excluding current).
+  if [[ -z "$target" ]] || [[ ! -d "$target" ]]; then
+    target="$(ls -1dt "$RELEASES_DIR"/* 2>/dev/null | grep -v -F "${current}" | head -n 1 || true)"
+  fi
+
+  if [[ -z "$target" ]] || [[ ! -d "$target" ]]; then
+    log "ERROR: rollback requested but no valid target found"
+    return 1
+  fi
+  if [[ -n "$current" ]] && [[ "$target" == "$current" ]]; then
+    log "ERROR: rollback target equals current; refusing"
+    return 1
+  fi
+
+  log "ROLLBACK: switching current -> $target"
+  ln -sfn "$target" "$CURRENT_LINK" || true
+
+  # Restart services to pick up the release switch.
+  restart_service stub-engine || true
+  restart_service stub-ui-watch || true
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx >/dev/null 2>&1 || restart_service nginx || true
+  else
+    restart_service nginx || true
+  fi
+
+  last_rollback_epoch="$now"
+  fail_streak=0
+  engine_fail_count=0
+  good_streak=0
+
+  log "ROLLBACK: complete"
   return 0
 }
 
@@ -148,7 +254,9 @@ main_loop() {
     done
 
     # 3) Validate and (if OK) reload nginx
+    local nginx_ok=0
     if check_nginx_config; then
+      nginx_ok=1
       # Reload only if active, otherwise restart already attempted above.
       if is_active nginx; then
         systemctl reload nginx >/dev/null 2>&1 || true
@@ -156,7 +264,43 @@ main_loop() {
     fi
 
     # 4) Engine health endpoint
-    check_engine_health || true
+    local engine_ok=0
+    if check_engine_health; then
+      engine_ok=1
+    fi
+
+    # 5) "Last known good" + rollback logic
+    # Fully healthy means:
+    #   - nginx config is valid
+    #   - nginx, stub-engine, and stub-ui-watch are active
+    #   - engine /api/health responds
+    local services_ok=0
+    if is_active nginx && is_active stub-ui-watch && is_active stub-engine; then
+      services_ok=1
+    fi
+
+    if (( nginx_ok == 1 && engine_ok == 1 && services_ok == 1 )); then
+      fail_streak=0
+      good_streak=$((good_streak + 1))
+      if (( good_streak >= GOOD_STREAK_REQUIRED )); then
+        # Only write if it changed; keep log noise down.
+        local cur
+        cur="$(current_release_path)"
+        local prev
+        prev="$(read_last_good_path)"
+        if [[ -n "$cur" ]] && [[ "$cur" != "$prev" ]]; then
+          write_last_good "$cur" || true
+        fi
+        good_streak=$GOOD_STREAK_REQUIRED
+      fi
+    else
+      good_streak=0
+      fail_streak=$((fail_streak + 1))
+      if (( fail_streak >= ROLLBACK_FAIL_THRESHOLD )); then
+        log "ERROR: sustained failures detected (${fail_streak}/${ROLLBACK_FAIL_THRESHOLD}) — attempting rollback"
+        rollback_to_last_good || true
+      fi
+    fi
 
     sleep "$CHECK_INTERVAL_SECONDS"
   done

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -80,6 +81,16 @@ type Engine struct {
 	updateMu      sync.Mutex
 	updateCached  *UpdateInfo
 	updateChecked time.Time
+}
+
+// WatchdogStatus describes the current systemd status of stub-ui-watchdog.
+// Read-only; safe to expose without admin privileges.
+type WatchdogStatus struct {
+	Ok        bool   `json:"ok"`
+	Enabled   string `json:"enabled"` // enabled|disabled|static|masked|unknown
+	Active    string `json:"active"`  // active|inactive|failed|unknown
+	CheckedAt string `json:"checkedAt"`
+	Notes     string `json:"notes,omitempty"`
 }
 
 // StudioStatus is a UI-friendly snapshot for the Studio page.
@@ -324,7 +335,6 @@ type UpdateInfo struct {
 func (e *Engine) Reconnect() {
 	log.Printf("reconnect requested (mode=%s)", e.cfg.DSP.Mode)
 }
-
 
 // ReloadConfig reloads the YAML config and re-applies JSON/env overrides.
 //
@@ -576,6 +586,8 @@ func (e *Engine) runAdminScript(action string, args ...string) {
 		script = "scripts/admin-update.sh"
 	case "rollback":
 		script = "scripts/admin-rollback.sh"
+	case "watchdog-start":
+		script = "scripts/admin-watchdog-start.sh"
 	default:
 		log.Printf("unknown admin action: %s", action)
 		return
@@ -631,3 +643,46 @@ func splitLines(s string) []string {
 	}
 	return res
 }
+
+func runCmdTimeout(timeout time.Duration, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("command timed out: %s", name)
+	}
+	return string(out), err
+}
+
+// WatchdogStatusSnapshot returns the current systemd status of stub-ui-watchdog.
+func (e *Engine) WatchdogStatusSnapshot() WatchdogStatus {
+	s := WatchdogStatus{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
+
+	// systemctl is-enabled returns... Exit code !=0 for disabled/masked etc, so we parse output.
+	enabledOut, _ := runCmdTimeout(2*time.Second, "systemctl", "is-enabled", "stub-ui-watchdog")
+	enabled := strings.TrimSpace(enabledOut)
+	if enabled == "" {
+		enabled = "unknown"
+	}
+
+	activeOut, _ := runCmdTimeout(2*time.Second, "systemctl", "is-active", "stub-ui-watchdog")
+	active := strings.TrimSpace(activeOut)
+	if active == "" {
+		active = "unknown"
+	}
+
+	s.Enabled = enabled
+	s.Active = active
+	s.Ok = true
+
+	if enabled == "disabled" && active == "inactive" {
+		s.Notes = "Watchdog is installed but disabled."
+	} else if enabled == "enabled" && active != "active" {
+		s.Notes = "Watchdog is enabled but not running. You can start it from Engineering."
+	}
+	return s
+}
+
+// StartWatchdog requests a start of the watchdog service via a controlled admin script.
+func (e *Engine) StartWatchdog() { e.runAdminScript("watchdog-start") }

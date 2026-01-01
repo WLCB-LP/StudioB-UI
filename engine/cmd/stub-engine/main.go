@@ -245,6 +245,29 @@ func main() {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
+	// Watchdog status (read-only) + start (admin)
+	mux.HandleFunc("/api/watchdog/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "GET required", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.WatchdogStatusSnapshot())
+	})
+
+	mux.HandleFunc("/api/admin/watchdog/start", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			return
+		}
+		if !engine.CheckAdmin(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		go engine.StartWatchdog()
+		w.WriteHeader(http.StatusAccepted)
+	})
+
 	// WebSocket stream
 	mux.HandleFunc("/ws", engine.HandleWS)
 

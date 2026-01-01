@@ -1,3 +1,10 @@
+## v0.2.23 (2026-01-01)
+
+- Watchdog: record "last known good" release after sustained health; rollback `runtime/current` automatically on sustained failures.
+- Engine: add watchdog status endpoint (`/api/watchdog/status`) and admin start endpoint (`/api/admin/watchdog/start`).
+- UI (Engineering): display watchdog status and allow starting the watchdog when it is enabled but not running.
+- Installer: allow the controlled watchdog-start admin script via sudoers.
+
 ## v0.2.20 - 2026-01-01
 
 ## v0.2.22 (2026-01-01)

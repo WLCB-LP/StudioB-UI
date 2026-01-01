@@ -257,6 +257,29 @@ async function refreshEngineering(){
   }catch(e){
     $("#stateDump").textContent = "Failed to load /api/state";
   }
+
+  // Watchdog status (read-only)
+  try{
+    const wd = await fetchJSON("/api/watchdog/status", {}, 800);
+    let msg = "";
+    if(wd && wd.ok){
+      msg = `Enabled: ${wd.enabled} | Active: ${wd.active}`;
+      if(wd.notes){ msg += ` — ${wd.notes}`; }
+    }else{
+      msg = "Watchdog status unavailable";
+    }
+    $("#watchdogMsg").textContent = msg;
+
+    // Button: only meaningful when enabled but not running.
+    const btn = $("#btnWatchdogStart");
+    if(btn){
+      const canStart = (wd && wd.enabled === "enabled" && wd.active !== "active");
+      btn.disabled = !canStart;
+      btn.title = canStart ? "Start stub-ui-watchdog" : "No action needed";
+    }
+  }catch(e){
+    $("#watchdogMsg").textContent = "Watchdog status: failed to load";
+  }
 }
 
 function wireUI(){
@@ -403,6 +426,24 @@ function wireUI(){
       $("#cfgMsg").textContent = "Saved and applied.";
     }catch(e){
       $("#cfgMsg").textContent = "Save failed: " + e.message;
+    }
+  });
+
+  // Engineering: Watchdog start (admin)
+  $("#btnWatchdogStart").addEventListener("click", async ()=>{
+    const pin = $("#adminPin").value.trim();
+    if(!pin) return alert("Enter Admin PIN.");
+    $("#watchdogMsg").textContent = "Starting watchdog…";
+    try{
+      const r = await fetch("/api/admin/watchdog/start", {
+        method: "POST",
+        headers: { "X-Admin-PIN": pin }
+      });
+      if(!r.ok) throw new Error(await r.text());
+      $("#watchdogMsg").textContent = "Start requested. Refreshing status…";
+      setTimeout(()=>refreshEngineering().catch(()=>{}), 1200);
+    }catch(e){
+      $("#watchdogMsg").textContent = "Start failed: " + (e && e.message ? e.message : "unknown error");
     }
   });
 
