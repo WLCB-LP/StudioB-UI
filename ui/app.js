@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.3";
+const UI_BUILD_VERSION = "0.2.5";
 
 const state = {
   connected: false,
@@ -580,15 +580,39 @@ async function pollUpdate(){
     // This is intentionally operator-friendly: if the update pill never shows, this tells us WHY.
     const ucm = document.getElementById("updateCheckMsg");
     if(ucm){
-      const ok = !!(upd && upd.ok);
+      // IMPORTANT: "Update check" is NOT the same thing as "Update available".
+      // - The check can succeed and still have *no* update available (latest == current).
+      // - The check can be "disabled" (repo not configured) without being a system failure.
+      // This message should be operator-friendly and never falsely scream "failed".
+
+      const ok = !!(upd && upd.ok === true);
       const notes = (upd && (upd.notes || "")) ? String(upd.notes) : "";
       const checked = (upd && upd.checkedAt) ? String(upd.checkedAt) : "";
+
       if(ok){
-        ucm.textContent = "Update check: ok" + (latest ? (" (latest v" + latest + ")") : "");
+        if(state.update.available){
+          ucm.textContent = "Update available: v" + latest;
+        }else if(current){
+          ucm.textContent = "Up to date (v" + current + ")";
+        }else{
+          ucm.textContent = "Update check: ok";
+        }
         ucm.title = checked ? ("Last checked: " + checked) : "";
       }else{
-        ucm.textContent = "Update check: failed";
-        ucm.title = (notes ? notes : "No details") + (checked ? ("\nLast checked: " + checked) : "");
+        // If the engine returns a clear reason (like "not configured"), show that as a
+        // non-fatal state instead of "failed".
+        const lower = notes.toLowerCase();
+        if(lower.includes("not configured") || lower.includes("disabled")){
+          ucm.textContent = "Update check: disabled";
+          ucm.title = (notes ? notes : "Disabled") + (checked ? ("\nLast checked: " + checked) : "");
+        }else if(notes){
+          ucm.textContent = "Update check: failed";
+          ucm.title = notes + (checked ? ("\nLast checked: " + checked) : "");
+        }else{
+          // If we have no diagnostic info, keep it short but honest.
+          ucm.textContent = "Update check: failed";
+          ucm.title = checked ? ("Last checked: " + checked) : "No details";
+        }
       }
     }
 

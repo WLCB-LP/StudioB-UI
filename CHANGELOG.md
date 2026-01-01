@@ -1,3 +1,12 @@
+## v0.2.5 - 2025-12-31
+
+### Fixed
+- Engineering page update-check status message now correctly distinguishes:
+  - **Up to date** (latest == current)
+  - **Update available**
+  - **Update check disabled** (not configured)
+  - **Update check failed** (real error)
+
 ## v0.2.4 - 2025-12-31
 
 ### Fixed
