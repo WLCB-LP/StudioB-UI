@@ -1,3 +1,8 @@
+## v0.2.18
+- Harden installer journald logging: add error/success traps and detailed failure output.
+- Ensure watchdog is (re)enabled and started during installs, even if previously stopped/disabled.
+- Add explicit "Install complete" and step boundary logs.
+
 ## v0.2.15
 
 ## v0.2.17

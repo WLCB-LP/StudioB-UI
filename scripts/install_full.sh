@@ -32,6 +32,46 @@ log() {
   logger -t stub-ui-install -- "[install] $*" || true
 }
 
+# Installer traps
+# - log fatal errors with line/command
+# - always attempt to re-enable/start watchdog on exit (best-effort)
+on_install_error() {
+  local exit_code=$?
+  local line_no="${BASH_LINENO[0]:-unknown}"
+  local cmd="${BASH_COMMAND:-unknown}"
+  log "FATAL: install_full.sh failed (exit=${exit_code}) at line ${line_no}: ${cmd}"
+  # Dump a bit of context for systemd/service debugging
+  log "FATAL: stub-engine status follows (best-effort)…"
+  systemctl status stub-engine --no-pager -l 2>&1 | logger -t stub-ui-install || true
+  log "FATAL: nginx -t follows (best-effort)…"
+  nginx -t 2>&1 | logger -t stub-ui-install || true
+  # attempt watchdog recovery even on failure
+  ensure_watchdog_running_best_effort
+  exit "${exit_code}"
+}
+
+ensure_watchdog_running_best_effort() {
+  # If the unit exists, try to enable + start it. Do not fail the install on this.
+  if [ -f /etc/systemd/system/stub-ui-watchdog.service ]; then
+    systemctl daemon-reload || true
+    systemctl enable stub-ui-watchdog >/dev/null 2>&1 || true
+    systemctl start stub-ui-watchdog >/dev/null 2>&1 || true
+  fi
+}
+
+on_install_exit() {
+  local exit_code=$?
+  if [ "${exit_code}" -eq 0 ]; then
+    log "Install finished successfully (exit=0)."
+  else
+    # If set -e is disabled temporarily somewhere, we can still hit EXIT with non-zero.
+    log "Install exiting with failure (exit=${exit_code})."
+  fi
+  ensure_watchdog_running_best_effort
+}
+
+trap on_install_error ERR
+trap on_install_exit EXIT
 
 # -----------------------------------------------------------------------------
 # HARDENING: make install failures obvious in journald, and ensure we leave the
@@ -359,8 +399,11 @@ ReadWritePaths=/home/wlcb/.StudioB-UI/runtime/current /home/wlcb/.StudioB-UI/run
 WantedBy=multi-user.target
 SYSTEMD
 
+  log "systemd: daemon-reload"
   systemctl daemon-reload
+  log "systemd: enable --now stub-engine"
   systemctl enable --now stub-engine
+  log "systemd: restart stub-engine"
   systemctl restart stub-engine
 }
 
