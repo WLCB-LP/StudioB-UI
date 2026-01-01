@@ -1,5 +1,11 @@
 ## v0.2.15
 
+## v0.2.17
+
+- Harden installer logging and ensure watchdog is left enabled/running even if an install fails mid-way.
+
+
+
 ## v0.2.16 - 2026-01-01
 
 - Harden installer success checks for systemd units (watchdog + watcher).

@@ -32,6 +32,43 @@ log() {
   logger -t stub-ui-install -- "[install] $*" || true
 }
 
+
+# -----------------------------------------------------------------------------
+# HARDENING: make install failures obvious in journald, and ensure we leave the
+# system in the safest possible state (e.g., watchdog running if installed).
+# -----------------------------------------------------------------------------
+
+install_err_trap() {
+  local ec="$?"
+  # BASH_LINENO[0] is the line number in this script where the failing command
+  # was executed. BASH_COMMAND is the command that failed.
+  log "ERROR: install_full.sh failed (exit=${ec}) at line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  return "${ec}"
+}
+
+install_exit_trap() {
+  local ec="$?"
+  if [[ "${ec}" -eq 0 ]]; then
+    log "Install finished successfully (exit=0)"
+  else
+    log "Install exiting with failure (exit=${ec})"
+  fi
+
+  # If the watchdog unit exists, we prefer to leave it running, even if the
+  # installer failed part-way through. This prevents long downtime.
+  if systemctl list-unit-files --no-pager 2>/dev/null | grep -q '^stub-ui-watchdog\.service'; then
+    # Ensure enabled (idempotent).
+    systemctl enable stub-ui-watchdog >/dev/null 2>&1 || true
+    # Ensure running (idempotent).
+    systemctl start stub-ui-watchdog >/dev/null 2>&1 || true
+  fi
+
+  return "${ec}"
+}
+
+trap install_err_trap ERR
+trap install_exit_trap EXIT
+
 assert_active() {
   local unit="$1"
   if ! systemctl is-active --quiet "${unit}"; then
