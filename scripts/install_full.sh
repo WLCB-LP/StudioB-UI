@@ -439,6 +439,19 @@ install_watchdog() {
   install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.service" /etc/systemd/system/stub-ui-watchdog.service
   chmod +x "${REPO_DIR}/scripts/stub-ui-watchdog.sh" || true
 
+  # Ensure a predictable, tail-able log file exists for operators.
+  # The watchdog also logs to the systemd journal via stdout.
+  local _log_group="adm"
+  if ! getent group "${_log_group}" >/dev/null 2>&1; then
+    _log_group="root"
+  fi
+  touch /var/log/stub-ui-watchdog.log
+  chown root:"${_log_group}" /var/log/stub-ui-watchdog.log
+  chmod 0644 /var/log/stub-ui-watchdog.log
+
+  # Install logrotate policy so the log file cannot grow without bound.
+  install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.logrotate" /etc/logrotate.d/stub-ui-watchdog
+
   # Always reload so systemd sees changes.
   log "systemd: daemon-reload"
   systemctl daemon-reload

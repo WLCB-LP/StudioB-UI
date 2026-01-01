@@ -1,0 +1,10 @@
+/var/log/stub-ui-watchdog.log {
+    rotate 7
+    daily
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0644 root adm
+}
