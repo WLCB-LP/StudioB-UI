@@ -1,6 +1,6 @@
 ## v0.2.20 - 2026-01-01
 
-## v0.2.21 (2026-01-01)
+## v0.2.22 (2026-01-01)
 
 - Watchdog: create /var/log/stub-ui-watchdog.log and install logrotate policy during install.
 

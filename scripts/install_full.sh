@@ -143,7 +143,7 @@ apt_install() {
   apt-get update -y
   apt-get install -y --no-install-recommends \
     ca-certificates curl git rsync unzip jq \
-    nginx inotify-tools \
+    nginx inotify-tools logrotate \
     golang-go util-linux
 }
 
@@ -163,6 +163,29 @@ ensure_dirs() {
   mkdir -p "${RELEASES_DIR}"
   chown -R "${APP_USER}:${APP_GROUP}" "${BASE_DIR}"
   chmod 750 "${BASE_DIR}/config"
+}
+
+ensure_watchdog_logging() {
+  # We want watchdog logging + rotation to exist even if a later install step fails.
+  # This makes UI-triggered updates debuggable and prevents unbounded log growth.
+  log "Ensuring watchdog log + logrotate policy…"
+
+  local _log_group="adm"
+  if ! getent group "${_log_group}" >/dev/null 2>&1; then
+    _log_group="root"
+  fi
+
+  touch /var/log/stub-ui-watchdog.log
+  chown root:"${_log_group}" /var/log/stub-ui-watchdog.log
+  chmod 0640 /var/log/stub-ui-watchdog.log
+
+  # Install logrotate policy so the log file cannot grow without bound.
+  mkdir -p /etc/logrotate.d
+  if [[ -f "${REPO_DIR}/scripts/stub-ui-watchdog.logrotate" ]]; then
+    install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.logrotate" /etc/logrotate.d/stub-ui-watchdog
+  else
+    log "WARN: missing scripts/stub-ui-watchdog.logrotate (skipping logrotate policy)"
+  fi
 }
 
 ensure_git_origin() {
@@ -447,7 +470,7 @@ install_watchdog() {
   fi
   touch /var/log/stub-ui-watchdog.log
   chown root:"${_log_group}" /var/log/stub-ui-watchdog.log
-  chmod 0644 /var/log/stub-ui-watchdog.log
+  chmod 0640 /var/log/stub-ui-watchdog.log
 
   # Install logrotate policy so the log file cannot grow without bound.
   install -m 0644 "${REPO_DIR}/scripts/stub-ui-watchdog.logrotate" /etc/logrotate.d/stub-ui-watchdog
@@ -557,6 +580,7 @@ main() {
   apt_install
   ensure_user
   ensure_dirs
+  ensure_watchdog_logging
   write_env_files
   ensure_git_origin || true
   write_default_config_if_missing

@@ -6,5 +6,5 @@
     compress
     delaycompress
     copytruncate
-    create 0644 root adm
+    create 0640 root adm
 }
