@@ -1,8 +1,16 @@
-## v0.2.7 - 2025-12-31
+## v0.2.8 - 2026-01-01
 
-- Fix: update-check notifications no longer show "failed" when `/api/health` is unavailable.
-- Engine: add `/api/health` endpoint (alias of `/api/version`) so UI can reliably fetch current version/mode.
-- UI: update-check now gracefully falls back to `/api/version` if `/api/health` fetch fails.
+### Fixed
+- UI: update-check status no longer falsely reports failure if /api/health is temporarily unreachable; update status is always derived from /api/update/check, with /api/health treated as optional.
+- Ops: avoids the v0.2.7 /api/health duplicate-route panic by ensuring the engine registers /api/health only once.
+
+
+## v0.2.8 - 2026-01-01
+
+### Fixed
+- UI: update-check status no longer falsely reports failure if /api/health is temporarily unreachable; update status is always derived from /api/update/check, with /api/health treated as optional.
+- Ops: restores safe upgrade path after the v0.2.7 /api/health duplicate-route panic by keeping only a single health handler in the engine.
+
 
 ## v0.2.6 - 2025-12-31
 
