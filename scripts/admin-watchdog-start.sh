@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Start the watchdog service (if installed).
-# Called by stub-engine (unprivileged) via sudo NOPASSWD rule.
+# StudioB-UI admin action: start (and enable) the watchdog.
+#
+# Why "enable --now"?
+# - If an operator uses the CLI to "disable" the unit, a plain `systemctl start`
+#   will run it *once* but the next reboot will leave it off.
+# - The UI button is intended to mean "turn it on".
+#
+# IMPORTANT:
+# - Do NOT swallow errors. The engine/UI needs real failures so it can surface
+#   them to the operator.
 
-# Ensure sudo is available non-interactively (required when run from the UI).
-if ! sudo -n true 2>/dev/null; then
-  echo "[admin-watchdog-start][ERROR] sudo requires a password (NOPASSWD not configured)." >&2
-  exit 1
-fi
+UNIT="stub-ui-watchdog.service"
 
-echo "[admin-watchdog-start] starting stub-ui-watchdog"
-sudo -n systemctl start stub-ui-watchdog || true
+echo "[admin-watchdog-start] enabling + starting ${UNIT}"
 
-echo "[admin-watchdog-start] status"
-sudo -n systemctl --no-pager --full status stub-ui-watchdog || true
+# This script is invoked via sudo by stub-engine (through stub-ui-admin.sh).
+# We're already root here, but we keep commands explicit for clarity.
+systemctl daemon-reload
+systemctl enable --now "${UNIT}"
 
-echo "[admin-watchdog-start] done"
+echo "[admin-watchdog-start] ${UNIT} is-enabled=$(systemctl is-enabled "${UNIT}" 2>/dev/null || true) is-active=$(systemctl is-active "${UNIT}" 2>/dev/null || true)"

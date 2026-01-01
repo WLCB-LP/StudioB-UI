@@ -264,8 +264,23 @@ func main() {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		go engine.StartWatchdog()
-		w.WriteHeader(http.StatusAccepted)
+		// Run synchronously so we can return a meaningful success/failure.
+		out, err := engine.StartWatchdogSync()
+		resp := map[string]any{
+			"action": "watchdog-start",
+			"output": out,
+			"status": engine.WatchdogStatusSnapshot(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			resp["ok"] = false
+			resp["error"] = err.Error()
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp["ok"] = true
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	// WebSocket stream

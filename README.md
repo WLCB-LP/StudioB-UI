@@ -43,7 +43,7 @@ Run:
 This repo is configured to auto-create GitHub Releases using Release Please.
 
 - Merging to `main` updates (or opens) a Release PR.
-- Merging the Release PR tags the repo (e.g. `v0.2.23`) and triggers an Actions workflow that builds and uploads `StudioB-UI_vX.Y.Z.zip` to the GitHub Release.
+- Merging the Release PR tags the repo (e.g. `v0.2.24`) and triggers an Actions workflow that builds and uploads `StudioB-UI_vX.Y.Z.zip` to the GitHub Release.
 
 The StudioB-UI engine can check GitHub once per minute for `releases/latest` and queue the newest ZIP into the watched `tmp/` folder.
 

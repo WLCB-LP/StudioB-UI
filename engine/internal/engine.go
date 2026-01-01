@@ -577,7 +577,12 @@ func (e *Engine) ListReleases() []string {
 	return []string{}
 }
 
-func (e *Engine) runAdminScript(action string, args ...string) {
+// runAdminScriptWithResult executes one of our whitelisted admin scripts via sudo
+// and returns the combined stdout/stderr output.
+//
+// This allows the API layer to report actionable errors to the UI (e.g. missing
+// NOPASSWD rules, missing systemd units, etc.).
+func (e *Engine) runAdminScriptWithResult(action string, args ...string) (string, error) {
 	repoDir, _ := os.Getwd()
 
 	var script string
@@ -590,7 +595,7 @@ func (e *Engine) runAdminScript(action string, args ...string) {
 		script = "scripts/admin-watchdog-start.sh"
 	default:
 		log.Printf("unknown admin action: %s", action)
-		return
+		return "", fmt.Errorf("unknown admin action: %s", action)
 	}
 
 	all := append([]string{script}, args...)
@@ -618,11 +623,18 @@ func (e *Engine) runAdminScript(action string, args ...string) {
 	cmd.Dir = repoDir
 
 	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// runAdminScript is the legacy fire-and-forget wrapper used by older code.
+// It logs the output and returns no error.
+func (e *Engine) runAdminScript(action string, args ...string) {
+	out, err := e.runAdminScriptWithResult(action, args...)
 	if err != nil {
-		log.Printf("%s failed: %v\n%s", action, err, string(out))
+		log.Printf("%s failed: %v\n%s", action, err, out)
 		return
 	}
-	log.Printf("%s ok:\n%s", action, string(out))
+	log.Printf("%s ok:\n%s", action, out)
 }
 
 func splitLines(s string) []string {
@@ -685,4 +697,20 @@ func (e *Engine) WatchdogStatusSnapshot() WatchdogStatus {
 }
 
 // StartWatchdog requests a start of the watchdog service via a controlled admin script.
-func (e *Engine) StartWatchdog() { e.runAdminScript("watchdog-start") }
+//
+// NOTE: This is intentionally asynchronous for backward compatibility with older
+// UI behavior, but it provides no feedback to the caller.
+// Prefer StartWatchdogSync for API handlers.
+func (e *Engine) StartWatchdog() { go e.runAdminScript("watchdog-start") }
+
+// StartWatchdogSync starts/enables the watchdog and returns the command output.
+// Use this from API handlers so the UI can display errors immediately.
+func (e *Engine) StartWatchdogSync() (string, error) {
+	return e.runAdminScriptWithResult("watchdog-start")
+}
+
+// StartWatchdogSync starts (and enables) the watchdog and returns the command output
+// so the UI can render actionable errors when something goes wrong.
+func (e *Engine) StartWatchdogSync() (string, error) {
+	return e.runAdminScriptSync("watchdog-start")
+}

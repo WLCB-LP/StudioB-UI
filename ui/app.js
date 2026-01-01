@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.19";
+const UI_BUILD_VERSION="0.2.24";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -239,6 +239,21 @@ function setActivePage(page){
   if(page === "engineering"){
     $("#adminPin").value = getSavedPin();
     refreshEngineering().catch(()=>{});
+    // The watchdog may be started/stopped outside the UI (CLI, installer, etc.).
+    // Keep engineering status fresh automatically while this page is visible.
+    if(!state._engRefreshTimer){
+      state._engRefreshTimer = setInterval(() => {
+        // Only refresh if the engineering page is visible.
+        if(!$("#page-engineering").classList.contains("hidden")){
+          refreshEngineering().catch(()=>{});
+        }
+      }, 5000);
+    }
+  }else{
+    if(state._engRefreshTimer){
+      clearInterval(state._engRefreshTimer);
+      state._engRefreshTimer = null;
+    }
   }
 }
 
@@ -261,6 +276,8 @@ async function refreshEngineering(){
   // Watchdog status (read-only)
   try{
     const wd = await fetchJSON("/api/watchdog/status", {}, 800);
+    // Used by the action button to detect when the status flips.
+    window.__lastWatchdogStatus = wd;
     let msg = "";
     if(wd && wd.ok){
       msg = `Enabled: ${wd.enabled} | Active: ${wd.active}`;
@@ -273,9 +290,12 @@ async function refreshEngineering(){
     // Button: only meaningful when enabled but not running.
     const btn = $("#btnWatchdogStart");
     if(btn){
-      const canStart = (wd && wd.enabled === "enabled" && wd.active !== "active");
+      // "Start watchdog" should work even if the unit is currently disabled.
+      // If the operator disabled it from the CLI, the UI should be able to
+      // re-enable and start it.
+      const canStart = (wd && wd.active !== "active");
       btn.disabled = !canStart;
-      btn.title = canStart ? "Start stub-ui-watchdog" : "No action needed";
+      btn.title = canStart ? "Enable & start stub-ui-watchdog" : "No action needed";
     }
   }catch(e){
     $("#watchdogMsg").textContent = "Watchdog status: failed to load";
@@ -433,17 +453,43 @@ function wireUI(){
   $("#btnWatchdogStart").addEventListener("click", async ()=>{
     const pin = $("#adminPin").value.trim();
     if(!pin) return alert("Enter Admin PIN.");
-    $("#watchdogMsg").textContent = "Starting watchdog…";
+    $("#watchdogMsg").textContent = "Enabling & starting watchdog…";
+    $("#btnWatchdogStart").disabled = true;
     try{
       const r = await fetch("/api/admin/watchdog/start", {
         method: "POST",
         headers: { "X-Admin-PIN": pin }
       });
-      if(!r.ok) throw new Error(await r.text());
-      $("#watchdogMsg").textContent = "Start requested. Refreshing status…";
-      setTimeout(()=>refreshEngineering().catch(()=>{}), 1200);
+      // The endpoint now returns JSON with {ok, output, status}.
+      const bodyText = await r.text();
+      if(!r.ok) throw new Error(bodyText || ("HTTP " + r.status));
+
+      let payload = null;
+      try{ payload = bodyText ? JSON.parse(bodyText) : null; }catch(_){ payload = null; }
+
+      if(payload && payload.ok === false){
+        const out = payload.output ? ("\n\n" + payload.output) : "";
+        throw new Error((payload.error || "watchdog start failed") + out);
+      }
+
+      const out = payload && payload.output ? payload.output.trim() : "";
+      $("#watchdogMsg").textContent = out ? ("Requested. " + out) : "Requested. Waiting for service…";
+
+      // Poll for up to ~10 seconds so CLI-initiated changes and systemd startup
+      // reflect quickly without requiring a manual refresh.
+      const startedAt = Date.now();
+      while(true){
+        await new Promise(res=>setTimeout(res, 1000));
+        await refreshEngineering().catch(()=>{});
+        // If we've already flipped to active, we can stop polling early.
+        const wd = window.__lastWatchdogStatus;
+        if(wd && wd.active === "active") break;
+        if(Date.now() - startedAt > 10000) break;
+      }
     }catch(e){
       $("#watchdogMsg").textContent = "Start failed: " + (e && e.message ? e.message : "unknown error");
+    }finally{
+      $("#btnWatchdogStart").disabled = false;
     }
   });
 
