@@ -709,8 +709,3 @@ func (e *Engine) StartWatchdogSync() (string, error) {
 	return e.runAdminScriptWithResult("watchdog-start")
 }
 
-// StartWatchdogSync starts (and enables) the watchdog and returns the command output
-// so the UI can render actionable errors when something goes wrong.
-func (e *Engine) StartWatchdogSync() (string, error) {
-	return e.runAdminScriptSync("watchdog-start")
-}
