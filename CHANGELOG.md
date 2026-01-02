@@ -1,3 +1,8 @@
+## v0.2.28 (2026-01-02)
+
+### Fixed
+- Engine: fix build break introduced in v0.2.27 (admin update status timestamps are RFC3339 strings).
+
 ## v0.2.27 (2026-01-02)
 
 ### Fixed
