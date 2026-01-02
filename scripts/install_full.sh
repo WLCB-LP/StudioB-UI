@@ -363,6 +363,13 @@ server {
     proxy_pass http://127.0.0.1:8787/api/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
+
+    # Admin actions (e.g., update/apply) can legitimately take longer than the
+    # default Nginx proxy timeout.
+    proxy_connect_timeout 10s;
+    proxy_send_timeout 600s;
+    proxy_read_timeout 600s;
+
   }
 
   location /ws {

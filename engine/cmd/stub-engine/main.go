@@ -141,16 +141,30 @@ func main() {
 	// Apply latest update (admin PIN required). Uses git/script-backed update flow.
 	mux.HandleFunc("/api/updates/apply", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		if !requireAdminPin(w, r, cfg.Admin.Pin) {
 			return
 		}
-		go engine.Update()
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+		// Run update synchronously so the UI can display a *real* result.
+		// Previous versions fired-and-forgot, which caused the UI to claim success
+		// even when the installer failed (e.g., Go build errors).
+		outStr, err := eng.UpdateSync()
+		resp := map[string]any{"ok": err == nil}
+		if err != nil {
+			resp["error"] = err.Error()
+		}
+		// Return a small tail for quick troubleshooting in the browser.
+		if len(outStr) > 0 {
+			const max = 4000
+			if len(outStr) > max {
+				resp["outputTail"] = outStr[len(outStr)-max:]
+			} else {
+				resp["outputTail"] = outStr
+			}
+		}
+		writeJSON(w, resp)
 	})
 
 	// Snapshot

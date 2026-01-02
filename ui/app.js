@@ -511,11 +511,19 @@ function wireUI(){
     $("#btnUpdate").disabled = true;
     $("#btnRollback").disabled = true;
     try{
-      await fetch("/api/updates/apply", {
+      const resp = await fetch("/api/updates/apply", {
         method:"POST",
         headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
         body: "{}"
-      }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
+      });
+      const data = await resp.json().catch(async ()=>({ ok:false, error: await resp.text() }));
+      if(!resp.ok || !data.ok){
+        const tail = (data && data.outputTail) ? "
+
+--- output (tail) ---
+" + data.outputTail : "";
+        throw new Error((data && data.error) ? (data.error + tail) : ("HTTP " + resp.status + tail));
+      }
       $("#svcMsg").textContent = expected
         ? `Update queued. Waiting for ${expected}… (page will refresh automatically)`
         : "Update queued. Waiting for the service to restart… (page will refresh automatically)";

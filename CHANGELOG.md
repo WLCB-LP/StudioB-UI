@@ -1,3 +1,7 @@
+## v0.2.27 (2026-01-02)
+
+### Fixed
+- Update-from-UI now reports real success/failure because `/api/updates/apply` waits for the installer and returns the combined output (instead of always replying OK while the update fails in the background).
 
 ## v0.2.25
 - Fix: installer no longer runs 'go mod tidy' during updates; builds with -mod=readonly and stable caches to prevent update failures.

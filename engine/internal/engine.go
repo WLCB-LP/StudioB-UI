@@ -81,6 +81,10 @@ type Engine struct {
 	updateMu      sync.Mutex
 	updateCached  *UpdateInfo
 	updateChecked time.Time
+
+	// adminUpdateMu guards adminUpdateStatus (last update-from-UI attempt).
+	adminUpdateMu     sync.Mutex
+	adminUpdateStatus AdminUpdateStatus
 }
 
 // WatchdogStatus describes the current systemd status of stub-ui-watchdog.
@@ -93,6 +97,18 @@ type WatchdogStatus struct {
 	Notes     string `json:"notes,omitempty"`
 }
 
+
+
+// AdminUpdateStatus tracks the last update-from-UI attempt.
+// This is safe to expose because it only contains installer output (already visible via journal).
+type AdminUpdateStatus struct {
+	Ok         bool   `json:"ok"`
+	Running    bool   `json:"running"`
+	StartedAt  string `json:"startedAt,omitempty"`
+	FinishedAt string `json:"finishedAt,omitempty"`
+	Error      string `json:"error,omitempty"`
+	OutputTail string `json:"outputTail,omitempty"`
+}
 // StudioStatus is a UI-friendly snapshot for the Studio page.
 // Values are normalized 0.0..1.0 for v1.
 // RC mapping (future DSP integration):
@@ -530,9 +546,51 @@ func (e *Engine) CheckAdmin(r *http.Request) bool {
 }
 
 // Update (git-based only): runs the admin update script.
+// UpdateSync runs the admin update script and returns combined output.
+//
+// IMPORTANT: This function blocks until the update attempt completes.
+// The UI uses this to accurately report success/failure instead of assuming
+// an update "probably" succeeded.
+func (e *Engine) UpdateSync() (string, error) {
+	return e.runAdminScriptWithResult("admin-update.sh")
+}
+
 func (e *Engine) Update() {
-	// Always use git/script-backed updates. ZIP queueing is intentionally disabled.
-	e.runAdminScript("update")
+	// Start an async update run, recording status so the UI can poll.
+	e.adminUpdateMu.Lock()
+	if e.adminUpdateStatus.Running {
+		e.adminUpdateMu.Unlock()
+		return
+	}
+	e.adminUpdateStatus = AdminUpdateStatus{Running: true, StartedAt: time.Now()}
+	e.adminUpdateMu.Unlock()
+
+	go func() {
+		out, err := e.UpdateSync()
+
+		e.adminUpdateMu.Lock()
+		st := e.adminUpdateStatus
+		st.Running = false
+		st.FinishedAt = time.Now()
+		if err != nil {
+			st.Ok = false
+			st.Error = err.Error()
+			st.OutputTail = tailLines(out, 80)
+		} else {
+			st.Ok = true
+			st.Error = ""
+			st.OutputTail = tailLines(out, 40)
+		}
+		e.adminUpdateStatus = st
+		e.adminUpdateMu.Unlock()
+	}()
+}
+
+// GetUpdateStatus returns the last update-from-UI status snapshot.
+func (e *Engine) GetUpdateStatus() AdminUpdateStatus {
+	e.adminUpdateMu.Lock()
+	defer e.adminUpdateMu.Unlock()
+	return e.adminUpdateStatus
 }
 
 // Rollback: checkout tag + reinstall
@@ -709,3 +767,16 @@ func (e *Engine) StartWatchdogSync() (string, error) {
 	return e.runAdminScriptWithResult("watchdog-start")
 }
 
+
+
+// tailLines returns the last N lines from a big string.
+func tailLines(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= n {
+		return s
+	}
+	return strings.Join(lines[len(lines)-n:], "\n")
+}
