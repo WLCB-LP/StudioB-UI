@@ -85,6 +85,13 @@ type Engine struct {
 	// adminUpdateMu guards adminUpdateStatus (last update-from-UI attempt).
 	adminUpdateMu     sync.Mutex
 	adminUpdateStatus AdminUpdateStatus
+// v0.2.47 DSP health / guard state (defense-in-depth)
+// IMPORTANT:
+// - These values are updated ONLY by explicit operator-triggered tests.
+// - There is NO background polling in this phase.
+dspOnce sync.Once
+dspMu   sync.Mutex
+dsp     *dspHealth
 }
 
 // WatchdogStatus describes the current systemd status of stub-ui-watchdog.

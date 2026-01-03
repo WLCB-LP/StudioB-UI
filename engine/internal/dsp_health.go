@@ -3,7 +3,6 @@ package app
 import (
     "net"
     "strings"
-    "sync"
     "time"
 )
 
@@ -132,7 +131,8 @@ func (e *Engine) DSPControlAllowed() (bool, string) {
     e.ensureDSPHealthInit()
 
     // In simulate mode, there is no external DSP; always allow.
-    if strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode)) == "simulate" {
+    mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+		if mode == "simulate" || mode == "mock" {
         return true, ""
     }
 
@@ -168,6 +168,3 @@ func itoa(v int) string {
     }
     return string(buf)
 }
-
-// Ensure sync is imported (used by Engine fields via sync.Once).
-var _ = sync.Once{}

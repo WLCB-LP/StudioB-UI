@@ -268,3 +268,7 @@
 - Engine blocks /api/rc control attempts when DSP is Disconnected (live mode)
 - Added /api/dsp/health (read-only) and /api/dsp/test (manual, single-shot)
 - No background polling or automatic reconnects added
+
+## v0.2.47 (2026-01-03)
+- Fix: engine build failure in v0.2.46 (missing DSP guard fields on Engine)
+- DSP server-side guard now compiles correctly; mock/simulate modes bypass guard
