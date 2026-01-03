@@ -22,3 +22,7 @@ systemctl daemon-reload
 systemctl enable --now "${UNIT}"
 
 echo "[admin-watchdog-start] ${UNIT} is-enabled=$(systemctl is-enabled "${UNIT}" 2>/dev/null || true) is-active=$(systemctl is-active "${UNIT}" 2>/dev/null || true)"
+
+# v0.2.39
+# When performing a restart, record reason to watchdog/LAST_RESTART_REASON
+# This is used by the UI to display restart reasons inline with systemd status.

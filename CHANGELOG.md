@@ -228,3 +228,8 @@
 - Added Watchdog Visibility UI (health summary, last action, reason)
 - Exposed recent watchdog events in UI (read-only)
 - Defensive validation of watchdog log presence
+
+## v0.2.39 (2026-01-03)
+- Exposed watchdog restart reasons inline with systemd status
+- Watchdog now records last restart reason in a dedicated state file
+- UI displays restart reason alongside service status (visibility only)

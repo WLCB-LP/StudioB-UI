@@ -972,3 +972,6 @@ async function pollUpdate(){
 
 
 // v0.2.38 Watchdog Visibility: UI hooks for health summary and recent events
+
+// v0.2.39 Watchdog restart reason visibility
+// Display LAST_RESTART_REASON alongside systemd service status in UI

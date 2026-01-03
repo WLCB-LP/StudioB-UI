@@ -59,3 +59,6 @@ The StudioB-UI engine can check GitHub once per minute for `releases/latest` and
 
 ### Release 0.2.38
 Adds operator-visible Watchdog health and recent events. No automation behavior changes.
+
+### Release 0.2.39
+Adds inline visibility of watchdog restart reasons tied to systemd service status. No changes to restart or repair behavior.

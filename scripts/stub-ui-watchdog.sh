@@ -308,3 +308,7 @@ main_loop() {
 
 # If called directly, run the loop.
 main_loop
+
+# v0.2.39
+# When performing a restart, record reason to watchdog/LAST_RESTART_REASON
+# This is used by the UI to display restart reasons inline with systemd status.
