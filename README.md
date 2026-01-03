@@ -190,3 +190,6 @@ Implements Option 1: the system connects/monitors DSP on startup and allows DSP 
 
 ### Release 0.2.68
 Hotfix for v0.2.67: fixes a JavaScript syntax error that prevented the UI from initializing (buttons unresponsive). Option 1 behavior remains unchanged.
+
+### Release 0.2.69
+UI clarity update. The header now shows Engine mode separately from DSP connectivity state and DSP write mode, so operators can distinguish simulation state from real DSP connection/controls.

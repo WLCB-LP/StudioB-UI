@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.68";
+const UI_BUILD_VERSION="0.2.69";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -152,9 +152,42 @@ function setConn(ok){
 }
 
 function setPills(){
+  // Engine runtime identity
   $("#verPill").textContent = "v" + (state.version || "—");
-  $("#modePill").textContent = "mode: " + (state.mode || "—");
+  $("#modePill").textContent = "engine: " + (state.mode || "—");
+
+  // DSP connectivity (status/monitoring) — always-on.
+  const dspConn = $("#dspConnPill");
+  if(dspConn){
+    const s = (state.dspHealth && state.dspHealth.state) ? String(state.dspHealth.state).toUpperCase() : "—";
+    dspConn.textContent = "dsp: " + s;
+    dspConn.classList.remove("ok","bad");
+    if(s === "OK"){
+      dspConn.classList.add("ok");
+    }else if(s === "DISCONNECTED"){
+      dspConn.classList.add("bad");
+    }
+  }
+
+  // DSP write behavior — derived from /api/dsp/mode (config intent).
+  const dspW = $("#dspWritePill");
+  if(dspW){
+    const m = state.dspModeStatus || {};
+    const desired = (m.mode || "").toLowerCase();
+    const active = (m.activeMode || m.mode || "—").toLowerCase();
+
+    // In Option 1, active should match desired; we still display both concepts plainly.
+    const label = (active && active !== "—") ? active.toUpperCase() : "—";
+    dspW.textContent = "dsp writes: " + label;
+
+    dspW.classList.remove("pill--warn","ok","bad");
+    if(active === "live"){
+      // Attention without being alarming: LIVE means writes affect the real DSP.
+      dspW.classList.add("pill--warn");
+    }
+  }
 }
+
 
 // ---------------------------------------------------------------------------
 // Engineering Config post-save helper (v0.2.54)
@@ -282,10 +315,12 @@ async function fetchDSPHealth(){
       connected: !!j.connected
     };
     renderDSPHealth();
+    setPills();
   }catch(e){
     // Health endpoint should be reliable; if not, show unknown.
     state.dspHealth = { state:"UNKNOWN", connected:false, lastOk:"", lastPollAt:"", failures:0, lastError:String(e), lastTestAt:"" };
     renderDSPHealth();
+    setPills();
   }
 }
 
@@ -1168,6 +1203,7 @@ async function fetchDSPModeStatus(){
     state.dspModeStatus = m || state.dspModeStatus;
     const banner = $("#dspTransitionBanner");
     renderWatchdogDSP();
+    setPills();
     const ep = $("#dspBannerEndpoint");
     const age = $("#dspBannerValidatedAge");
     const cfgChg = $("#dspBannerConfigChanged");

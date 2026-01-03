@@ -375,3 +375,8 @@
 ## v0.2.68 (2026-01-03)
 - Hotfix: restore UI functionality (remove orphaned JS block left from LIVE button removal)
 - No behavior change: Option 1 remains (no LIVE gating; connect/monitor on startup)
+
+## v0.2.69 (2026-01-03)
+- UI clarity: separate pills for engine mode, DSP connectivity state, and DSP write mode
+- Eliminates confusion where 'mode: mock' could be mistaken for DSP connectivity
+- No behavior change: DSP monitoring remains always-on; writes follow configured mode (Option 1)
