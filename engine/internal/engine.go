@@ -551,7 +551,11 @@ func (e *Engine) CheckAdmin(r *http.Request) bool {
 // The UI uses this to accurately report success/failure instead of assuming
 // an update "probably" succeeded.
 func (e *Engine) UpdateSync() (string, error) {
-	return e.runAdminScriptWithResult("admin-update.sh")
+	// NOTE: runAdminScriptWithResult() expects a logical *action* key ("update"),
+	// not the underlying script filename ("admin-update.sh").
+	// Passing the filename causes the engine to reject the action and the UI update
+	// will fail with: "unknown admin action: admin-update.sh".
+	return e.runAdminScriptWithResult("update")
 }
 
 func (e *Engine) Update() {

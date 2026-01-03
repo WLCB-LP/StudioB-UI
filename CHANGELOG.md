@@ -1,3 +1,7 @@
+## v0.2.32 (2026-01-02)
+
+- Fix: UI/CLI update endpoint (`/api/updates/apply`) now runs the correct admin *action* ("update") instead of sending the script filename ("admin-update.sh"), which previously produced `unknown admin action: admin-update.sh` and caused updates to fail.
+
 ## v0.2.31 (2026-01-02)
 
 - Engine: make admin-PIN failures return JSON (instead of plain text) so `/api/updates/apply` works cleanly with `curl | jq`.
