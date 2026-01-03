@@ -262,3 +262,9 @@
 - Control actions are blocked with an explicit warning (operator safety)
 - Provides a one-click path to run 'Test DSP Now'
 - No automatic reconnect or retries added
+
+## v0.2.46 (2026-01-03)
+- Server-side DSP control guard (defense-in-depth)
+- Engine blocks /api/rc control attempts when DSP is Disconnected (live mode)
+- Added /api/dsp/health (read-only) and /api/dsp/test (manual, single-shot)
+- No background polling or automatic reconnects added

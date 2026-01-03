@@ -195,11 +195,35 @@ func main() {
 			writeAPIError(w, http.StatusBadRequest, "bad json")
 			return
 		}
+		// v0.2.46 defense-in-depth: server-side DSP control guard.
+		// The UI already blocks control attempts when DISCONNECTED, but we also
+		// enforce it here to protect against stale cached JS or non-UI clients.
+		if ok, reason := engine.DSPControlAllowed(); !ok {
+			writeAPIError(w, http.StatusConflict, reason)
+			return
+		}
 		if err := engine.SetRC(idStr, body.Value); err != nil {
 			writeAPIError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// DSP health + manual connectivity test (operator-driven; no polling).
+	mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.DSPHealth())
+	})
+
+	mux.HandleFunc("/api/dsp/test", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+			return
+		}
+		// Single-shot test only. Timeout is conservative and fixed here.
+		snap := engine.TestDSPConnectivity(1200 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(snap)
 	})
 
 	// Operator-safe reconnect

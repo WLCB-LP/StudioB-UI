@@ -80,3 +80,6 @@ Adds an explicit operator-controlled 'Test DSP Now' action. This performs a sing
 
 ### Release 0.2.45
 Adds an operator safety gate: if DSP health is Disconnected, DSP control actions are blocked and the UI warns the operator, offering a quick 'Test DSP Now' action. No automatic reconnect behavior is introduced.
+
+### Release 0.2.46
+Adds defense-in-depth: the engine refuses DSP control commands when DSP health is DISCONNECTED (in live mode). Also adds read-only DSP health and an explicit manual DSP connectivity test endpoint. No polling or auto-repair.
