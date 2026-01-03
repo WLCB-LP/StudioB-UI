@@ -1,3 +1,8 @@
+## v0.2.33 (2026-01-03)
+
+- chore: version bump for folder watcher ingest test
+
+
 ## v0.2.32 (2026-01-02)
 
 - Fix: UI/CLI update endpoint (`/api/updates/apply`) now runs the correct admin *action* ("update") instead of sending the script filename ("admin-update.sh"), which previously produced `unknown admin action: admin-update.sh` and caused updates to fail.
