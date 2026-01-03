@@ -202,3 +202,6 @@ Hotfix for v0.2.70: adds the missing Config.Mode field so the engine builds corr
 
 ### Release 0.2.72
 Hotfix for v0.2.70/0.2.71: fixes config struct and parsing so engine/DSP write mode decoupling compiles and functions.
+
+### Release 0.2.73
+Hotfix: restores build by adding Config.Mode. Required for Option A decoupling.

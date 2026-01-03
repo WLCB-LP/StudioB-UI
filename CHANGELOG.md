@@ -395,3 +395,7 @@
 - Hotfix: complete Option A plumbing (add Config.Mode and correct config/json metadata mapping)
 - STUDIOB_UI_MODE now correctly controls engine mode; STUDIOB_DSP_MODE controls DSP write mode
 - No UI behavior change beyond enabling engine to build and run
+
+## v0.2.73 (2026-01-03)
+- Hotfix: add missing Config.Mode field required by Option A (engine mode vs DSP write mode)
+- Ensures engine defaults cfg.Mode to "mock" while cfg.DSP.Mode controls writes
