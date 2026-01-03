@@ -996,3 +996,8 @@ async function pollUpdate(){
 // The UI should request and render recent DSP state transitions (JSONL) as a timeline.
 // Each entry: time, state, failures, last_error.
 // This is visibility-only; do not trigger reconnects automatically.
+
+// v0.2.44 Manual 'Test DSP Now'
+// This button triggers a single DSP connectivity test via the engine.
+// Disable button while test is in progress.
+// Display success/failure result and update DSP health panel.

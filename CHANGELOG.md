@@ -250,3 +250,9 @@
 - Added DSP health history timeline (operator-visible)
 - UI shows recent DSP health transitions with timestamps
 - Timeline is append-only and bounded for safety
+
+## v0.2.44 (2026-01-03)
+- Added manual 'Test DSP Now' action (single-shot)
+- Performs one bounded DSP round-trip on operator request
+- Updates DSP health state and timeline based on result
+- No background polling or automatic retries

@@ -74,3 +74,6 @@ Adds operator-visible DSP connection health detection. The system warns on stale
 
 ### Release 0.2.43
 Adds a DSP health history timeline so operators can see recent DSP link state transitions (OK / Degraded / Disconnected) with timestamps. Visibility only; no automatic repair.
+
+### Release 0.2.44
+Adds an explicit operator-controlled 'Test DSP Now' action. This performs a single DSP connectivity test with a strict timeout and records the result in DSP health and history. No automatic polling or reconnect logic is introduced.
