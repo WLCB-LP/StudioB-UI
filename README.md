@@ -196,3 +196,6 @@ UI clarity update. The header now shows Engine mode separately from DSP connecti
 
 ### Release 0.2.70
 Implements Option A: engine simulation mode and DSP write mode are separate. Operators can keep the engine in mock/simulated mode while enabling real DSP control writes by setting DSP Writes=live.
+
+### Release 0.2.71
+Hotfix for v0.2.70: adds the missing Config.Mode field so the engine builds correctly.

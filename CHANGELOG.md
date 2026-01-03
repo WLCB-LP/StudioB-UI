@@ -386,3 +386,7 @@
 - Engineering UI: add separate 'DSP Writes' selector (mock/live)
 - Config/env: STUDIOB_UI_MODE controls engine mode; new STUDIOB_DSP_MODE controls DSP write mode
 - Header pills reflect: engine mode, DSP connectivity, and DSP write behavior
+
+## v0.2.71 (2026-01-03)
+- Hotfix: add Config.Mode field required for Option A engine/DSP write mode decoupling
+- No functional change beyond enabling build ensuring v0.2.70 behavior works as intended
