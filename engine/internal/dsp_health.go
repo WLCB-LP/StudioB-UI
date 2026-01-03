@@ -131,6 +131,11 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
         e.dsp.lastOK = now
         e.dsp.failures = 0
         e.dsp.lastErr = ""
+	// v0.2.52: mark validation time when in LIVE mode
+	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+	if mode == "live" {
+		e.dspValidatedAt = now
+	}
     } else {
         e.dsp.failures++
         e.dsp.lastErr = err.Error()

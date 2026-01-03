@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.2.51" />
+  <link rel="stylesheet" href="/styles.css?v=0.2.52" />
 </head>
 <body>
   <header class="topbar">
@@ -98,7 +98,15 @@
               <button class="btn" id="btnReconnect">Reconnect DSP</button>
               <button class="btn" id="btnDspTest">Test DSP Now</button>
               <span class="muted" id="dspTestMsg"></span>
-              <div class="card dspHealth">
+              
+<div class="banner warn" id="dspTransitionBanner" style="display:none;">
+  <strong>DSP LIVE MODE WARNING</strong><br/>
+  DSP has entered LIVE mode, but the link has not been validated yet.<br/>
+  <button class="btn" id="btnDspBannerTest">Test DSP Now</button>
+  <button class="btn" id="btnDspBannerAck">Acknowledge</button>
+</div>
+<div class="card dspHealth">
+
                 <div class="card__title">DSP Health</div>
                 <div class="kv"><span class="k">State</span><span class="v" id="dspHealthState">—</span></div>
                 <div class="kv"><span class="k">Last OK</span><span class="v" id="dspHealthLastOk">—</span></div>
@@ -248,6 +256,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.2.51"></script>
+  <script src="/app.js?v=0.2.52"></script>
 </body>
 </html>

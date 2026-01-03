@@ -293,3 +293,9 @@
 - Fix: DSP timeline error due to missing getJSON helper in UI
 - Timeline and DSP health now render correctly in mock and live modes
 - No engine or DSP behavior changes
+
+## v0.2.52 (2026-01-03)
+- Added explicit mock → live DSP transition warning (visibility-only)
+- UI warns when entering live mode with unvalidated DSP health
+- Provides one-click 'Test DSP Now' and 'Acknowledge' actions
+- No background DSP polling or automatic gating

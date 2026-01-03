@@ -98,3 +98,6 @@ Hotfix for mock-mode workflows: manual 'Test DSP Now' now returns immediately wi
 
 ### Release 0.2.51
 Fixes a UI JavaScript error where DSP timeline rendering failed because a shared getJSON helper was not in scope. No backend or DSP behavior changes.
+
+### Release 0.2.52
+Adds explicit operator-visible handling for transitions from mock/simulate to live DSP mode. When live mode is entered without a validated DSP link, the UI shows a clear warning banner with manual actions. No automation or background DSP traffic is introduced.

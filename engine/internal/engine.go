@@ -67,6 +67,9 @@ func resolveRC(idOrName string) (int, error) {
 }
 
 type Engine struct {
+	// v0.2.52 DSP mode transition visibility
+	// Timestamp of last successful DSP validation in LIVE mode
+	dspValidatedAt time.Time
 	// Base state directory (written by installer). Used for small, append-only state files.
 	stateDir string
 	cfg     *Config
@@ -835,4 +838,27 @@ func tailLines(s string, n int) string {
 		return s
 	}
 	return strings.Join(lines[len(lines)-n:], "\n")
+}
+
+
+// DSPModeStatus is returned to the UI for transition warnings.
+type DSPModeStatus struct {
+    Mode            string `json:"mode"`
+    Validated       bool   `json:"validated"`
+    ValidatedAt     string `json:"validatedAt,omitempty"`
+}
+
+func (e *Engine) DSPModeStatus() DSPModeStatus {
+    mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+    validated := false
+    var ts string
+    if mode == "live" && !e.dspValidatedAt.IsZero() {
+        validated = true
+        ts = e.dspValidatedAt.UTC().Format(time.RFC3339)
+    }
+    return DSPModeStatus{
+        Mode:        mode,
+        Validated:   validated,
+        ValidatedAt: ts,
+    }
 }

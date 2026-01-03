@@ -211,7 +211,13 @@ func main() {
 	})
 
 	// DSP health + manual connectivity test (operator-driven; no polling).
-	mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
+	
+mux.HandleFunc("/api/dsp/mode", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(engine.DSPModeStatus())
+})
+
+mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(engine.DSPHealth())
 	})
