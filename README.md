@@ -159,3 +159,6 @@ All actions remain explicit and operator-driven.
 
 ### Release 0.2.58
 Fixes a mismatch where Engineering config could be saved but the running engine stayed in the old mode until restart. The engine now applies the validated config in-memory after a successful save, and LIVE transition warnings appear immediately when switching to live.
+
+### Release 0.2.59
+Hotfix for v0.2.58 compilation errors. Keeps the intended behavior: applying saved config to the running engine without restart.

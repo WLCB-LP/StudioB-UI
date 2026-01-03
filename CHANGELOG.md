@@ -328,3 +328,8 @@
 - Fix: applying Engineering config now updates the running engine (no restart required)
 - Live-mode banner now appears immediately after switching mode to live (until validated)
 - Conservative: clears LIVE validation state when DSP-relevant config changes
+
+## v0.2.59 (2026-01-03)
+- Hotfix: v0.2.58 build failures (config apply + DSP constants + cfg scoping)
+- Runtime ApplyConfig now uses *Config consistently and compiles
+- No behavior changes beyond intended v0.2.58 fix (apply config without restart)

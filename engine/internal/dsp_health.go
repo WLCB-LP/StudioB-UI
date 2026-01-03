@@ -81,7 +81,7 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 // This is NOT polling. It runs only when explicitly requested (UI button).
 func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
     e.ensureDSPHealthInit()
-	cfg := e.GetConfig()
+	cfg := e.GetConfigCopy()
 
 	// v0.2.50 mock/simulate bypass:
 	// In mock/simulate mode, there is no external DSP to contact.
@@ -164,8 +164,10 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 func (e *Engine) DSPControlAllowed() (bool, string) {
     e.ensureDSPHealthInit()
 
+	cfg := e.GetConfigCopy()
+
     // In simulate mode, there is no external DSP; always allow.
-    mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+    mode := strings.ToLower(strings.TrimSpace(e.GetConfigCopy().DSP.Mode))
 		if mode == "simulate" || mode == "mock" {
         return true, ""
     }
