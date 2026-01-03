@@ -279,3 +279,7 @@
 - Added DSP timeline endpoint (/api/dsp/timeline) and UI timeline display
 - Added UI+server defense-in-depth: warn/block DSP control when DISCONNECTED
 - No background DSP polling (only /api/dsp/test touches network)
+
+## v0.2.49 (2026-01-03)
+- Hotfix: fixed Go build failure introduced in v0.2.48 (escaped quotes in engine/internal/engine.go)
+- No behavior change; restores successful compilation

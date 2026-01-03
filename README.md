@@ -89,3 +89,6 @@ Hotfix for v0.2.46 build failure. Restores successful engine compilation and kee
 
 ### Release 0.2.48
 Wires the operator-controlled 'Test DSP Now' to the engine and displays DSP health + a recent timeline. Also adds defense-in-depth: UI and engine both block control commands when DSP is DISCONNECTED. DSP network traffic occurs only on explicit tests.
+
+### Release 0.2.49
+Hotfix for v0.2.48 build failure (invalid escaped quotes in Go source). No functional changes.

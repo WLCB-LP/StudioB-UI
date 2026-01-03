@@ -172,14 +172,14 @@ func NewEngine(cfg *Config, version string) *Engine {
 	// Config lives at:   /home/wlcb/.StudioB-UI/config/config.yml
 	// We compute baseDir = parent(parent(YAMLPath)) and then stateDir = baseDir/state.
 	// This keeps behavior explicit and avoids hidden magic.
-	if cfg != nil && cfg.Meta.YAMLPath != \"\" {
+	if cfg != nil && cfg.Meta.YAMLPath != "" {
 		p := cfg.Meta.YAMLPath
 		// Best-effort absolute path.
 		if abs, err := filepath.Abs(p); err == nil {
 			p = abs
 		}
 		base := filepath.Dir(filepath.Dir(p))
-		e.stateDir = filepath.Join(base, \"state\")
+		e.stateDir = filepath.Join(base, "state")
 	}
 
 	// Initialize known RCs to sane defaults
