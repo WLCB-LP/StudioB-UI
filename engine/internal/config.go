@@ -78,7 +78,7 @@ func LoadConfig(path string) (*Config, error) {
 		EnvUsed:  map[string]string{},
 	}
 	// If the YAML file provided these values, mark their source now.
-	if cfg.DSP.Mode != "" {
+	if cfg.Mode != "" {
 		cfg.Meta.ModeSource = "yaml"
 	}
 	if cfg.DSP.Host != "" {
@@ -177,6 +177,7 @@ func applyJSONOverrides(cfg *Config) {
 		DSP  struct {
 			Host string `json:"ip"`
 			Port int    `json:"port"`
+			Mode string `json:"mode"` // optional: dsp write mode ("mock" | "live")
 		} `json:"dsp"`
 	}
 	var jc jsonCfg
@@ -187,7 +188,7 @@ func applyJSONOverrides(cfg *Config) {
 	cfg.Meta.JSONPath = p
 
 	if strings.TrimSpace(jc.Mode) != "" {
-		cfg.DSP.Mode = jc.Mode
+		cfg.Mode = jc.Mode
 		cfg.Meta.ModeSource = "json"
 	}
 	if strings.TrimSpace(jc.DSP.Host) != "" {
@@ -197,6 +198,9 @@ func applyJSONOverrides(cfg *Config) {
 	if jc.DSP.Port != 0 {
 		cfg.DSP.Port = jc.DSP.Port
 		cfg.Meta.DSPPortSource = "json"
+	}
+	if strings.TrimSpace(jc.DSP.Mode) != "" {
+		cfg.DSP.Mode = jc.DSP.Mode
 	}
 }
 

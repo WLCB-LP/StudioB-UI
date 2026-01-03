@@ -390,3 +390,8 @@
 ## v0.2.71 (2026-01-03)
 - Hotfix: add Config.Mode field required for Option A engine/DSP write mode decoupling
 - No functional change beyond enabling build ensuring v0.2.70 behavior works as intended
+
+## v0.2.72 (2026-01-03)
+- Hotfix: complete Option A plumbing (add Config.Mode and correct config/json metadata mapping)
+- STUDIOB_UI_MODE now correctly controls engine mode; STUDIOB_DSP_MODE controls DSP write mode
+- No UI behavior change beyond enabling engine to build and run

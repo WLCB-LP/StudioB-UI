@@ -199,3 +199,6 @@ Implements Option A: engine simulation mode and DSP write mode are separate. Ope
 
 ### Release 0.2.71
 Hotfix for v0.2.70: adds the missing Config.Mode field so the engine builds correctly.
+
+### Release 0.2.72
+Hotfix for v0.2.70/0.2.71: fixes config struct and parsing so engine/DSP write mode decoupling compiles and functions.
