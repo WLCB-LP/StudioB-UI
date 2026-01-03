@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -140,17 +141,17 @@ func main() {
 
 	// Apply latest update (admin PIN required). Uses git/script-backed update flow.
 	mux.HandleFunc("/api/updates/apply", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "GET or POST required"})
 			return
 		}
-		if !requireAdminPin(w, r, cfg.Admin.Pin) {
+		if !requireAdminPin(w, r, cfg.Admin.PIN) {
 			return
 		}
 		// Run update synchronously so the UI can display a *real* result.
 		// Previous versions fired-and-forgot, which caused the UI to claim success
 		// even when the installer failed (e.g., Go build errors).
-		outStr, err := eng.UpdateSync()
+		outStr, err := engine.UpdateSync()
 		resp := map[string]any{"ok": err == nil}
 		if err != nil {
 			resp["error"] = err.Error()
@@ -312,4 +313,36 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// requireAdminPin is a tiny helper used by a couple of admin-only routes.
+// It validates the caller-provided admin PIN against the configured PIN.
+//
+// IMPORTANT:
+// - The PIN MUST be provided by the caller via the X-Admin-PIN header.
+// - The server does NOT accept the PIN via URL query parameters (those leak
+//   too easily via logs and browser history).
+// - We intentionally keep this helper local to main.go to avoid accidental
+//   reuse in other packages.
+func requireAdminPin(w http.ResponseWriter, r *http.Request, expectedPIN string) bool {
+	callerPIN := strings.TrimSpace(r.Header.Get("X-Admin-PIN"))
+	if expectedPIN == "" {
+		// Misconfiguration: we cannot authorize anything safely.
+		http.Error(w, "admin PIN not configured", http.StatusServiceUnavailable)
+		return false
+	}
+	// Constant-time compare to avoid trivial timing leaks.
+	if subtle.ConstantTimeCompare([]byte(callerPIN), []byte(expectedPIN)) != 1 {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	return true
+}
+
+// writeJSON writes a JSON response with a stable Content-Type.
+// This keeps client-side parsing predictable (jq, fetch, etc.).
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
 }

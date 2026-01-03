@@ -1,3 +1,8 @@
+## v0.2.29 (2026-01-02)
+
+- Engine: fix build break in `/api/updates/apply` (admin PIN check + JSON response).
+- Engine: use configured `admin.pin` field name consistently (`PIN`).
+
 ## v0.2.28 (2026-01-02)
 
 ### Fixed
