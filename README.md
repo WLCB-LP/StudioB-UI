@@ -184,3 +184,6 @@ Fixes a UI regression where DSP connectivity did not appear to update because th
 
 ### Release 0.2.66
 Adds an explicit 'Enter LIVE Mode' action that enables DSP control writes only after an operator confirmation. DSP monitoring remains always-on and read-only; LIVE gating affects writes only.
+
+### Release 0.2.67
+Implements Option 1: the system connects/monitors DSP on startup and allows DSP control writes immediately when config dsp.mode is set to 'live' (no additional operator arming step).

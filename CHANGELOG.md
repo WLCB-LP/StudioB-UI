@@ -366,3 +366,8 @@
 - LIVE remains reserved until operator arms it (requires Admin PIN + DSP connected)
 - /api/dsp/mode now reports desired vs active mode and armed state
 - Always-on DSP monitoring remains read-only and continues updating status
+
+## v0.2.67 (2026-01-03)
+- Remove LIVE write gating (Option 1): DSP control writes follow config mode immediately
+- Remove 'Enter LIVE Mode' UI/button and /api/dsp/enter_live usage
+- Always-on DSP monitoring remains enabled and UI continues to auto-refresh status

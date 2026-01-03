@@ -922,22 +922,13 @@ func (e *Engine) DSPModeStatus() DSPModeStatus {
         }
     }
 
-    // Active mode for writes: LIVE only when armed.
-    active := desired
-    liveArmed := e.DSPLiveActive()
-    var lts string
-    if desired == "live" {
-        if !liveArmed {
-            active = "mock"
-        }
-        e.dspMu.Lock()
-        if !e.dspLiveArmedAt.IsZero() {
-            lts = e.dspLiveArmedAt.UTC().Format(time.RFC3339)
-        }
-        e.dspMu.Unlock()
-    }
+    // Active mode for writes (v0.2.67, Option 1):
+// Writes follow the desired config mode immediately; there is no arming step.
+active := desired
+liveArmed := (desired == "live")
+var lts string
 
-    return DSPModeStatus{
+return DSPModeStatus{
         DesiredMode:    desired,
         ActiveMode:     active,
         LiveArmed:      liveArmed,
