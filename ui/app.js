@@ -354,8 +354,7 @@ async function refreshEngineering(){
       const lines = [];
       if(wd && wd.systemdActiveLine){ lines.push(wd.systemdActiveLine); }
       if(wd && wd.systemdSubStateLine){ lines.push(wd.systemdSubStateLine); }
-      sysEl.textContent = (lines.length ? lines.join("
-") : "No systemd details available");
+      sysEl.textContent = (lines.length ? lines.join("\n") : "No systemd details available");
     }
 
     // Button: only meaningful when enabled but not running.

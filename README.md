@@ -65,3 +65,6 @@ Adds inline visibility of watchdog restart reasons tied to systemd service statu
 
 ### Release 0.2.40
 Shows systemd "Active:" line and SubState for stub-ui-watchdog verbatim in the Engineering UI. Visibility-only.
+
+### Release 0.2.41
+Fixes a UI JavaScript syntax error that prevented navigation after v0.2.40.

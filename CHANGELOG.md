@@ -236,3 +236,6 @@
 
 ## v0.2.40 (2026-01-03)
 - Show systemd Active and SubState strings verbatim in the UI (watchdog)
+
+## v0.2.41 (2026-01-03)
+- Fixed UI navigation regression (JavaScript unescaped newline) that prevented page routing.
