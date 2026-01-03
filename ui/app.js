@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.55";
+const UI_BUILD_VERSION="0.2.56";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -13,6 +13,7 @@ const UI_BUILD_VERSION="0.2.55";
 let autoRefreshDone = false;
 
 const state = {
+  dspModeStatus: { mode:"", host:"", port:null, validated:false, validatedAt:"", configChanged:false },
   dspHealth: { state:"UNKNOWN", lastOk:"", failures:0, lastError:"", lastTestAt:"" },
   connected: false,
   lastOkAt: 0,
@@ -1159,7 +1160,9 @@ async function pollUpdate(){
 async function fetchDSPModeStatus(){
   try{
     const m = await getJSON("/api/dsp/mode");
+    state.dspModeStatus = m || state.dspModeStatus;
     const banner = $("#dspTransitionBanner");
+    renderWatchdogDSP();
     const ep = $("#dspBannerEndpoint");
     const age = $("#dspBannerValidatedAge");
     const cfgChg = $("#dspBannerConfigChanged");
@@ -1221,3 +1224,62 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 });
+
+
+// ---------------------------------------------------------------------------
+// Watchdog DSP Summary rendering (v0.2.56)
+// Keeps a quick DSP snapshot visible near watchdog so operators don't have to
+// switch pages during troubleshooting. Visibility-only.
+// ---------------------------------------------------------------------------
+function renderWatchdogDSP(){
+  const modeEl = $("#wdDspMode");
+  if(!modeEl) return; // Engineering page only
+
+  const m = state.dspModeStatus || {};
+  const h = state.dspHealth || {};
+
+  modeEl.textContent = (m.mode || "—");
+  $("#wdDspState").textContent = (h.state || "—");
+  $("#wdDspLastTest").textContent = (h.lastTestAt || "—");
+  $("#wdDspFailures").textContent = String(h.failures ?? "—");
+
+  // Validation context (LIVE only)
+  let vtxt = "—";
+  if((m.mode||"").toLowerCase() === "live"){
+    if(m.validatedAt){
+      // compute minutes ago, same as banner logic but resilient
+      const t = Date.parse(m.validatedAt);
+      if(!Number.isNaN(t)){
+        const mins = Math.floor((Date.now() - t) / 60000);
+        if(mins < 1) vtxt = "just now";
+        else if(mins === 1) vtxt = "1 minute ago";
+        else vtxt = `${mins} minutes ago`;
+      }else{
+        vtxt = m.validatedAt;
+      }
+    }else{
+      vtxt = "NOT VALIDATED";
+    }
+  }
+  $("#wdDspValidated").textContent = vtxt;
+
+  // Config changed since validation?
+  let ctxt = "—";
+  if((m.mode||"").toLowerCase() === "live"){
+    ctxt = m.configChanged ? "CHANGED ⚠" : "unchanged";
+  }
+  $("#wdDspCfg").textContent = ctxt;
+
+  // Error details (only when meaningful)
+  const errBox = $("#wdDspErr");
+  const err = (h.lastError || "").trim();
+  if(errBox){
+    if(err){
+      errBox.style.display = "block";
+      errBox.textContent = "Last error: " + err;
+    }else{
+      errBox.style.display = "none";
+      errBox.textContent = "";
+    }
+  }
+}

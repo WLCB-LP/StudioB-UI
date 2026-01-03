@@ -110,3 +110,6 @@ Hotfix for Engineering Configuration: fixes Save regression caused by a missing 
 
 ### Release 0.2.55
 Improves LIVE transition visibility by showing the configured DSP endpoint (IP:Port), how long ago the DSP link was last validated, and a warning if DSP config changed since the last LIVE validation. No automation is introduced.
+
+### Release 0.2.56
+Adds a DSP health summary inside the Engineering Watchdog card so operators can see DSP mode, connection state, recent test time, failures, and LIVE validation context in one place. Visibility-only; no watchdog automation added.

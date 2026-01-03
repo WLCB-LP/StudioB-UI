@@ -309,3 +309,8 @@ main{padding:18px}
 .kv .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
 .warn{margin-top:8px;padding:8px;border:1px solid rgba(255,255,255,.15);border-radius:8px}
 .log{max-height:200px;overflow:auto}
+
+/* v0.2.56 Watchdog DSP summary (visibility-only) */
+.wd-dsp{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+.wd-dsp__title{font-weight:600;margin-bottom:6px}
+.wd-dsp__err{margin-top:6px;padding:6px;border:1px solid rgba(255,255,255,.15);border-radius:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;white-space:pre-wrap}

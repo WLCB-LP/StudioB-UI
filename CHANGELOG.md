@@ -314,3 +314,8 @@
 - Transition banner polish: shows DSP IP:Port and validation age
 - Warns when DSP config changed since last LIVE validation
 - Visibility-only; no polling or automatic gating
+
+## v0.2.56 (2026-01-03)
+- Watchdog panel now includes DSP health summary (mode, state, last test, failures)
+- Shows LIVE validation age and config-changed flag inline for operator clarity
+- Visibility-only: no DSP polling, no watchdog behavior changes
