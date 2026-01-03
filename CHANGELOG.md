@@ -355,3 +355,8 @@
 - Hotfix: v0.2.63 build failure (ctx undefined)
 - DSP monitor loop now runs for engine lifetime (no context dependency)
 - Maintains always-on, read-only DSP connectivity monitoring
+
+## v0.2.65 (2026-01-03)
+- Fix: UI now polls /api/dsp/health on an interval so DSP connectivity updates automatically
+- Watchdog DSP summary now shows Last poll timestamp
+- No changes to DSP monitor loop (engine already updates health every 2s)

@@ -178,3 +178,6 @@ Hotfix for v0.2.62 compilation issue. The DSP monitor loop now receives the engi
 
 ### Release 0.2.64
 Hotfix for v0.2.63 compilation error (undefined ctx). The DSP monitor loop no longer depends on a context and runs for the lifetime of the engine process under systemd.
+
+### Release 0.2.65
+Fixes a UI regression where DSP connectivity did not appear to update because the UI only refreshed DSP health on manual actions. The UI now polls /api/dsp/health on a short interval so the continuously updated engine-side DSP monitor status is visible.

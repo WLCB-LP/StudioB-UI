@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.64";
+const UI_BUILD_VERSION="0.2.65";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1214,6 +1214,12 @@ async function fetchDSPModeStatus(){
 document.addEventListener("DOMContentLoaded", ()=>{
   fetchDSPModeStatus();
   setInterval(fetchDSPModeStatus, 5000);
+
+  // v0.2.65: always-on DSP status visibility
+  // The engine maintains a continuous DSP monitor loop; the UI must poll the
+  // cached health snapshot so operators can see connectivity changes live.
+  fetchDSPHealth();
+  setInterval(fetchDSPHealth, 2000);
 
   const ack = $("#btnDspBannerAck");
   if(ack){
