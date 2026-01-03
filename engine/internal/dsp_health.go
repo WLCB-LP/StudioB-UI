@@ -1,6 +1,10 @@
 package app
 
 import (
+	"bufio"
+	"encoding/json"
+	"os"
+	"path/filepath"
     "net"
     "strings"
     "time"
@@ -167,4 +171,118 @@ func itoa(v int) string {
         buf[i], buf[j] = buf[j], buf[i]
     }
     return string(buf)
+}
+
+
+// --- DSP timeline persistence (v0.2.48) ---
+//
+// We persist a small, append-only history so operators can answer:
+// "When did the DSP go disconnected?" without digging through journald.
+//
+// IMPORTANT SAFETY PROPERTIES:
+// - The timeline is written ONLY when DSP health STATE CHANGES.
+// - The file is bounded (last 200 lines) to avoid unbounded disk growth.
+// - This does NOT talk to the DSP. Only TestDSPConnectivity does a TCP connect.
+// - If stateDir is unavailable, we fail silently (visibility-only feature).
+type dspTimelineEntry struct {
+	Time      string        `json:"time"`
+	State     DSPHealthState `json:"state"`
+	Failures  int           `json:"failures"`
+	LastError string        `json:"last_error,omitempty"`
+}
+
+func (e *Engine) dspTimelinePath() string {
+	if strings.TrimSpace(e.stateDir) == "" {
+		return ""
+	}
+	return filepath.Join(e.stateDir, "dsp_health_timeline.jsonl")
+}
+
+func (e *Engine) appendDSPTimelineLocked(now time.Time) {
+	// Caller must hold e.dspMu and must have updated e.dsp.* already.
+	path := e.dspTimelinePath()
+	if path == "" {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+
+	ent := dspTimelineEntry{
+		Time:      now.UTC().Format(time.RFC3339),
+		State:     e.dsp.state,
+		Failures:  e.dsp.failures,
+		LastError: e.dsp.lastErr,
+	}
+
+	// Append one line (JSONL).
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err == nil {
+		enc, _ := json.Marshal(ent)
+		_, _ = f.Write(append(enc, '\n'))
+		_ = f.Close()
+	}
+
+	// Bound the file (best-effort). If this fails, we do not error out.
+	e.boundDSPTimeline(path, 200)
+}
+
+func (e *Engine) boundDSPTimeline(path string, maxLines int) {
+	if maxLines <= 0 {
+		return
+	}
+	// Read all lines (file is intended to be small; max 200).
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	var lines []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+		// small safety cap to avoid pathological growth if file was corrupted
+		if len(lines) > maxLines*5 {
+			break
+		}
+	}
+	if len(lines) <= maxLines {
+		return
+	}
+	lines = lines[len(lines)-maxLines:]
+
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
+}
+
+func (e *Engine) ReadDSPTimeline(n int) []dspTimelineEntry {
+	if n <= 0 {
+		n = 50
+	}
+	path := e.dspTimelinePath()
+	if path == "" {
+		return nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	raw := strings.Split(strings.TrimSpace(string(b)), "\n")
+	if len(raw) > n {
+		raw = raw[len(raw)-n:]
+	}
+	out := make([]dspTimelineEntry, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var e2 dspTimelineEntry
+		if json.Unmarshal([]byte(line), &e2) == nil {
+			out = append(out, e2)
+		}
+	}
+	return out
 }

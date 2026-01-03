@@ -272,3 +272,10 @@
 ## v0.2.47 (2026-01-03)
 - Fix: engine build failure in v0.2.46 (missing DSP guard fields on Engine)
 - DSP server-side guard now compiles correctly; mock/simulate modes bypass guard
+
+## v0.2.48 (2026-01-03)
+- UI now shows systemd status verbatim plus DSP health snapshot
+- Added manual 'Test DSP Now' wiring to engine (/api/dsp/test)
+- Added DSP timeline endpoint (/api/dsp/timeline) and UI timeline display
+- Added UI+server defense-in-depth: warn/block DSP control when DISCONNECTED
+- No background DSP polling (only /api/dsp/test touches network)

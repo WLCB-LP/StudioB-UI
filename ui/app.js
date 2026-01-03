@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.40";
+const UI_BUILD_VERSION="0.2.48";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -13,6 +13,7 @@ const UI_BUILD_VERSION="0.2.40";
 let autoRefreshDone = false;
 
 const state = {
+  dspHealth: { state:"UNKNOWN", lastOk:"", failures:0, lastError:"", lastTestAt:"" },
   connected: false,
   lastOkAt: 0,
   version: "—",
@@ -196,6 +197,13 @@ async function fetchJSON(url, opts={}, timeoutMs=500){
 }
 
 async function postRC(name, value){
+  // v0.2.48 safety: if DSP is DISCONNECTED, block control writes.
+  // The engine also enforces this (defense-in-depth), but blocking here gives immediate operator feedback.
+  if((state.dspHealth && String(state.dspHealth.state||"").toUpperCase()==="DISCONNECTED")){
+    const warn = $("#dspControlWarn");
+    if(warn){ warn.style.display="block"; }
+    throw new Error("DSP control blocked: DSP is disconnected");
+  }
   await fetch("/api/rc/" + encodeURIComponent(name), {
     method: "POST",
     headers: { "Content-Type":"application/json" },
@@ -203,6 +211,70 @@ async function postRC(name, value){
   }).then(async res=>{
     if(!res.ok) throw new Error(await res.text());
   });
+}
+
+
+
+// ---------------------------------------------------------------------------
+// DSP Health (v0.2.48)
+//
+// IMPORTANT:
+// - GET /api/dsp/health is read-only and does NOT contact the DSP.
+// - POST /api/dsp/test performs ONE bounded TCP connect and is only called
+//   when the operator clicks "Test DSP Now".
+// ---------------------------------------------------------------------------
+
+async function fetchDSPHealth(){
+  try{
+    const j = await getJSON("/api/dsp/health");
+    state.dspHealth = {
+      state: j.state || "UNKNOWN",
+      lastOk: j.lastOk || "",
+      failures: Number(j.consecutiveFailures || 0),
+      lastError: j.lastError || "",
+      lastTestAt: j.lastTestAt || ""
+    };
+    renderDSPHealth();
+  }catch(e){
+    // Health endpoint should be reliable; if not, show unknown.
+    state.dspHealth = { state:"UNKNOWN", lastOk:"", failures:0, lastError:String(e), lastTestAt:"" };
+    renderDSPHealth();
+  }
+}
+
+async function fetchDSPTimeline(){
+  try{
+    const arr = await getJSON("/api/dsp/timeline?n=50");
+    // Render a simple, copy/paste friendly view.
+    const lines = (arr||[]).map(e=>{
+      const t = e.time || "—";
+      const s = e.state || "—";
+      const f = (typeof e.failures === "number") ? e.failures : "—";
+      const err = e.last_error || e.lastError || "";
+      return `${t} | ${s} | failures=${f}${err? " | "+err:""}`;
+    });
+    $("#dspTimeline").textContent = lines.length ? lines.join("\n") : "—";
+  }catch(e){
+    $("#dspTimeline").textContent = "Timeline unavailable: " + String(e);
+  }
+}
+
+function renderDSPHealth(){
+  $("#dspHealthState").textContent = state.dspHealth.state || "—";
+  $("#dspHealthLastOk").textContent = state.dspHealth.lastOk || "—";
+  $("#dspHealthFails").textContent = String(state.dspHealth.failures ?? "—");
+  $("#dspHealthErr").textContent = state.dspHealth.lastError || "—";
+  $("#dspHealthLastTest").textContent = state.dspHealth.lastTestAt || "—";
+
+  // Operator safety message shown when DISCONNECTED.
+  const warn = $("#dspControlWarn");
+  if((state.dspHealth.state||"").toUpperCase() === "DISCONNECTED"){
+    warn.style.display = "block";
+    warn.textContent = "DSP is DISCONNECTED. Control writes are blocked to prevent silent failure. Click 'Test DSP Now' to verify link.";
+  }else{
+    warn.style.display = "none";
+    warn.textContent = "";
+  }
 }
 
 function applyStudioStatus(j){
@@ -430,6 +502,33 @@ function wireUI(){
       $("#reconnectMsg").textContent = "Failed";
     }
   });
+
+// Manual "Test DSP Now" (single-shot). This is the ONLY place the UI triggers
+// DSP network activity, and only on explicit operator request.
+$("#btnDspTest").addEventListener("click", async ()=>{
+  const b = $("#btnDspTest");
+  const msg = $("#dspTestMsg");
+  b.disabled = true;
+  msg.textContent = "Testing…";
+  try{
+    const res = await fetch("/api/dsp/test", { method:"POST" });
+    const txt = await res.text();
+    if(!res.ok) throw new Error(txt);
+    // Update snapshot + timeline after test.
+    await fetchDSPHealth();
+    await fetchDSPTimeline();
+    msg.textContent = "OK";
+    setTimeout(()=>msg.textContent="", 1200);
+  }catch(e){
+    msg.textContent = "Failed";
+    // Also refresh health/timeline so operator can see the error.
+    await fetchDSPHealth();
+    await fetchDSPTimeline();
+  }finally{
+    b.disabled = false;
+  }
+});
+
 
   // RC controls: sliders
   let sliderRAF = 0;

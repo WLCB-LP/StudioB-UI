@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"crypto/subtle"
 	"encoding/json"
 	"flag"
@@ -227,7 +228,24 @@ func main() {
 	})
 
 	// Operator-safe reconnect
-	mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
+	
+
+mux.HandleFunc("/api/dsp/timeline", func(w http.ResponseWriter, r *http.Request) {
+    // Read-only: returns recent DSP health transitions.
+    // Query param: ?n=50 (default 50, max 200)
+    n := 50
+    if v := strings.TrimSpace(r.URL.Query().Get("n")); v != "" {
+        if i, err := strconv.Atoi(v); err == nil {
+            n = i
+        }
+    }
+    if n > 200 { n = 200 }
+    if n < 1 { n = 1 }
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(engine.ReadDSPTimeline(n))
+})
+
+mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return

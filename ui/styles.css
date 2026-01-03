@@ -301,3 +301,11 @@ main{padding:18px}
 .button.flash {
   animation: flash 1s ease-in-out infinite;
 }
+
+/* v0.2.48 DSP health visibility (minimal, conservative) */
+.dspHealth,.dspTimeline{margin-top:10px}
+.kv{display:flex;gap:12px;justify-content:space-between;padding:2px 0}
+.kv .k{opacity:.8}
+.kv .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+.warn{margin-top:8px;padding:8px;border:1px solid rgba(255,255,255,.15);border-radius:8px}
+.log{max-height:200px;overflow:auto}

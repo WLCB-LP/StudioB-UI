@@ -86,3 +86,6 @@ Adds defense-in-depth: the engine refuses DSP control commands when DSP health i
 
 ### Release 0.2.47
 Hotfix for v0.2.46 build failure. Restores successful engine compilation and keeps DSP server-side guard behavior unchanged.
+
+### Release 0.2.48
+Wires the operator-controlled 'Test DSP Now' to the engine and displays DSP health + a recent timeline. Also adds defense-in-depth: UI and engine both block control commands when DSP is DISCONNECTED. DSP network traffic occurs only on explicit tests.
