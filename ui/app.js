@@ -516,7 +516,20 @@ function wireUI(){
         headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
         body: "{}"
       });
-      const data = await resp.json().catch(async ()=>({ ok:false, error: await resp.text() }));
+      // IMPORTANT:
+      // We must not call resp.json() and then resp.text() on the same Response.
+      // The body can only be consumed once, and Firefox will throw:
+      //   "Response.text: Body has already been consumed."
+      // To keep error handling robust, we read the body once as text and then
+      // try to parse JSON from it.
+      const raw = await resp.text();
+      let data = {};
+      try{
+        data = raw ? JSON.parse(raw) : {};
+      }catch(_e){
+        // Not JSON (or corrupted). Treat the raw body as the error message.
+        data = { ok:false, error: raw || "Invalid response (expected JSON)" };
+      }
       if(!resp.ok || !data.ok){
         // IMPORTANT:
         // Do NOT embed literal newlines inside a quoted string ("...") here.

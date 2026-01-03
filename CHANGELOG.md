@@ -1,3 +1,7 @@
+## v0.2.36 (2026-01-03)
+
+- UI: fix Engineering "Update" button error in Firefox ("Response.text: Body has already been consumed") by reading fetch response body only once.
+
 ## v0.2.35 (2026-01-03)
 
 - Installer: add strict UI asset validation before switching the `runtime/current` symlink.
