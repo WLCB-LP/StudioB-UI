@@ -288,3 +288,8 @@
 - Fix: 'Test DSP Now' no longer hangs in mock/simulate mode (returns immediately)
 - UI: added hard client-side timeout + always-clears 'Testing…' state
 - No DSP network traffic in mock/simulate mode
+
+## v0.2.51 (2026-01-03)
+- Fix: DSP timeline error due to missing getJSON helper in UI
+- Timeline and DSP health now render correctly in mock and live modes
+- No engine or DSP behavior changes

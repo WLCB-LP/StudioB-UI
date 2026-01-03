@@ -95,3 +95,6 @@ Hotfix for v0.2.48 build failure (invalid escaped quotes in Go source). No funct
 
 ### Release 0.2.50
 Hotfix for mock-mode workflows: manual 'Test DSP Now' now returns immediately without any network calls. UI also enforces a strict timeout so it never stays stuck on 'Testing…'.
+
+### Release 0.2.51
+Fixes a UI JavaScript error where DSP timeline rendering failed because a shared getJSON helper was not in scope. No backend or DSP behavior changes.

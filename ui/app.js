@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.50";
+const UI_BUILD_VERSION="0.2.51";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -41,6 +41,20 @@ const state = {
 };
 
 function $(sel){ return document.querySelector(sel); }
+// ---------------------------------------------------------------------------
+// Shared JSON fetch helper (v0.2.51)
+// Centralized here so DSP health/timeline and other UI features
+// never depend on implicit scope or load order.
+// ---------------------------------------------------------------------------
+async function getJSON(url){
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error(t || ("HTTP " + res.status));
+  }
+  return await res.json();
+}
+
 function $all(sel){ return Array.from(document.querySelectorAll(sel)); }
 
 // ------------------------------
