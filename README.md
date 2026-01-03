@@ -68,3 +68,6 @@ Shows systemd "Active:" line and SubState for stub-ui-watchdog verbatim in the E
 
 ### Release 0.2.41
 Fixes a UI JavaScript syntax error that prevented navigation after v0.2.40.
+
+### Release 0.2.42
+Adds operator-visible DSP connection health detection. The system warns on stale or disconnected DSP links but does not perform automatic reconnects.

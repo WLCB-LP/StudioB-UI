@@ -987,3 +987,7 @@ async function pollUpdate(){
 
 // v0.2.39 Watchdog restart reason visibility
 // Display LAST_RESTART_REASON alongside systemd service status in UI
+
+// v0.2.42 DSP Connection Validation
+// UI displays DSP link status: OK / Degraded / Disconnected
+// Shows last successful DSP contact time and last error

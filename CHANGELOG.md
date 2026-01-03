@@ -239,3 +239,9 @@
 
 ## v0.2.41 (2026-01-03)
 - Fixed UI navigation regression (JavaScript unescaped newline) that prevented page routing.
+
+## v0.2.42 (2026-01-03)
+- Added DSP connection validation (visibility-only)
+- Detects stale or disconnected DSP links and warns operator
+- Exposes last successful DSP contact time and last error
+- No automatic reconnect behavior added
