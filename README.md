@@ -92,3 +92,6 @@ Wires the operator-controlled 'Test DSP Now' to the engine and displays DSP heal
 
 ### Release 0.2.49
 Hotfix for v0.2.48 build failure (invalid escaped quotes in Go source). No functional changes.
+
+### Release 0.2.50
+Hotfix for mock-mode workflows: manual 'Test DSP Now' now returns immediately without any network calls. UI also enforces a strict timeout so it never stays stuck on 'Testing…'.

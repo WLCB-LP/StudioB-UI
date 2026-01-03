@@ -82,6 +82,28 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
     e.ensureDSPHealthInit()
 
+	// v0.2.50 mock/simulate bypass:
+	// In mock/simulate mode, there is no external DSP to contact.
+	// Returning immediately avoids confusing "Testing…" hangs and guarantees
+	// we never generate external network traffic in mock workflows.
+	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+	if mode == "mock" || mode == "simulate" {
+		now := time.Now()
+		e.dspMu.Lock()
+		prev := e.dsp.state
+		e.dsp.lastTestAt = now
+		e.dsp.state = DSPHealthOK
+		e.dsp.lastOK = now
+		e.dsp.failures = 0
+		e.dsp.lastErr = ""
+		if e.dsp.state != prev {
+			// Record the state transition for operator visibility.
+			e.appendDSPTimelineLocked(now)
+		}
+		e.dspMu.Unlock()
+		return e.DSPHealth()
+	}
+
     host := strings.TrimSpace(e.cfg.DSP.Host)
     port := e.cfg.DSP.Port
 

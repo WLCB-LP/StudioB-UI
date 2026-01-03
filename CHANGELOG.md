@@ -283,3 +283,8 @@
 ## v0.2.49 (2026-01-03)
 - Hotfix: fixed Go build failure introduced in v0.2.48 (escaped quotes in engine/internal/engine.go)
 - No behavior change; restores successful compilation
+
+## v0.2.50 (2026-01-03)
+- Fix: 'Test DSP Now' no longer hangs in mock/simulate mode (returns immediately)
+- UI: added hard client-side timeout + always-clears 'Testing…' state
+- No DSP network traffic in mock/simulate mode
