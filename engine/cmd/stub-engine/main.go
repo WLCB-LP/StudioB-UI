@@ -57,7 +57,7 @@ func main() {
 	// Config (read-only; safe subset). Useful for debugging mode + DSP connection config.
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "GET required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET required")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -77,7 +77,7 @@ func main() {
 	// This edits ONLY ~/.StudioB-UI/config.json (outside of repo/releases) so upgrades do not overwrite settings.
 	mux.HandleFunc("/api/admin/config/file", func(w http.ResponseWriter, r *http.Request) {
 		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -103,18 +103,18 @@ func main() {
 		case http.MethodPut:
 			var body app.EditableConfig
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, "bad json", http.StatusBadRequest)
+				writeAPIError(w, http.StatusBadRequest, "bad json")
 				return
 			}
 			p, err := app.WriteEditableConfig(body)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				writeAPIError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			// Hot-reload so operator sees immediate effect in /api/config.
 			if err := engine.ReloadConfig(); err != nil {
 				// File saved, but reload failed. Return 500 with details so operator can act.
-				http.Error(w, "config saved to "+p+" but reload failed: "+err.Error(), http.StatusInternalServerError)
+				writeAPIError(w, http.StatusInternalServerError, "config saved to "+p+" but reload failed: "+err.Error())
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -124,7 +124,7 @@ func main() {
 			return
 
 		default:
-			http.Error(w, "GET or PUT required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET or PUT required")
 			return
 		}
 	})
@@ -184,7 +184,7 @@ func main() {
 	// Set RC (allowlisted)
 	mux.HandleFunc("/api/rc/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
 		}
 		idStr := r.URL.Path[len("/api/rc/"):]
@@ -192,11 +192,11 @@ func main() {
 			Value float64 `json:"value"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "bad json", http.StatusBadRequest)
+			writeAPIError(w, http.StatusBadRequest, "bad json")
 			return
 		}
 		if err := engine.SetRC(idStr, body.Value); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -205,7 +205,7 @@ func main() {
 	// Operator-safe reconnect
 	mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
 		}
 		engine.Reconnect()
@@ -221,11 +221,11 @@ func main() {
 	// Admin update/rollback
 	mux.HandleFunc("/api/admin/update", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
 		}
 		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		go engine.Update()
@@ -234,7 +234,7 @@ func main() {
 
 	mux.HandleFunc("/api/admin/releases", func(w http.ResponseWriter, r *http.Request) {
 		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -243,18 +243,18 @@ func main() {
 
 	mux.HandleFunc("/api/admin/rollback", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
 		}
 		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		var body struct {
 			Version string `json:"version"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Version == "" {
-			http.Error(w, "bad json", http.StatusBadRequest)
+			writeAPIError(w, http.StatusBadRequest, "bad json")
 			return
 		}
 		go engine.Rollback(body.Version)
@@ -264,7 +264,7 @@ func main() {
 	// Watchdog status (read-only) + start (admin)
 	mux.HandleFunc("/api/watchdog/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "GET required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET required")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -273,11 +273,11 @@ func main() {
 
 	mux.HandleFunc("/api/admin/watchdog/start", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
 		}
 		if !engine.CheckAdmin(r) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		// Run synchronously so we can return a meaningful success/failure.
@@ -329,12 +329,12 @@ func requireAdminPin(w http.ResponseWriter, r *http.Request, expectedPIN string)
 	callerPIN := strings.TrimSpace(r.Header.Get("X-Admin-PIN"))
 	if expectedPIN == "" {
 		// Misconfiguration: we cannot authorize anything safely.
-		http.Error(w, "admin PIN not configured", http.StatusServiceUnavailable)
+		writeAPIError(w, http.StatusServiceUnavailable, "admin PIN not configured")
 		return false
 	}
 	// Constant-time compare to avoid trivial timing leaks.
 	if subtle.ConstantTimeCompare([]byte(callerPIN), []byte(expectedPIN)) != 1 {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 		return false
 	}
 	return true
@@ -346,4 +346,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeAPIError is a convenience wrapper for returning a consistent JSON error
+// payload across all API endpoints.
+//
+// This is important because tools like `jq` expect valid JSON even on failures.
+func writeAPIError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]any{
+		"ok":    false,
+		"error": msg,
+	})
 }

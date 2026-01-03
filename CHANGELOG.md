@@ -1,3 +1,8 @@
+## v0.2.31 (2026-01-02)
+
+- Engine: make admin-PIN failures return JSON (instead of plain text) so `/api/updates/apply` works cleanly with `curl | jq`.
+- Engine: normalize API error responses to JSON for method/auth/validation failures.
+
 ## v0.2.30 (2026-01-02)
 
 - Fix: stub-engine build break caused by calling `writeJSON` with missing HTTP status code.
