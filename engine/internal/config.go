@@ -87,6 +87,9 @@ func LoadConfig(path string) (*Config, error) {
 	if cfg.DSP.Port != 0 {
 		cfg.Meta.DSPPortSource = "yaml"
 	}
+	if cfg.Mode == "" {
+		cfg.Mode = "mock"
+	}
 	if cfg.UI.HTTPListen == "" {
 		cfg.UI.HTTPListen = "127.0.0.1:8787"
 	}
@@ -200,9 +203,14 @@ func applyJSONOverrides(cfg *Config) {
 func applyEnvOverrides(cfg *Config) {
 	// Env vars take precedence over everything.
 	if v := strings.TrimSpace(os.Getenv("STUDIOB_UI_MODE")); v != "" {
-		cfg.DSP.Mode = v
+		cfg.Mode = v
 		cfg.Meta.ModeSource = "env"
 		cfg.Meta.EnvUsed["STUDIOB_UI_MODE"] = v
+	}
+	// DSP write mode is separate from engine mode.
+	if v := strings.TrimSpace(os.Getenv("STUDIOB_DSP_MODE")); v != "" {
+		cfg.DSP.Mode = v
+		cfg.Meta.EnvUsed["STUDIOB_DSP_MODE"] = v
 	}
 	if v := strings.TrimSpace(os.Getenv("STUDIOB_DSP_IP")); v != "" {
 		cfg.DSP.Host = v

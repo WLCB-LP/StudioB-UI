@@ -193,3 +193,6 @@ Hotfix for v0.2.67: fixes a JavaScript syntax error that prevented the UI from i
 
 ### Release 0.2.69
 UI clarity update. The header now shows Engine mode separately from DSP connectivity state and DSP write mode, so operators can distinguish simulation state from real DSP connection/controls.
+
+### Release 0.2.70
+Implements Option A: engine simulation mode and DSP write mode are separate. Operators can keep the engine in mock/simulated mode while enabling real DSP control writes by setting DSP Writes=live.

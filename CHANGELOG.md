@@ -380,3 +380,9 @@
 - UI clarity: separate pills for engine mode, DSP connectivity state, and DSP write mode
 - Eliminates confusion where 'mode: mock' could be mistaken for DSP connectivity
 - No behavior change: DSP monitoring remains always-on; writes follow configured mode (Option 1)
+
+## v0.2.70 (2026-01-03)
+- Option A: decouple Engine mode (simulation) from DSP write mode
+- Engineering UI: add separate 'DSP Writes' selector (mock/live)
+- Config/env: STUDIOB_UI_MODE controls engine mode; new STUDIOB_DSP_MODE controls DSP write mode
+- Header pills reflect: engine mode, DSP connectivity, and DSP write behavior
