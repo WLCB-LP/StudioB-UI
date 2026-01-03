@@ -1,3 +1,8 @@
+## v0.2.34 (2026-01-03)
+
+- Fix: UI buttons/navigation were broken due to a JavaScript syntax error (an accidental multi-line quoted string) which prevented the UI from loading its event handlers.
+
+
 ## v0.2.33 (2026-01-03)
 
 - chore: version bump for folder watcher ingest test

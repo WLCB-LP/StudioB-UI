@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.24";
+const UI_BUILD_VERSION="0.2.34";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -518,10 +518,13 @@ function wireUI(){
       });
       const data = await resp.json().catch(async ()=>({ ok:false, error: await resp.text() }));
       if(!resp.ok || !data.ok){
-        const tail = (data && data.outputTail) ? "
-
---- output (tail) ---
-" + data.outputTail : "";
+        // IMPORTANT:
+        // Do NOT embed literal newlines inside a quoted string ("...") here.
+        // Some browsers (notably Firefox) treat that as a syntax error and the
+        // entire UI JS fails to parse, making the UI appear "dead".
+        const tail = (data && data.outputTail)
+          ? "\n\n--- output (tail) ---\n" + data.outputTail
+          : "";
         throw new Error((data && data.error) ? (data.error + tail) : ("HTTP " + resp.status + tail));
       }
       $("#svcMsg").textContent = expected
