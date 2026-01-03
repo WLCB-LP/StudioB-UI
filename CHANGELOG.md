@@ -304,3 +304,8 @@
 - Fix: Engineering Configuration panel error `loadConfig is not defined`
 - Restored explicit config load/save helpers after refactors
 - No engine or DSP behavior changes
+
+## v0.2.54 (2026-01-03)
+- Fix: Engineering Configuration Save no longer errors (`loadConfigFill/loadConfigPill` missing)
+- Restored explicit post-save UI refresh helper and mode pill update
+- No engine/DSP behavior changes

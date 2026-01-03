@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.53";
+const UI_BUILD_VERSION="0.2.54";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -47,36 +47,6 @@ function $(sel){ return document.querySelector(sel); }
 // never depend on implicit scope or load order.
 // ---------------------------------------------------------------------------
 async function getJSON(url){
-// ---------------------------------------------------------------------------
-// Engineering Config Helpers (v0.2.53)
-// Explicit helpers for loading/saving config.yml via the engine API.
-// ---------------------------------------------------------------------------
-async function loadConfig(){
-  const cfg = await getJSON("/api/config");
-  $("#cfgMode").value = cfg.mode || "";
-  $("#cfgDSPHost").value = cfg.dsp?.host || "";
-  $("#cfgDSPPort").value = cfg.dsp?.port || "";
-}
-
-async function saveConfig(){
-  const body = {
-    mode: $("#cfgMode").value,
-    dsp: {
-      host: $("#cfgDSPHost").value,
-      port: Number($("#cfgDSPPort").value)
-    }
-  };
-  const res = await fetch("/api/config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  if(!res.ok){
-    const t = await res.text();
-    throw new Error(t || ("HTTP " + res.status));
-  }
-}
-
   const res = await fetch(url, { headers: { "Accept": "application/json" } });
   if(!res.ok){
     const t = await res.text();
@@ -184,6 +154,35 @@ function setPills(){
   $("#verPill").textContent = "v" + (state.version || "—");
   $("#modePill").textContent = "mode: " + (state.mode || "—");
 }
+
+// ---------------------------------------------------------------------------
+// Engineering Config post-save helper (v0.2.54)
+//
+// This function exists for one job:
+// After a successful config Save, update small UI bits immediately so the
+// operator has instant feedback without needing a refresh.
+//
+// IMPORTANT:
+// - This does NOT reload config from disk (that requires Admin PIN + API call).
+// - It updates the mode pill to match the currently selected Mode dropdown.
+// - It is safe, explicit, and local-only.
+// ---------------------------------------------------------------------------
+async function loadConfigPill(){
+  try{
+    // Keep the header pill aligned with the selected mode.
+    state.mode = $("#cfgMode") ? $("#cfgMode").value : (state.mode || "—");
+    setPills();
+  }catch(e){
+    // Best-effort only.
+  }
+}
+
+// Backwards-compat alias: some older UI code referenced loadConfigFill().
+// Keeping this avoids regressions when we touch config code.
+async function loadConfigFill(){
+  return await loadConfigPill();
+}
+
 
 function setMeterFill(id, v){
   const el = document.getElementById(id);

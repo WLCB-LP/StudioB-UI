@@ -104,3 +104,6 @@ Adds explicit operator-visible handling for transitions from mock/simulate to li
 
 ### Release 0.2.53
 Hotfix restoring the Engineering Configuration load/save helpers. Fixes a UI regression where the config panel could not load or save.
+
+### Release 0.2.54
+Hotfix for Engineering Configuration: fixes Save regression caused by a missing post-save helper (loadConfigFill/loadConfigPill). Save now completes and the mode pill updates immediately.
