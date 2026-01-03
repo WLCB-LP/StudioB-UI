@@ -350,3 +350,8 @@
 ## v0.2.63 (2026-01-03)
 - Hotfix: v0.2.62 build failure (pass engine context into dspMonitorLoop)
 - No behavior changes beyond enabling always-on DSP monitor to start correctly
+
+## v0.2.64 (2026-01-03)
+- Hotfix: v0.2.63 build failure (ctx undefined)
+- DSP monitor loop now runs for engine lifetime (no context dependency)
+- Maintains always-on, read-only DSP connectivity monitoring

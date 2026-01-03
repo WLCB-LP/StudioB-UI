@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"bufio"
 	"encoding/json"
 	"os"
@@ -356,22 +355,17 @@ func (e *Engine) ReadDSPTimeline(n int) []dspTimelineEntry {
 // - Connect timeout: 1.2 seconds (conservative, avoids thread pile-ups)
 // - When the engine context is canceled, the loop exits cleanly.
 // ---------------------------------------------------------------------------
-func (e *Engine) dspMonitorLoop(ctx context.Context) {
-	// Defensive default. If ctx is nil, do nothing (should never happen).
-	if ctx == nil {
-		return
-	}
+func (e *Engine) dspMonitorLoop() {// This loop intentionally runs for the lifetime of the engine process.
+// StudioB-UI is managed by systemd; a clean stop is handled by process exit.
+//
+// We keep the loop bounded (short timeout) and low-rate (2s) to avoid resource issues.
+t := time.NewTicker(2 * time.Second)
+defer t.Stop()
 
-	t := time.NewTicker(2 * time.Second)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			// Run a single bounded check. This updates the cached DSP health in-memory.
-			_ = e.TestDSPConnectivity(1200 * time.Millisecond)
-		}
-	}
+for {
+  <-t.C
+  // Run a single bounded check. This updates the cached DSP health in-memory.
+  _ = e.TestDSPConnectivity(1200 * time.Millisecond)
 }
+}
+

@@ -175,3 +175,6 @@ Hotfix for v0.2.61 build failure. Adds the missing always-on DSP monitor loop im
 
 ### Release 0.2.63
 Hotfix for v0.2.62 compilation issue. The DSP monitor loop now receives the engine context when started.
+
+### Release 0.2.64
+Hotfix for v0.2.63 compilation error (undefined ctx). The DSP monitor loop no longer depends on a context and runs for the lifetime of the engine process under systemd.
