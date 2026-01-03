@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.65";
+const UI_BUILD_VERSION="0.2.66";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1168,6 +1168,7 @@ async function fetchDSPModeStatus(){
     state.dspModeStatus = m || state.dspModeStatus;
     const banner = $("#dspTransitionBanner");
     renderWatchdogDSP();
+    renderEnterLive();
     const ep = $("#dspBannerEndpoint");
     const age = $("#dspBannerValidatedAge");
     const cfgChg = $("#dspBannerConfigChanged");
@@ -1250,6 +1251,8 @@ function renderWatchdogDSP(){
   const h = state.dspHealth || {};
 
   modeEl.textContent = (m.mode || "—");
+          const am = $("#wdDspActiveMode");
+          if(am) am.textContent = (m.activeMode || "—");
   $("#wdDspState").textContent = (h.state || "—");
   $("#wdDspLastTest").textContent = (h.lastTestAt || "—");
   const wlp = $("#wdDspLastPoll");
@@ -1294,5 +1297,55 @@ function renderWatchdogDSP(){
       errBox.style.display = "none";
       errBox.textContent = "";
     }
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// Enter LIVE Mode (v0.2.66)
+// LIVE controls (writes) remain reserved until the operator explicitly arms them.
+// Monitoring stays always-on and read-only.
+// ---------------------------------------------------------------------------
+function renderEnterLive(){
+  const btn = $("#btnEnterLive");
+  const st = $("#enterLiveStatus");
+  if(!btn || !st) return; // Engineering page only
+
+  const m = state.dspModeStatus || {};
+  const desired = (m.mode || "").toLowerCase();
+  const active = (m.activeMode || "").toLowerCase();
+  const armed = !!m.liveArmed;
+
+  // Only relevant when operator has selected LIVE in config.
+  if(desired !== "live"){
+    btn.style.display = "none";
+    st.textContent = "";
+    return;
+  }
+
+  if(armed || active === "live"){
+    btn.style.display = "none";
+    st.textContent = "LIVE ACTIVE (writes enabled)";
+    return;
+  }
+
+  // Show button when desired=live but not armed.
+  btn.style.display = "inline-block";
+  st.textContent = "LIVE reserved (writes blocked until you enter LIVE)";
+}
+
+async function enterLiveNow(){
+  const pin = ($("#adminPin")?.value || getSavedPin() || "").trim();
+  if(!pin){
+    showPinModal(true);
+    return;
+  }
+  try{
+    await fetchJSON("/api/dsp/enter_live", {method:"POST", headers: {"X-Admin-PIN": pin}}, 1500);
+    savePin(pin);
+    await fetchDSPModeStatus();
+    alert("LIVE mode entered. DSP control writes are now enabled.");
+  }catch(e){
+    alert("Enter LIVE failed: " + e);
   }
 }

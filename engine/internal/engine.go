@@ -67,6 +67,11 @@ func resolveRC(idOrName string) (int, error) {
 }
 
 type Engine struct {
+	// v0.2.66: LIVE write gating
+	// When cfg.DSP.Mode == "live", writes are still blocked until the operator
+	// explicitly clicks "Enter LIVE Mode" (admin-gated).
+	dspLiveArmed bool
+	dspLiveArmedAt time.Time
 	// cfgMu protects access to e.cfg at runtime.
 	cfgMu sync.RWMutex
 	// v0.2.52 DSP mode transition visibility
@@ -436,6 +441,11 @@ func (e *Engine) ReloadConfig() error {
 	e.cfgMu.Lock()
 	e.cfg = newCfg
 	e.cfgMu.Unlock()
+
+	// v0.2.66: If desired mode is not live, ensure LIVE writes are disarmed.
+	if strings.ToLower(strings.TrimSpace(newCfg.DSP.Mode)) != "live" {
+		e.DisarmDSPLive()
+	}
 
 	log.Printf("config reloaded (mode=%s dsp=%s:%d)", newCfg.DSP.Mode, newCfg.DSP.Host, newCfg.DSP.Port)
 	return nil
@@ -870,8 +880,18 @@ func tailLines(s string, n int) string {
 
 // DSPModeStatus is returned to the UI for transition warnings.
 // DSPModeStatus is returned to the UI for transition warnings.
+// DSPModeStatus is returned to the UI for transition warnings and LIVE gating.
+//
+// Terminology:
+// - desiredMode: what config requests (cfg.DSP.Mode)
+// - activeMode:  what the engine will allow for DSP *writes*
+//   (live writes are only enabled after operator arms them)
 type DSPModeStatus struct {
-    Mode          string `json:"mode"`
+    DesiredMode    string `json:"mode"`
+    ActiveMode     string `json:"activeMode"`
+    LiveArmed      bool   `json:"liveArmed"`
+    LiveArmedAt    string `json:"liveArmedAt,omitempty"`
+
     Host          string `json:"host,omitempty"`
     Port          int    `json:"port,omitempty"`
     Validated     bool   `json:"validated"`
@@ -881,19 +901,19 @@ type DSPModeStatus struct {
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
     cfg := e.GetConfigCopy()
-    mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+    desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
     host := strings.TrimSpace(cfg.DSP.Host)
     port := cfg.DSP.Port
 
+    // LIVE validation context is based on the cached timestamps.
     validated := false
-    var ts string
-    if mode == "live" && !e.dspValidatedAt.IsZero() {
+    var vts string
+    if desired == "live" && !e.dspValidatedAt.IsZero() {
         validated = true
-        ts = e.dspValidatedAt.UTC().Format(time.RFC3339)
+        vts = e.dspValidatedAt.UTC().Format(time.RFC3339)
     }
 
     // configChanged is meaningful primarily in LIVE mode.
-    // If we have never validated, we treat it as changed=false (banner already covers unvalidated).
     changed := false
     if validated {
         curSig := e.dspConfigSignature()
@@ -902,15 +922,34 @@ func (e *Engine) DSPModeStatus() DSPModeStatus {
         }
     }
 
+    // Active mode for writes: LIVE only when armed.
+    active := desired
+    liveArmed := e.DSPLiveActive()
+    var lts string
+    if desired == "live" {
+        if !liveArmed {
+            active = "mock"
+        }
+        e.dspMu.Lock()
+        if !e.dspLiveArmedAt.IsZero() {
+            lts = e.dspLiveArmedAt.UTC().Format(time.RFC3339)
+        }
+        e.dspMu.Unlock()
+    }
+
     return DSPModeStatus{
-        Mode:          mode,
-        Host:          host,
-        Port:          port,
-        Validated:     validated,
-        ValidatedAt:   ts,
-        ConfigChanged: changed,
+        DesiredMode:    desired,
+        ActiveMode:     active,
+        LiveArmed:      liveArmed,
+        LiveArmedAt:    lts,
+        Host:           host,
+        Port:           port,
+        Validated:      validated,
+        ValidatedAt:    vts,
+        ConfigChanged:  changed,
     }
 }
+
 
 
 // dspConfigSignature creates a small, stable string representing the DSP-relevant config.
@@ -994,4 +1033,49 @@ func (e *Engine) ApplyConfig(newCfg *Config) {
         e.dsp.lastTestAt = time.Time{}
         e.dspMu.Unlock()
     }
+}
+
+// ArmDSPLive enables DSP *write* operations when the desired mode is LIVE.
+// Monitoring remains read-only regardless of this flag.
+//
+// Preconditions (conservative):
+// - Desired mode (config) must be "live"
+// - DSP must be currently connected (based on cached health)
+//
+// No auto-testing is performed here; the always-on monitor already provides
+// a continuously updated connectivity state.
+func (e *Engine) ArmDSPLive() error {
+    cfg := e.GetConfigCopy()
+    desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+    if desired != "live" {
+        return fmt.Errorf("cannot enter live: config dsp.mode is %q (set to 'live' first)", cfg.DSP.Mode)
+    }
+
+    e.ensureDSPHealthInit()
+    e.dspMu.Lock()
+    defer e.dspMu.Unlock()
+
+    if e.dsp.state == DSPHealthDisconnected {
+        return fmt.Errorf("cannot enter live: DSP is disconnected")
+    }
+
+    e.dspLiveArmed = true
+    e.dspLiveArmedAt = time.Now().UTC()
+    return nil
+}
+
+// DisarmDSPLive disables DSP write operations (safe fallback).
+func (e *Engine) DisarmDSPLive() {
+    e.dspMu.Lock()
+    e.dspLiveArmed = false
+    e.dspLiveArmedAt = time.Time{}
+    e.dspMu.Unlock()
+}
+
+// DSPLiveActive reports whether DSP writes are currently armed.
+func (e *Engine) DSPLiveActive() bool {
+    e.dspMu.Lock()
+    v := e.dspLiveArmed
+    e.dspMu.Unlock()
+    return v
 }

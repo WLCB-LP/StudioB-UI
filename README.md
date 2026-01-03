@@ -181,3 +181,6 @@ Hotfix for v0.2.63 compilation error (undefined ctx). The DSP monitor loop no lo
 
 ### Release 0.2.65
 Fixes a UI regression where DSP connectivity did not appear to update because the UI only refreshed DSP health on manual actions. The UI now polls /api/dsp/health on a short interval so the continuously updated engine-side DSP monitor status is visible.
+
+### Release 0.2.66
+Adds an explicit 'Enter LIVE Mode' action that enables DSP control writes only after an operator confirmation. DSP monitoring remains always-on and read-only; LIVE gating affects writes only.

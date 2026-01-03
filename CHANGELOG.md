@@ -360,3 +360,9 @@
 - Fix: UI now polls /api/dsp/health on an interval so DSP connectivity updates automatically
 - Watchdog DSP summary now shows Last poll timestamp
 - No changes to DSP monitor loop (engine already updates health every 2s)
+
+## v0.2.66 (2026-01-03)
+- Added explicit 'Enter LIVE Mode' button (gates DSP control writes)
+- LIVE remains reserved until operator arms it (requires Admin PIN + DSP connected)
+- /api/dsp/mode now reports desired vs active mode and armed state
+- Always-on DSP monitoring remains read-only and continues updating status

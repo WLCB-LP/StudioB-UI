@@ -187,6 +187,13 @@ func (e *Engine) DSPControlAllowed() (bool, string) {
         return true, ""
     }
 
+    // v0.2.66: LIVE writes are additionally gated by an explicit operator action.
+    // This allows the UI to monitor DSP connectivity continuously while keeping
+    // control writes reserved until the operator arms LIVE.
+    if mode == "live" && !e.DSPLiveActive() {
+        return false, "LIVE mode is reserved. In Engineering, click \"Enter LIVE Mode\" to enable control writes."
+    }
+
     e.dspMu.Lock()
     defer e.dspMu.Unlock()
 

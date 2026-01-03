@@ -217,6 +217,24 @@ mux.HandleFunc("/api/dsp/mode", func(w http.ResponseWriter, r *http.Request) {
     _ = json.NewEncoder(w).Encode(engine.DSPModeStatus())
 })
 
+
+mux.HandleFunc("/api/dsp/enter_live", func(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+        return
+    }
+    if !requireAdminPin(w, r, cfg.Admin.PIN) {
+        return
+    }
+    if err := engine.ArmDSPLive(); err != nil {
+        writeAPIError(w, http.StatusBadRequest, err.Error())
+        return
+    }
+    writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+})
+
+
+
 mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(engine.DSPHealth())
