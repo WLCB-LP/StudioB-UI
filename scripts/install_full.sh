@@ -32,6 +32,70 @@ log() {
   logger -t stub-ui-install -- "[install] $*" || true
 }
 
+# Validate the staged static UI assets inside a newly created release directory.
+#
+# Why this exists:
+# - If app.js contains a syntax error, the browser will load the page (HTTP 200)
+#   but *nothing* will work (no click handlers, no navigation, etc.).
+# - nginx logs will look totally fine, so without this check it's easy to publish
+#   a broken UI by accident.
+#
+# This function is intentionally conservative: it only checks things that should
+# always be true for our UI, and it fails the install *before* switching the
+# /runtime/current symlink.
+validate_ui_assets() {
+  local rel="$1"
+  local webdir="${rel}/web"
+  local ver
+
+  # Read the version from the repo VERSION file (source of truth for releases).
+  # (We avoid relying on any global variables here so this function is safe to call
+  # from anywhere in the installer.)
+  ver="$(cat "${REPO_DIR}/VERSION" 2>/dev/null || true)"
+  ver="${ver#v}"
+  if [[ -z "${ver}" ]]; then
+    log "ERROR: could not read version from ${REPO_DIR}/VERSION"
+    return 1
+  fi
+
+  # Required files
+  for f in "${webdir}/index.html" "${webdir}/app.js" "${webdir}/styles.css"; do
+    if [ ! -s "${f}" ]; then
+      log "ERROR: UI asset missing or empty: ${f}"
+      return 1
+    fi
+  done
+
+  # index.html must reference cache-busted assets for the *current* version
+  # (so browsers quickly converge on the right JS/CSS after an update).
+  if ! grep -q "/app.js?v=${ver}" "${webdir}/index.html"; then
+    log "ERROR: index.html does not reference /app.js?v=${ver}"
+    return 1
+  fi
+  if ! grep -q "/styles.css?v=${ver}" "${webdir}/index.html"; then
+    log "ERROR: index.html does not reference /styles.css?v=${ver}"
+    return 1
+  fi
+
+  # Optional JS syntax check (best-effort). We don't *require* node to be installed,
+  # but if it is available, this catches fatal syntax mistakes immediately.
+  if command -v node >/dev/null 2>&1; then
+    if ! node --check "${webdir}/app.js" >/dev/null 2>&1; then
+      log "ERROR: node --check failed for ${webdir}/app.js"
+      return 1
+    fi
+  else
+    # Fallback: extremely cheap heuristic check that the compiled bundle contains
+    # at least one event listener hook (our UI always does).
+    if ! grep -Eq "addEventListener\(" "${webdir}/app.js"; then
+      log "ERROR: app.js sanity check failed (no addEventListener() found)"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
 # Installer traps
 # - log fatal errors with line/command
 # - always attempt to re-enable/start watchdog on exit (best-effort)
@@ -329,9 +393,30 @@ deploy_release() {
   bash "${REPO_DIR}/scripts/sync_ui_cachebuster.sh"
   rsync -a --delete "${REPO_DIR}/ui/" "${rel}/web/"
 
+  # ---------------------------------------------------------------------------
+  # UI sanity checks
+  #
+  # We serve the UI as static files (index.html + app.js + styles.css) behind nginx.
+  # If app.js has a syntax error (or index.html points at a non-existent asset),
+  # the operator will see "buttons don't work" because the JS never bootstraps.
+  #
+  # These checks keep installs/update rollouts safe:
+  #   - We verify required files exist.
+  #   - We verify index.html references the current VERSION cache-buster.
+  #   - If Node.js is present, we run a syntax-only parse check of app.js.
+  #
+  # If any check fails, we abort BEFORE switching the runtime/current symlink.
+  # ---------------------------------------------------------------------------
+  validate_ui_assets "${rel}"
+
   log "Installing runtime scripts -> ${rel}/scripts"
   rsync -a --delete "${REPO_DIR}/scripts/" "${rel}/scripts/"
   chmod -R a+rx "${rel}/scripts" || true
+
+  # rsync runs as root here (install.sh is invoked via sudo). Ensure the entire
+  # release tree is owned by the app user so future tooling (watchdog, update
+  # scripts) doesn't trip on permission edge cases.
+  chown -R "${APP_USER}:${APP_GROUP}" "${rel}" || true
 
   log "Switching current symlink -> ${rel}"
   ln -sfn "${rel}" "${CURRENT_DIR}"

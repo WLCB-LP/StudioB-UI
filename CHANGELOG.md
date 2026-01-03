@@ -1,3 +1,11 @@
+## v0.2.35 (2026-01-03)
+
+- Installer: add strict UI asset validation before switching the `runtime/current` symlink.
+  This catches broken/partial UI deploys (missing files, wrong cachebuster, and JavaScript syntax errors
+  when `node` is installed) so we never ship a "buttons don't work" UI live.
+- Installer: ensure staged release assets are owned by the application user (prevents root-owned UI assets
+  in runtime releases when install runs under sudo).
+
 ## v0.2.34 (2026-01-03)
 
 - Fix: UI buttons/navigation were broken due to a JavaScript syntax error (an accidental multi-line quoted string) which prevented the UI from loading its event handlers.
