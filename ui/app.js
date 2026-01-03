@@ -970,3 +970,5 @@ async function pollUpdate(){
 }
 
 
+
+// v0.2.38 Watchdog Visibility: UI hooks for health summary and recent events

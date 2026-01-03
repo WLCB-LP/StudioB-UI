@@ -224,3 +224,7 @@
 ## 0.1.36
 - Fix UI cache-busting version.
 - Make admin update run install_full.sh via systemd-run when available (avoids systemd sandbox /etc RO issues).
+## v0.2.38 (2026-01-03)
+- Added Watchdog Visibility UI (health summary, last action, reason)
+- Exposed recent watchdog events in UI (read-only)
+- Defensive validation of watchdog log presence

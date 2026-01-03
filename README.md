@@ -56,3 +56,6 @@ The StudioB-UI engine can check GitHub once per minute for `releases/latest` and
 
 - Journal: `sudo journalctl -u stub-ui-watchdog -f --no-pager`
 - File: `/var/log/stub-ui-watchdog.log` (rotated via logrotate)
+
+### Release 0.2.38
+Adds operator-visible Watchdog health and recent events. No automation behavior changes.
