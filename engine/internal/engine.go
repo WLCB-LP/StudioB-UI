@@ -857,7 +857,7 @@ type DSPModeStatus struct {
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
-    cfg := e.GetConfig()
+    cfg := e.GetConfigCopy()
     mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
     host := strings.TrimSpace(cfg.DSP.Host)
     port := cfg.DSP.Port

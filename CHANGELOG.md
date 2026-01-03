@@ -333,3 +333,7 @@
 - Hotfix: v0.2.58 build failures (config apply + DSP constants + cfg scoping)
 - Runtime ApplyConfig now uses *Config consistently and compiles
 - No behavior changes beyond intended v0.2.58 fix (apply config without restart)
+
+## v0.2.60 (2026-01-03)
+- Hotfix: v0.2.59 build errors (remove unused cfg var; replace e.GetConfig -> GetConfigCopy)
+- No behavior changes beyond intended runtime config apply

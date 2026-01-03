@@ -82,7 +82,6 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
     e.ensureDSPHealthInit()
 	cfg := e.GetConfigCopy()
-
 	// v0.2.50 mock/simulate bypass:
 	// In mock/simulate mode, there is no external DSP to contact.
 	// Returning immediately avoids confusing "Testing…" hangs and guarantees
@@ -163,9 +162,6 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 //   (cached JS) or a non-UI client calls the API.
 func (e *Engine) DSPControlAllowed() (bool, string) {
     e.ensureDSPHealthInit()
-
-	cfg := e.GetConfigCopy()
-
     // In simulate mode, there is no external DSP; always allow.
     mode := strings.ToLower(strings.TrimSpace(e.GetConfigCopy().DSP.Mode))
 		if mode == "simulate" || mode == "mock" {

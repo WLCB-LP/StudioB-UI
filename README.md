@@ -162,3 +162,6 @@ Fixes a mismatch where Engineering config could be saved but the running engine 
 
 ### Release 0.2.59
 Hotfix for v0.2.58 compilation errors. Keeps the intended behavior: applying saved config to the running engine without restart.
+
+### Release 0.2.60
+Hotfix for v0.2.59 compilation errors. Keeps intended behavior: config Save applies immediately to the running engine.
