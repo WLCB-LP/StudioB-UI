@@ -256,3 +256,9 @@
 - Performs one bounded DSP round-trip on operator request
 - Updates DSP health state and timeline based on result
 - No background polling or automatic retries
+
+## v0.2.45 (2026-01-03)
+- Warn when operator attempts DSP control while DSP is Disconnected
+- Control actions are blocked with an explicit warning (operator safety)
+- Provides a one-click path to run 'Test DSP Now'
+- No automatic reconnect or retries added

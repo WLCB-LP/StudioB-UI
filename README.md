@@ -77,3 +77,6 @@ Adds a DSP health history timeline so operators can see recent DSP link state tr
 
 ### Release 0.2.44
 Adds an explicit operator-controlled 'Test DSP Now' action. This performs a single DSP connectivity test with a strict timeout and records the result in DSP health and history. No automatic polling or reconnect logic is introduced.
+
+### Release 0.2.45
+Adds an operator safety gate: if DSP health is Disconnected, DSP control actions are blocked and the UI warns the operator, offering a quick 'Test DSP Now' action. No automatic reconnect behavior is introduced.

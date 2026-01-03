@@ -1001,3 +1001,11 @@ async function pollUpdate(){
 // This button triggers a single DSP connectivity test via the engine.
 // Disable button while test is in progress.
 // Display success/failure result and update DSP health panel.
+
+// v0.2.45 DSP Control Safety Gate
+// Before sending any DSP control command, check current DSP health state.
+// If state is DISCONNECTED:
+//   - Block the control request.
+//   - Show an explicit operator warning.
+//   - Provide a shortcut to run 'Test DSP Now'.
+// Rationale: prevent silent no-op controls when DSP link is down.
