@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.36
+# STUB Mixer UI (Studio B) — Release 0.2.37
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- Update UI: Update/Rollback now show an explicit “Refresh Now” button when the engine restarts or the version changes.
 - DSP control protocol is intentionally stubbed ("mock mode") until we wire it to Symetrix control.
 - Update/Rollback are implemented as **local git operations** on the VM:
   - Update: fetch + fast-forward main (or latest tag if configured) then reinstall

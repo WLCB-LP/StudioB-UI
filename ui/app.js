@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.34";
+const UI_BUILD_VERSION="0.2.37";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -41,6 +41,64 @@ const state = {
 
 function $(sel){ return document.querySelector(sel); }
 function $all(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+// ------------------------------
+// Admin/status message helpers
+// ------------------------------
+// We keep messaging logic centralized so we don't end up with "half states"
+// where the message says one thing but buttons show another.
+//
+// IMPORTANT PRODUCTION NOTE:
+// - Updates intentionally do NOT auto-deploy from the folder watcher.
+// - The ONLY thing that makes changes live is `sudo ./install.sh`.
+// - Even after install completes, the browser may still be showing cached JS/CSS.
+//   Therefore a *manual refresh* is an accepted and explicit operator step.
+// ------------------------------
+function setSvcStatus(kind, msg){
+  const el = $("#svcMsg");
+  if(!el) return;
+
+  // Preserve the small typography while adding status styling.
+  // kind: "ok" | "warn" | "bad" | "busy"
+  const k = (kind === "ok") ? "ok" : (kind === "bad") ? "bad" : "warn";
+  el.className = "small statusline " + k;
+  el.textContent = msg || "";
+
+  // Show/hide "Clear" based on whether there's any message to clear.
+  const clr = $("#btnSvcClear");
+  if(clr){
+    if(msg){
+      clr.classList.remove("hidden");
+    }else{
+      clr.classList.add("hidden");
+    }
+  }
+}
+
+function clearSvcStatus(){
+  setSvcStatus("warn", "");
+  const el = $("#svcMsg");
+  if(el){
+    // Return to the original class list so layout stays consistent.
+    el.className = "small";
+    el.textContent = "";
+  }
+  const r = $("#btnRefresh");
+  if(r) r.classList.add("hidden");
+  const clr = $("#btnSvcClear");
+  if(clr) clr.classList.add("hidden");
+}
+
+// Show the explicit refresh button (we don't silently refresh in production).
+function showRefreshButton(){
+  const r = $("#btnRefresh");
+  if(!r) return;
+  r.classList.remove("hidden");
+  r.disabled = false;
+  r.textContent = "Refresh Now";
+  r.onclick = () => hardReload();
+}
+
 
 // Force a refresh that is very likely to pull new JS/CSS after an update.
 // Some browsers will happily keep serving cached assets on a plain reload,
@@ -506,6 +564,11 @@ function wireUI(){
     const expected = (state.update && state.update.latest) ? state.update.latest : null;
     state.update = state.update || {};
     state.update.inProgress = true;
+    // UI hardening:
+    // - Clear any previous sticky message
+    // - Hide the refresh button until we *know* refresh is needed.
+    clearSvcStatus();
+
     state.update.startVersion = state.version || null;
     // Disable buttons to prevent double-submits.
     $("#btnUpdate").disabled = true;
@@ -540,15 +603,15 @@ function wireUI(){
           : "";
         throw new Error((data && data.error) ? (data.error + tail) : ("HTTP " + resp.status + tail));
       }
-      $("#svcMsg").textContent = expected
-        ? `Update queued. Waiting for ${expected}… (page will refresh automatically)`
-        : "Update queued. Waiting for the service to restart… (page will refresh automatically)";
+      setSvcStatus("warn", expected
+        ? `Update queued. Waiting for ${expected}… (refresh will be required)`
+        : "Update queued. Waiting for the service to restart… (refresh will be required)");
 
       // Start a watchdog that will reload the page once the engine comes back on the new version.
       // (pollUpdate() also watches for a version change and will refresh as soon as it sees one.)
       waitForVersion(expected);
     }catch(e){
-      $("#svcMsg").textContent = "Update failed: " + e.message;
+      setSvcStatus("bad", "Update failed: " + e.message);
       state.update = state.update || {};
       state.update.inProgress = false;
       $("#btnUpdate").disabled = false;
@@ -569,13 +632,28 @@ function wireUI(){
         headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
         body: JSON.stringify({ version: pick })
       }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
-      $("#svcMsg").textContent = "Rollback started. Page will recover when service restarts.";
+      setSvcStatus("warn", "Rollback started. Waiting for the service to restart… (refresh will be required)");
       // Reload when the engine comes back (version may change).
       waitForVersion(null);
     }catch(e){
-      $("#svcMsg").textContent = "Rollback failed: " + e.message;
+      setSvcStatus("bad", "Rollback failed: " + e.message);
     }
   });
+  // Admin status helpers
+  // - Refresh is shown explicitly when an update completes (or times out).
+  // - Clear lets the operator dismiss a sticky message.
+  const btnRefresh = $("#btnRefresh");
+  if(btnRefresh){
+    btnRefresh.classList.add("hidden");
+    btnRefresh.addEventListener("click", ()=> hardReload());
+  }
+  const btnClear = $("#btnSvcClear");
+  if(btnClear){
+    btnClear.classList.add("hidden");
+    btnClear.addEventListener("click", ()=> clearSvcStatus());
+  }
+
+
 }
 
 wireUI();
@@ -591,14 +669,10 @@ async function waitForVersion(expectedVersion){
   const tick = async ()=>{
     // Stop after timeout
     if(Date.now() - start > maxMs){
-      // Don't leave the operator stuck. Offer a one-click hard refresh.
-      $("#svcMsg").textContent = "Update is still running. If the page doesn’t refresh automatically, click Refresh.";
-      const btn = $("#updateBtn");
-      if(btn){
-        btn.disabled = false;
-        btn.textContent = "Refresh";
-        btn.onclick = () => hardReload();
-      }
+      // Don't leave the operator stuck.
+      // We do NOT auto-refresh the page in production; instead we show an explicit button.
+      setSvcStatus("warn", "Update is still running (or taking longer than expected). You may refresh to re-check status.");
+      showRefreshButton();
       return;
     }
 
@@ -609,13 +683,27 @@ async function waitForVersion(expectedVersion){
 
       // If caller provided an expected version, wait for it.
       if(expectedVersion && v === expectedVersion){
-        hardReload();
+        // Update complete. Tell the operator explicitly and provide a refresh button.
+        setSvcStatus("ok", `Update complete. Engine is now ${v}. Refresh required to load the new UI.`);
+        showRefreshButton();
+        state.update = state.update || {};
+        state.update.inProgress = false;
+        // Re-enable admin controls (operator can refresh at their convenience).
+        const bu = $("#btnUpdate"); if(bu) bu.disabled = false;
+        const br = $("#btnRollback"); if(br) br.disabled = false;
         return;
       }
 
       // If we don't know the expected version, reload on any version change.
       if(!expectedVersion && before && v && v !== before){
-        hardReload();
+        // Update complete. Tell the operator explicitly and provide a refresh button.
+        setSvcStatus("ok", `Update complete. Engine is now ${v}. Refresh required to load the new UI.`);
+        showRefreshButton();
+        state.update = state.update || {};
+        state.update.inProgress = false;
+        // Re-enable admin controls (operator can refresh at their convenience).
+        const bu = $("#btnUpdate"); if(bu) bu.disabled = false;
+        const br = $("#btnRollback"); if(br) br.disabled = false;
         return;
       }
 

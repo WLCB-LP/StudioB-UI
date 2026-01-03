@@ -1,3 +1,11 @@
+## v0.2.37 (2026-01-03)
+
+- UI: harden Update/Rollback operator flow:
+  - Disable Update while running; prevent double-submit.
+  - Clear success vs failure messaging using styled status banners.
+  - When the engine returns on a new version, show explicit **Refresh Now** button (no silent auto-refresh).
+  - Add Clear button to dismiss sticky admin messages.
+
 ## v0.2.36 (2026-01-03)
 
 - UI: fix Engineering "Update" button error in Firefox ("Response.text: Body has already been consumed") by reading fetch response body only once.

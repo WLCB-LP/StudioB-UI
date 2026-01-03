@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.2.34" />
+  <link rel="stylesheet" href="/styles.css?v=0.2.37" />
 </head>
 <body>
   <header class="topbar">
@@ -171,6 +171,17 @@
           </div>
           <div class="small" id="svcMsg"></div>
           <div class="small" id="updateCheckMsg"></div>
+
+          <div class="row">
+            <!--
+              Update/rollback can legitimately require the operator to refresh the browser
+              to pick up new cache-busted UI assets (index.html/app.js/styles.css).
+              We keep this as an explicit operator action for production safety.
+            -->
+            <button class="btn ok hidden" id="btnRefresh">Refresh Now</button>
+            <button class="btn hidden" id="btnSvcClear" title="Clear the message below">Clear</button>
+          </div>
+
         </div>
 
 
@@ -221,6 +232,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.2.34"></script>
+  <script src="/app.js?v=0.2.37"></script>
 </body>
 </html>
