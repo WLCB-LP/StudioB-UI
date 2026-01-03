@@ -156,3 +156,6 @@ Adds a DSP health summary inside the Engineering Watchdog card so operators can 
 
 No automatic repairs or polling are performed.
 All actions remain explicit and operator-driven.
+
+### Release 0.2.58
+Fixes a mismatch where Engineering config could be saved but the running engine stayed in the old mode until restart. The engine now applies the validated config in-memory after a successful save, and LIVE transition warnings appear immediately when switching to live.

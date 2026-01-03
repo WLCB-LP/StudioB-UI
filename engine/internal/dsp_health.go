@@ -81,12 +81,13 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 // This is NOT polling. It runs only when explicitly requested (UI button).
 func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
     e.ensureDSPHealthInit()
+	cfg := e.GetConfig()
 
 	// v0.2.50 mock/simulate bypass:
 	// In mock/simulate mode, there is no external DSP to contact.
 	// Returning immediately avoids confusing "Testing…" hangs and guarantees
 	// we never generate external network traffic in mock workflows.
-	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+	mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
 	if mode == "mock" || mode == "simulate" {
 		now := time.Now()
 		e.dspMu.Lock()
@@ -104,8 +105,8 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 		return e.DSPHealth()
 	}
 
-    host := strings.TrimSpace(e.cfg.DSP.Host)
-    port := e.cfg.DSP.Port
+    host := strings.TrimSpace(cfg.DSP.Host)
+    port := cfg.DSP.Port
 
     // Default conservative timeout if caller passes 0.
     if timeout <= 0 {
@@ -132,7 +133,7 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
         e.dsp.failures = 0
         e.dsp.lastErr = ""
 	// v0.2.52: mark validation time when in LIVE mode
-	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+	mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
 	if mode == "live" {
 		e.dspValidatedAt = now
 		// v0.2.55: capture the DSP config signature used for this validation.
@@ -164,7 +165,7 @@ func (e *Engine) DSPControlAllowed() (bool, string) {
     e.ensureDSPHealthInit()
 
     // In simulate mode, there is no external DSP; always allow.
-    mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+    mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
 		if mode == "simulate" || mode == "mock" {
         return true, ""
     }

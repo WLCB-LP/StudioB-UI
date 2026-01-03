@@ -67,6 +67,8 @@ func resolveRC(idOrName string) (int, error) {
 }
 
 type Engine struct {
+	// cfgMu protects access to e.cfg at runtime.
+	cfgMu sync.RWMutex
 	// v0.2.52 DSP mode transition visibility
 	// Timestamp of last successful DSP validation in LIVE mode
 	dspValidatedAt time.Time
@@ -855,9 +857,10 @@ type DSPModeStatus struct {
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
-    mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
-    host := strings.TrimSpace(e.cfg.DSP.Host)
-    port := e.cfg.DSP.Port
+    cfg := e.GetConfig()
+    mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+    host := strings.TrimSpace(cfg.DSP.Host)
+    port := cfg.DSP.Port
 
     validated := false
     var ts string
@@ -894,4 +897,43 @@ func (e *Engine) dspConfigSignature() string {
     host := strings.TrimSpace(e.cfg.DSP.Host)
     port := e.cfg.DSP.Port
     return mode + "|" + host + "|" + itoa(port)
+}
+
+
+// ApplyConfig updates the running engine's config in-memory.
+//
+// v0.2.58 rationale:
+// - The Engineering UI allows operators to change DSP mode/IP/port.
+// - Previously, changes were written to disk but did not affect the running engine until restart,
+//   causing confusing mismatches (UI showed "live" but engine stayed "mock").
+// - We apply validated config immediately for operator clarity and continuity.
+//
+// Conservative behavior:
+// - If DSP-relevant settings change, we clear LIVE validation timestamps/signatures.
+// - We do NOT auto-test the DSP. Operator must click "Test DSP Now".
+func (e *Engine) ApplyConfig(newCfg Config) {
+    e.cfgMu.Lock()
+    oldSig := e.dspConfigSignature()
+    e.cfg = newCfg
+    newSig := e.dspConfigSignature()
+    e.cfgMu.Unlock()
+
+    // If DSP-relevant config changed, clear validation state so UI warns appropriately in LIVE mode.
+    if oldSig != newSig {
+        e.dspMu.Lock()
+        e.dspValidatedAt = time.Time{}
+        e.dspValidatedConfigSig = ""
+        // We intentionally do not change watchdog behavior or auto-test.
+        // Mark DSP state as UNKNOWN so the operator is prompted to validate.
+        e.dsp.state = DSPHealthUNKNOWN
+        e.dsp.lastErr = ""
+        e.dspMu.Unlock()
+    }
+}
+
+// GetConfig returns a copy of the current engine config.
+func (e *Engine) GetConfig() Config {
+    e.cfgMu.RLock()
+    defer e.cfgMu.RUnlock()
+    return e.cfg
 }

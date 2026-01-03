@@ -323,3 +323,8 @@
 ## v0.2.57 (2026-01-03)
 - Documentation: added Operating Procedures section
 - Freeze checkpoint: no code or behavior changes
+
+## v0.2.58 (2026-01-03)
+- Fix: applying Engineering config now updates the running engine (no restart required)
+- Live-mode banner now appears immediately after switching mode to live (until validated)
+- Conservative: clears LIVE validation state when DSP-relevant config changes
