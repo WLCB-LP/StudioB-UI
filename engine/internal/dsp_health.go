@@ -135,6 +135,8 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
 	if mode == "live" {
 		e.dspValidatedAt = now
+		// v0.2.55: capture the DSP config signature used for this validation.
+		e.dspValidatedConfigSig = e.dspConfigSignature()
 	}
     } else {
         e.dsp.failures++

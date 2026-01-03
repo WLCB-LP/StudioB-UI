@@ -309,3 +309,8 @@
 - Fix: Engineering Configuration Save no longer errors (`loadConfigFill/loadConfigPill` missing)
 - Restored explicit post-save UI refresh helper and mode pill update
 - No engine/DSP behavior changes
+
+## v0.2.55 (2026-01-03)
+- Transition banner polish: shows DSP IP:Port and validation age
+- Warns when DSP config changed since last LIVE validation
+- Visibility-only; no polling or automatic gating

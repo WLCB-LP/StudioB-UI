@@ -107,3 +107,6 @@ Hotfix restoring the Engineering Configuration load/save helpers. Fixes a UI reg
 
 ### Release 0.2.54
 Hotfix for Engineering Configuration: fixes Save regression caused by a missing post-save helper (loadConfigFill/loadConfigPill). Save now completes and the mode pill updates immediately.
+
+### Release 0.2.55
+Improves LIVE transition visibility by showing the configured DSP endpoint (IP:Port), how long ago the DSP link was last validated, and a warning if DSP config changed since the last LIVE validation. No automation is introduced.

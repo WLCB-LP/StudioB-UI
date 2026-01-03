@@ -70,6 +70,8 @@ type Engine struct {
 	// v0.2.52 DSP mode transition visibility
 	// Timestamp of last successful DSP validation in LIVE mode
 	dspValidatedAt time.Time
+	// v0.2.55: signature of DSP-relevant config at last LIVE validation
+	dspValidatedConfigSig string
 	// Base state directory (written by installer). Used for small, append-only state files.
 	stateDir string
 	cfg     *Config
@@ -842,23 +844,54 @@ func tailLines(s string, n int) string {
 
 
 // DSPModeStatus is returned to the UI for transition warnings.
+// DSPModeStatus is returned to the UI for transition warnings.
 type DSPModeStatus struct {
-    Mode            string `json:"mode"`
-    Validated       bool   `json:"validated"`
-    ValidatedAt     string `json:"validatedAt,omitempty"`
+    Mode          string `json:"mode"`
+    Host          string `json:"host,omitempty"`
+    Port          int    `json:"port,omitempty"`
+    Validated     bool   `json:"validated"`
+    ValidatedAt   string `json:"validatedAt,omitempty"`
+    ConfigChanged bool   `json:"configChanged"`
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
     mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+    host := strings.TrimSpace(e.cfg.DSP.Host)
+    port := e.cfg.DSP.Port
+
     validated := false
     var ts string
     if mode == "live" && !e.dspValidatedAt.IsZero() {
         validated = true
         ts = e.dspValidatedAt.UTC().Format(time.RFC3339)
     }
-    return DSPModeStatus{
-        Mode:        mode,
-        Validated:   validated,
-        ValidatedAt: ts,
+
+    // configChanged is meaningful primarily in LIVE mode.
+    // If we have never validated, we treat it as changed=false (banner already covers unvalidated).
+    changed := false
+    if validated {
+        curSig := e.dspConfigSignature()
+        if strings.TrimSpace(e.dspValidatedConfigSig) != "" && curSig != e.dspValidatedConfigSig {
+            changed = true
+        }
     }
+
+    return DSPModeStatus{
+        Mode:          mode,
+        Host:          host,
+        Port:          port,
+        Validated:     validated,
+        ValidatedAt:   ts,
+        ConfigChanged: changed,
+    }
+}
+
+
+// dspConfigSignature creates a small, stable string representing the DSP-relevant config.
+// We keep it explicit and easy to reason about.
+func (e *Engine) dspConfigSignature() string {
+    mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+    host := strings.TrimSpace(e.cfg.DSP.Host)
+    port := e.cfg.DSP.Port
+    return mode + "|" + host + "|" + itoa(port)
 }
