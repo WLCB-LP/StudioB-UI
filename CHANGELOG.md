@@ -342,3 +342,7 @@
 - Engine: add always-on DSP connectivity monitor (read-only TCP connect) so UI reflects status continuously
 - API: /api/health, /api/version, /api/config now report active in-memory config (after reload) instead of startup snapshot
 - UI: DSP Health and Engineering DSP summary show Last Poll timestamp
+
+## v0.2.62 (2026-01-03)
+- Hotfix: v0.2.61 build failure (remove unused net import; add missing dspMonitorLoop)
+- Always-on DSP monitor loop now compiles and updates /api/dsp/health continuously

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"bufio"
 	"encoding/json"
 	"os"
@@ -332,4 +333,45 @@ func (e *Engine) ReadDSPTimeline(n int) []dspTimelineEntry {
 		}
 	}
 	return out
+}
+
+
+// ---------------------------------------------------------------------------
+// Always-on DSP monitor loop (v0.2.62)
+//
+// Requirement:
+//   The UI should always reflect DSP connectivity status without requiring the
+//   operator to click "Test DSP Now".
+//
+// Safety properties:
+// - This loop performs ONLY the same bounded TCP connectivity check used by
+//   TestDSPConnectivity(). It does NOT send DSP control commands.
+// - Write controls remain governed by mode (mock blocks writes, live allows writes)
+//   and the existing server-side guard.
+// - The loop runs inside the engine process and updates the cached DSP health
+//   snapshot so /api/dsp/health can display current status.
+//
+// Behavior:
+// - Poll interval: 2 seconds
+// - Connect timeout: 1.2 seconds (conservative, avoids thread pile-ups)
+// - When the engine context is canceled, the loop exits cleanly.
+// ---------------------------------------------------------------------------
+func (e *Engine) dspMonitorLoop(ctx context.Context) {
+	// Defensive default. If ctx is nil, do nothing (should never happen).
+	if ctx == nil {
+		return
+	}
+
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			// Run a single bounded check. This updates the cached DSP health in-memory.
+			_ = e.TestDSPConnectivity(1200 * time.Millisecond)
+		}
+	}
 }

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"net"
 	"path/filepath"
 	"context"
 	"crypto/subtle"

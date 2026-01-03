@@ -169,3 +169,6 @@ Hotfix for v0.2.59 compilation errors. Keeps intended behavior: config Save appl
 ### Release 0.2.61
 - Adds an always-on, read-only DSP monitor loop so the UI continuously reflects DSP reachability.
 - Saving config.yml hot-reloads the engine and API endpoints now reflect the active config immediately.
+
+### Release 0.2.62
+Hotfix for v0.2.61 build failure. Adds the missing always-on DSP monitor loop implementation and removes an unused import so the engine builds cleanly.
