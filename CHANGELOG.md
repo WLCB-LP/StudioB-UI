@@ -245,3 +245,8 @@
 - Detects stale or disconnected DSP links and warns operator
 - Exposes last successful DSP contact time and last error
 - No automatic reconnect behavior added
+
+## v0.2.43 (2026-01-03)
+- Added DSP health history timeline (operator-visible)
+- UI shows recent DSP health transitions with timestamps
+- Timeline is append-only and bounded for safety

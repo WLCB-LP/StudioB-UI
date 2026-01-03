@@ -991,3 +991,8 @@ async function pollUpdate(){
 // v0.2.42 DSP Connection Validation
 // UI displays DSP link status: OK / Degraded / Disconnected
 // Shows last successful DSP contact time and last error
+
+// v0.2.43 DSP Health History Timeline
+// The UI should request and render recent DSP state transitions (JSONL) as a timeline.
+// Each entry: time, state, failures, last_error.
+// This is visibility-only; do not trigger reconnects automatically.

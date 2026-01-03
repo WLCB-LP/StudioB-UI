@@ -71,3 +71,6 @@ Fixes a UI JavaScript syntax error that prevented navigation after v0.2.40.
 
 ### Release 0.2.42
 Adds operator-visible DSP connection health detection. The system warns on stale or disconnected DSP links but does not perform automatic reconnects.
+
+### Release 0.2.43
+Adds a DSP health history timeline so operators can see recent DSP link state transitions (OK / Degraded / Disconnected) with timestamps. Visibility only; no automatic repair.
