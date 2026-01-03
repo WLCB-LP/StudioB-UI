@@ -165,7 +165,8 @@ func main() {
 				resp["outputTail"] = outStr
 			}
 		}
-		writeJSON(w, resp)
+    // writeJSON signature is (w, statusCode, payload)
+    writeJSON(w, http.StatusOK, resp)
 	})
 
 	// Snapshot

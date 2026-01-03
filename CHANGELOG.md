@@ -1,3 +1,7 @@
+## v0.2.30 (2026-01-02)
+
+- Fix: stub-engine build break caused by calling `writeJSON` with missing HTTP status code.
+
 ## v0.2.29 (2026-01-02)
 
 - Engine: fix build break in `/api/updates/apply` (admin PIN check + JSON response).
