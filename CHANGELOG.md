@@ -371,3 +371,7 @@
 - Remove LIVE write gating (Option 1): DSP control writes follow config mode immediately
 - Remove 'Enter LIVE Mode' UI/button and /api/dsp/enter_live usage
 - Always-on DSP monitoring remains enabled and UI continues to auto-refresh status
+
+## v0.2.68 (2026-01-03)
+- Hotfix: restore UI functionality (remove orphaned JS block left from LIVE button removal)
+- No behavior change: Option 1 remains (no LIVE gating; connect/monitor on startup)

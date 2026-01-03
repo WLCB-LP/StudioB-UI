@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.67";
+const UI_BUILD_VERSION="0.2.68";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1296,14 +1296,5 @@ function renderWatchdogDSP(){
       errBox.style.display = "none";
       errBox.textContent = "";
     }
-  }
-}
-  try{
-    await fetchJSON("/api/dsp/enter_live", {method:"POST", headers: {"X-Admin-PIN": pin}}, 1500);
-    savePin(pin);
-    await fetchDSPModeStatus();
-    alert("LIVE mode entered. DSP control writes are now enabled.");
-  }catch(e){
-    alert("Enter LIVE failed: " + e);
   }
 }
