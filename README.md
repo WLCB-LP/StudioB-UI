@@ -101,3 +101,6 @@ Fixes a UI JavaScript error where DSP timeline rendering failed because a shared
 
 ### Release 0.2.52
 Adds explicit operator-visible handling for transitions from mock/simulate to live DSP mode. When live mode is entered without a validated DSP link, the UI shows a clear warning banner with manual actions. No automation or background DSP traffic is introduced.
+
+### Release 0.2.53
+Hotfix restoring the Engineering Configuration load/save helpers. Fixes a UI regression where the config panel could not load or save.

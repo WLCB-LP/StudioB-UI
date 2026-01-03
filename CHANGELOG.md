@@ -299,3 +299,8 @@
 - UI warns when entering live mode with unvalidated DSP health
 - Provides one-click 'Test DSP Now' and 'Acknowledge' actions
 - No background DSP polling or automatic gating
+
+## v0.2.53 (2026-01-03)
+- Fix: Engineering Configuration panel error `loadConfig is not defined`
+- Restored explicit config load/save helpers after refactors
+- No engine or DSP behavior changes
