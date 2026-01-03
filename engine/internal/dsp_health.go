@@ -28,25 +28,35 @@ const (
 
 // DSPHealthSnapshot is the read-only shape returned to the UI.
 type DSPHealthSnapshot struct {
-    State               DSPHealthState `json:"state"`
-    LastOK              string         `json:"lastOk,omitempty"`
-    ConsecutiveFailures int            `json:"consecutiveFailures"`
-    LastError           string         `json:"lastError,omitempty"`
-    LastTestAt          string         `json:"lastTestAt,omitempty"`
+	// State is the coarse operator-facing state.
+	State DSPHealthState `json:"state"`
+	// Connected is true when the most recent poll/test succeeded.
+	Connected bool `json:"connected"`
+	LastOK    string `json:"lastOk,omitempty"`
+	// LastPollAt is updated by the always-on DSP monitor (v0.2.61).
+	LastPollAt string `json:"lastPollAt,omitempty"`
+
+	ConsecutiveFailures int    `json:"consecutiveFailures"`
+	LastError           string `json:"lastError,omitempty"`
+	LastTestAt          string `json:"lastTestAt,omitempty"`
 }
+
 
 // dspHealth is stored on Engine and guarded by dspMu.
 type dspHealth struct {
-    state      DSPHealthState
-    lastOK     time.Time
-    failures   int
-    lastErr    string
-    lastTestAt time.Time
+	state      DSPHealthState
+	connected  bool
+	lastOK     time.Time
+	lastPollAt time.Time
+	failures   int
+	lastErr    string
+	lastTestAt time.Time
 }
+
 
 func (e *Engine) ensureDSPHealthInit() {
     e.dspOnce.Do(func() {
-        e.dsp = &dspHealth{state: DSPHealthUnknown}
+        e.dsp = &dspHealth{state: DSPHealthUnknown, connected: false}
     })
 }
 
@@ -58,10 +68,14 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 
     snap := DSPHealthSnapshot{
         State:               e.dsp.state,
+        Connected:           e.dsp.connected,
         ConsecutiveFailures: e.dsp.failures,
     }
     if !e.dsp.lastOK.IsZero() {
         snap.LastOK = e.dsp.lastOK.UTC().Format(time.RFC3339)
+    }
+    if !e.dsp.lastPollAt.IsZero() {
+        snap.LastPollAt = e.dsp.lastPollAt.UTC().Format(time.RFC3339)
     }
     if strings.TrimSpace(e.dsp.lastErr) != "" {
         snap.LastError = e.dsp.lastErr
@@ -92,6 +106,8 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 		e.dspMu.Lock()
 		prev := e.dsp.state
 		e.dsp.lastTestAt = now
+	e.dsp.lastPollAt = now
+		e.dsp.connected = true
 		e.dsp.state = DSPHealthOK
 		e.dsp.lastOK = now
 		e.dsp.failures = 0
@@ -125,9 +141,11 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
     defer e.dspMu.Unlock()
 
     e.dsp.lastTestAt = now
+	e.dsp.lastPollAt = now
 
     if err == nil {
-        e.dsp.state = DSPHealthOK
+        e.dsp.connected = true
+		e.dsp.state = DSPHealthOK
         e.dsp.lastOK = now
         e.dsp.failures = 0
         e.dsp.lastErr = ""
@@ -145,7 +163,8 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
         // - First/second failure: DEGRADED
         // - Third+ consecutive failure: DISCONNECTED
         if e.dsp.failures >= 3 {
-            e.dsp.state = DSPHealthDisconnected
+            e.dsp.connected = false
+		e.dsp.state = DSPHealthDisconnected
         } else {
             e.dsp.state = DSPHealthDegraded
         }

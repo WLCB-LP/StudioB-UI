@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net"
 	"path/filepath"
 	"context"
 	"crypto/subtle"
@@ -74,6 +75,19 @@ type Engine struct {
 	dspValidatedAt time.Time
 	// v0.2.55: signature of DSP-relevant config at last LIVE validation
 	dspValidatedConfigSig string
+	// ------------------------------------------------------------------
+	// DSP monitor (v0.2.61)
+	//
+	// Requirement: UI should always be able to reflect DSP connectivity/state.
+	// We run a tiny read-only monitor loop that periodically attempts a bounded
+	// TCP connect to the configured DSP host:port and updates dspHealth.
+	//
+	// SAFETY: This monitor is READ-ONLY (TCP connect only). It does not send
+	// any DSP control commands. Control writes are still gated elsewhere.
+	// ------------------------------------------------------------------
+	dspMonStop chan struct{}
+	dspMonMu   sync.Mutex
+	dspMonOn   bool
 	// Base state directory (written by installer). Used for small, append-only state files.
 	stateDir string
 	cfg     *Config
@@ -209,6 +223,7 @@ func NewEngine(cfg *Config, version string) *Engine {
 	// Start mock meter generator and publisher
 	go e.mockLoop()
 	go e.publishLoop()
+	go e.dspMonitorLoop()
 
 	return e
 }
@@ -399,13 +414,18 @@ func (e *Engine) Reconnect() {
 // This is intentionally conservative: it only changes in-memory config.
 // It does NOT restart services and does NOT touch runtime releases.
 func (e *Engine) ReloadConfig() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
+	// NOTE: called by Engineering UI after saving config.yml.
+	// We want the running engine to reflect file changes immediately.
+	//
+	// IMPORTANT: e.cfg is protected by cfgMu (not e.mu). e.mu is for other
+	// runtime state (meters, RC cache, websocket clients, etc.).
+	e.cfgMu.RLock()
 	yamlPath := ""
 	if e.cfg != nil {
 		yamlPath = strings.TrimSpace(e.cfg.Meta.YAMLPath)
 	}
+	e.cfgMu.RUnlock()
+
 	if yamlPath == "" {
 		return fmt.Errorf("cannot reload config: YAML path unknown")
 	}
@@ -414,10 +434,15 @@ func (e *Engine) ReloadConfig() error {
 	if err != nil {
 		return err
 	}
+
+	e.cfgMu.Lock()
 	e.cfg = newCfg
-	log.Printf("config reloaded (mode=%s dsp=%s:%d)", e.cfg.DSP.Mode, e.cfg.DSP.Host, e.cfg.DSP.Port)
+	e.cfgMu.Unlock()
+
+	log.Printf("config reloaded (mode=%s dsp=%s:%d)", newCfg.DSP.Mode, newCfg.DSP.Host, newCfg.DSP.Port)
 	return nil
 }
+
 
 func normalizeVersion(v string) string {
 	v = strings.TrimSpace(v)

@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.60";
+const UI_BUILD_VERSION="0.2.61";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -263,7 +263,8 @@ async function postRC(name, value){
 // DSP Health (v0.2.48)
 //
 // IMPORTANT:
-// - GET /api/dsp/health is read-only and does NOT contact the DSP.
+// - GET /api/dsp/health is read-only from the UI perspective.
+//   The engine maintains a small always-on monitor loop that updates this state.
 // - POST /api/dsp/test performs ONE bounded TCP connect and is only called
 //   when the operator clicks "Test DSP Now".
 // ---------------------------------------------------------------------------
@@ -276,12 +277,14 @@ async function fetchDSPHealth(){
       lastOk: j.lastOk || "",
       failures: Number(j.consecutiveFailures || 0),
       lastError: j.lastError || "",
-      lastTestAt: j.lastTestAt || ""
+      lastTestAt: j.lastTestAt || "",
+      lastPollAt: j.lastPollAt || "",
+      connected: !!j.connected
     };
     renderDSPHealth();
   }catch(e){
     // Health endpoint should be reliable; if not, show unknown.
-    state.dspHealth = { state:"UNKNOWN", lastOk:"", failures:0, lastError:String(e), lastTestAt:"" };
+    state.dspHealth = { state:"UNKNOWN", connected:false, lastOk:"", lastPollAt:"", failures:0, lastError:String(e), lastTestAt:"" };
     renderDSPHealth();
   }
 }
@@ -309,6 +312,8 @@ function renderDSPHealth(){
   $("#dspHealthFails").textContent = String(state.dspHealth.failures ?? "—");
   $("#dspHealthErr").textContent = state.dspHealth.lastError || "—";
   $("#dspHealthLastTest").textContent = state.dspHealth.lastTestAt || "—";
+  const lp = $("#dspHealthLastPoll");
+  if(lp) lp.textContent = state.dspHealth.lastPollAt || "—";
 
   // Operator safety message shown when DISCONNECTED.
   const warn = $("#dspControlWarn");
@@ -1241,6 +1246,8 @@ function renderWatchdogDSP(){
   modeEl.textContent = (m.mode || "—");
   $("#wdDspState").textContent = (h.state || "—");
   $("#wdDspLastTest").textContent = (h.lastTestAt || "—");
+  const wlp = $("#wdDspLastPoll");
+  if(wlp) wlp.textContent = (h.lastPollAt || "—");
   $("#wdDspFailures").textContent = String(h.failures ?? "—");
 
   // Validation context (LIVE only)

@@ -337,3 +337,8 @@
 ## v0.2.60 (2026-01-03)
 - Hotfix: v0.2.59 build errors (remove unused cfg var; replace e.GetConfig -> GetConfigCopy)
 - No behavior changes beyond intended runtime config apply
+
+## v0.2.61 (2026-01-03)
+- Engine: add always-on DSP connectivity monitor (read-only TCP connect) so UI reflects status continuously
+- API: /api/health, /api/version, /api/config now report active in-memory config (after reload) instead of startup snapshot
+- UI: DSP Health and Engineering DSP summary show Last Poll timestamp
