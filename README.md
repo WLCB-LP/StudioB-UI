@@ -62,3 +62,6 @@ Adds operator-visible Watchdog health and recent events. No automation behavior 
 
 ### Release 0.2.39
 Adds inline visibility of watchdog restart reasons tied to systemd service status. No changes to restart or repair behavior.
+
+### Release 0.2.40
+Shows systemd "Active:" line and SubState for stub-ui-watchdog verbatim in the Engineering UI. Visibility-only.

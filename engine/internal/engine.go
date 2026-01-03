@@ -95,7 +95,18 @@ type WatchdogStatus struct {
 	Active    string `json:"active"`  // active|inactive|failed|unknown
 	CheckedAt string `json:"checkedAt"`
 	Notes     string `json:"notes,omitempty"`
+
+	// v0.2.40 visibility-only fields:
+	// These are pulled from systemd and shown *verbatim* in the UI so operators can
+	// quickly see what systemd thinks is happening without SSH.
+	// Example (from `systemctl status stub-ui-watchdog`):
+	//   "Active: active (running) since Tue 2026-01-03 10:00:00 CST; 2h ago"
+	SystemdActiveLine  string `json:"systemdActiveLine,omitempty"`
+	// Example (from `systemctl show -p SubState stub-ui-watchdog`):
+	//   "SubState=running"
+	SystemdSubStateLine string `json:"systemdSubStateLine,omitempty"`
 }
+
 
 // AdminUpdateStatus tracks the last update-from-UI attempt.
 // This is safe to expose because it only contains installer output (already visible via journal).
@@ -750,6 +761,23 @@ func (e *Engine) WatchdogStatusSnapshot() WatchdogStatus {
 	s.Enabled = enabled
 	s.Active = active
 	s.Ok = true
+
+	// v0.2.40: capture systemd's human-readable Active line and the SubState.
+	// We show these *verbatim* in the UI so operators can copy/paste and compare
+	// with `systemctl status` output.
+	if statusOut, _ := runCmdTimeout(2*time.Second, "systemctl", "status", "stub-ui-watchdog", "--no-pager"); statusOut != "" {
+		for _, line := range strings.Split(statusOut, "\n") {
+			// systemctl status lines are indented; we look for the first line containing "Active:".
+			if strings.Contains(line, "Active:") {
+				s.SystemdActiveLine = strings.TrimSpace(line)
+				break
+			}
+		}
+	}
+	if subOut, _ := runCmdTimeout(2*time.Second, "systemctl", "show", "-p", "SubState", "stub-ui-watchdog"); subOut != "" {
+		// Keep the raw key=value line so it's truly "verbatim".
+		s.SystemdSubStateLine = strings.TrimSpace(strings.Split(subOut, "\n")[0])
+	}
 
 	if enabled == "disabled" && active == "inactive" {
 		s.Notes = "Watchdog is installed but disabled."

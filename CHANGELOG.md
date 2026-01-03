@@ -233,3 +233,6 @@
 - Exposed watchdog restart reasons inline with systemd status
 - Watchdog now records last restart reason in a dedicated state file
 - UI displays restart reason alongside service status (visibility only)
+
+## v0.2.40 (2026-01-03)
+- Show systemd Active and SubState strings verbatim in the UI (watchdog)

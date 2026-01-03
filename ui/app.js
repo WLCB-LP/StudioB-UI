@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.37";
+const UI_BUILD_VERSION="0.2.40";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -344,6 +344,19 @@ async function refreshEngineering(){
       msg = "Watchdog status unavailable";
     }
     $("#watchdogMsg").textContent = msg;
+
+    // v0.2.40: show systemd "Active:" and "SubState" lines verbatim.
+    // These strings are meant to match what an operator would see in:
+    //   systemctl status stub-ui-watchdog
+    //   systemctl show -p SubState stub-ui-watchdog
+    const sysEl = $("#watchdogSystemd");
+    if(sysEl){
+      const lines = [];
+      if(wd && wd.systemdActiveLine){ lines.push(wd.systemdActiveLine); }
+      if(wd && wd.systemdSubStateLine){ lines.push(wd.systemdSubStateLine); }
+      sysEl.textContent = (lines.length ? lines.join("
+") : "No systemd details available");
+    }
 
     // Button: only meaningful when enabled but not running.
     const btn = $("#btnWatchdogStart");
