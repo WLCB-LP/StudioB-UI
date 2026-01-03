@@ -319,3 +319,7 @@
 - Watchdog panel now includes DSP health summary (mode, state, last test, failures)
 - Shows LIVE validation age and config-changed flag inline for operator clarity
 - Visibility-only: no DSP polling, no watchdog behavior changes
+
+## v0.2.57 (2026-01-03)
+- Documentation: added Operating Procedures section
+- Freeze checkpoint: no code or behavior changes

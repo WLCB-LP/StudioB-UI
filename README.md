@@ -113,3 +113,46 @@ Improves LIVE transition visibility by showing the configured DSP endpoint (IP:P
 
 ### Release 0.2.56
 Adds a DSP health summary inside the Engineering Watchdog card so operators can see DSP mode, connection state, recent test time, failures, and LIVE validation context in one place. Visibility-only; no watchdog automation added.
+
+
+---
+## Operating Procedures
+
+### Modes: mock vs live
+
+- **mock (default):**
+  - No DSP network traffic
+  - DSP state begins as UNKNOWN
+  - Use *Test DSP Now* to exercise UI + engine paths safely
+
+- **live:**
+  - DSP network traffic is allowed **only** when explicitly triggered
+  - Entering live mode does NOT auto-test the DSP
+  - A visible banner warns until validation is performed
+
+### Recommended LIVE transition workflow
+
+1. Switch `dsp.mode` to `live` in Engineering → Configuration
+2. Save configuration
+3. Observe LIVE warning banner
+4. Click **Test DSP Now** once
+5. Confirm DSP Health = OK and banner clears
+
+### Interpreting DSP Health
+
+- **UNKNOWN:** no validation performed yet
+- **OK:** last validation succeeded
+- **Failures:** count of consecutive failures
+- **Timeline:** recent validation history
+
+### Watchdog + DSP Summary
+
+- Watchdog panel always reflects service state
+- DSP (summary) shows:
+  - mode
+  - last test
+  - validation age (LIVE)
+  - config-changed warning if applicable
+
+No automatic repairs or polling are performed.
+All actions remain explicit and operator-driven.
