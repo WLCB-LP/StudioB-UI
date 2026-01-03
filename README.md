@@ -172,3 +172,6 @@ Hotfix for v0.2.59 compilation errors. Keeps intended behavior: config Save appl
 
 ### Release 0.2.62
 Hotfix for v0.2.61 build failure. Adds the missing always-on DSP monitor loop implementation and removes an unused import so the engine builds cleanly.
+
+### Release 0.2.63
+Hotfix for v0.2.62 compilation issue. The DSP monitor loop now receives the engine context when started.

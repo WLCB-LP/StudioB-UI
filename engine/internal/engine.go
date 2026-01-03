@@ -222,8 +222,7 @@ func NewEngine(cfg *Config, version string) *Engine {
 	// Start mock meter generator and publisher
 	go e.mockLoop()
 	go e.publishLoop()
-	go e.dspMonitorLoop()
-
+	go e.dspMonitorLoop(ctx)
 	return e
 }
 

@@ -346,3 +346,7 @@
 ## v0.2.62 (2026-01-03)
 - Hotfix: v0.2.61 build failure (remove unused net import; add missing dspMonitorLoop)
 - Always-on DSP monitor loop now compiles and updates /api/dsp/health continuously
+
+## v0.2.63 (2026-01-03)
+- Hotfix: v0.2.62 build failure (pass engine context into dspMonitorLoop)
+- No behavior changes beyond enabling always-on DSP monitor to start correctly
