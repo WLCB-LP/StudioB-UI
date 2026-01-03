@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.73";
+const UI_BUILD_VERSION="0.2.74";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -684,7 +684,7 @@ $("#btnDspTest").addEventListener("click", async ()=>{
       dsp: {
         ip: $("#cfgDspIp").value.trim(),
         port: parseInt($("#cfgDspPort").value, 10) || 0,
-        mode: ($("#cfgDspMode") ? $("#cfgDspMode").value : "mock")
+        mode: $("#cfgMode").value
       }
     };
     $("#cfgMsg").textContent = "Saving…";

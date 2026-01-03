@@ -39,7 +39,8 @@ func main() {
 			"ok":      true,
 			"version": engine.Version(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    engine.GetConfigCopy().DSP.Mode,
+			"mode":    "mock",
+			"dspWriteMode": engine.GetConfigCopy().DSP.Mode,
 		})
 	})
 
@@ -49,7 +50,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version": engine.Version(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    engine.GetConfigCopy().DSP.Mode,
+			"mode":    "mock",
 		})
 	})
 
@@ -69,6 +70,7 @@ func main() {
 			"dsp": map[string]any{
 				"ip":   engine.GetConfigCopy().DSP.Host,
 				"port": engine.GetConfigCopy().DSP.Port,
+				"mode": engine.GetConfigCopy().DSP.Mode,
 			},
 			"sources": engine.GetConfigCopy().Meta,
 		})

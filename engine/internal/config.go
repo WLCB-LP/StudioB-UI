@@ -78,7 +78,7 @@ func LoadConfig(path string) (*Config, error) {
 		EnvUsed:  map[string]string{},
 	}
 	// If the YAML file provided these values, mark their source now.
-	if cfg.Mode != "" {
+	if cfg.DSP.Mode != "" {
 		cfg.Meta.ModeSource = "yaml"
 	}
 	if cfg.DSP.Host != "" {
@@ -86,9 +86,6 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.DSP.Port != 0 {
 		cfg.Meta.DSPPortSource = "yaml"
-	}
-	if cfg.Mode == "" {
-		cfg.Mode = "mock"
 	}
 	if cfg.UI.HTTPListen == "" {
 		cfg.UI.HTTPListen = "127.0.0.1:8787"
@@ -177,7 +174,6 @@ func applyJSONOverrides(cfg *Config) {
 		DSP  struct {
 			Host string `json:"ip"`
 			Port int    `json:"port"`
-			Mode string `json:"mode"` // optional: dsp write mode ("mock" | "live")
 		} `json:"dsp"`
 	}
 	var jc jsonCfg
@@ -188,7 +184,7 @@ func applyJSONOverrides(cfg *Config) {
 	cfg.Meta.JSONPath = p
 
 	if strings.TrimSpace(jc.Mode) != "" {
-		cfg.Mode = jc.Mode
+		cfg.DSP.Mode = jc.Mode
 		cfg.Meta.ModeSource = "json"
 	}
 	if strings.TrimSpace(jc.DSP.Host) != "" {
@@ -199,22 +195,14 @@ func applyJSONOverrides(cfg *Config) {
 		cfg.DSP.Port = jc.DSP.Port
 		cfg.Meta.DSPPortSource = "json"
 	}
-	if strings.TrimSpace(jc.DSP.Mode) != "" {
-		cfg.DSP.Mode = jc.DSP.Mode
-	}
 }
 
 func applyEnvOverrides(cfg *Config) {
 	// Env vars take precedence over everything.
 	if v := strings.TrimSpace(os.Getenv("STUDIOB_UI_MODE")); v != "" {
-		cfg.Mode = v
+		cfg.DSP.Mode = v
 		cfg.Meta.ModeSource = "env"
 		cfg.Meta.EnvUsed["STUDIOB_UI_MODE"] = v
-	}
-	// DSP write mode is separate from engine mode.
-	if v := strings.TrimSpace(os.Getenv("STUDIOB_DSP_MODE")); v != "" {
-		cfg.DSP.Mode = v
-		cfg.Meta.EnvUsed["STUDIOB_DSP_MODE"] = v
 	}
 	if v := strings.TrimSpace(os.Getenv("STUDIOB_DSP_IP")); v != "" {
 		cfg.DSP.Host = v

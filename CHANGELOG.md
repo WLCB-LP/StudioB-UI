@@ -381,21 +381,8 @@
 - Eliminates confusion where 'mode: mock' could be mistaken for DSP connectivity
 - No behavior change: DSP monitoring remains always-on; writes follow configured mode (Option 1)
 
-## v0.2.70 (2026-01-03)
-- Option A: decouple Engine mode (simulation) from DSP write mode
-- Engineering UI: add separate 'DSP Writes' selector (mock/live)
-- Config/env: STUDIOB_UI_MODE controls engine mode; new STUDIOB_DSP_MODE controls DSP write mode
-- Header pills reflect: engine mode, DSP connectivity, and DSP write behavior
-
-## v0.2.71 (2026-01-03)
-- Hotfix: add Config.Mode field required for Option A engine/DSP write mode decoupling
-- No functional change beyond enabling build ensuring v0.2.70 behavior works as intended
-
-## v0.2.72 (2026-01-03)
-- Hotfix: complete Option A plumbing (add Config.Mode and correct config/json metadata mapping)
-- STUDIOB_UI_MODE now correctly controls engine mode; STUDIOB_DSP_MODE controls DSP write mode
-- No UI behavior change beyond enabling engine to build and run
-
-## v0.2.73 (2026-01-03)
-- Hotfix: add missing Config.Mode field required by Option A (engine mode vs DSP write mode)
-- Ensures engine defaults cfg.Mode to "mock" while cfg.DSP.Mode controls writes
+## v0.2.74 (2026-01-03)
+- Fix: stop attempting to add a new engine Config.Mode field (it lives elsewhere); use DSP.Mode only
+- Engineering: 'Mode' selector now explicitly controls DSP Writes (mock/live)
+- API: /api/health 'mode' is engine simulation (mock); added dspWriteMode for clarity
+- API: /api/config now includes dsp.mode; admin config writer persists it

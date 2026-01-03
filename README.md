@@ -194,14 +194,5 @@ Hotfix for v0.2.67: fixes a JavaScript syntax error that prevented the UI from i
 ### Release 0.2.69
 UI clarity update. The header now shows Engine mode separately from DSP connectivity state and DSP write mode, so operators can distinguish simulation state from real DSP connection/controls.
 
-### Release 0.2.70
-Implements Option A: engine simulation mode and DSP write mode are separate. Operators can keep the engine in mock/simulated mode while enabling real DSP control writes by setting DSP Writes=live.
-
-### Release 0.2.71
-Hotfix for v0.2.70: adds the missing Config.Mode field so the engine builds correctly.
-
-### Release 0.2.72
-Hotfix for v0.2.70/0.2.71: fixes config struct and parsing so engine/DSP write mode decoupling compiles and functions.
-
-### Release 0.2.73
-Hotfix: restores build by adding Config.Mode. Required for Option A decoupling.
+### Release 0.2.74
+DSP-mode-only fix. StudioB-UI always monitors DSP connectivity on startup. The Engineering mode selector controls DSP write behavior via dsp.mode (mock/live). No new engine config fields were added.
