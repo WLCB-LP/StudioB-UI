@@ -18,7 +18,25 @@ CURRENT_DIR="${CURRENT_DIR:-${RUNTIME_BASE}/current}"
 RELEASES_DIR="${RELEASES_DIR:-${RUNTIME_BASE}/releases}"
 
 ENGINE_BIN="${ENGINE_BIN:-stub-engine}"
-CONFIG_FILE="${CONFIG_FILE:-${BASE_DIR}/config/config.yml}"
+CONFIG_FILE="${CONFIG_FILE:-${BASE_DIR}/config/config.v1}"
+
+# Backwards compatibility: older releases used ~/.StudioB-UI/config/config.yml.
+# We now use config.v1 as the canonical operator config path.
+#
+# We migrate once during install so:
+# - Engineering UI edits affect the running engine
+# - systemd always starts with the same file the UI edits
+migrate_legacy_config() {
+  local legacy="${BASE_DIR}/config/config.yml"
+  local new="${BASE_DIR}/config/config.v1"
+  if [[ ! -f "${new}" && -f "${legacy}" ]]; then
+    log "Migrating legacy config: ${legacy} -> ${new}"
+    mkdir -p "$(dirname "${new}")"
+    cp -a "${legacy}" "${new}"
+    # Keep a marker for auditability.
+    echo "# migrated from config.yml on $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${new}" || true
+  fi
+}
 
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/studiob-ui}"
 NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/studiob-ui}"

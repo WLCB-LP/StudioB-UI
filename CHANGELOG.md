@@ -404,3 +404,9 @@
 - Engineering: 'Mode' selector now explicitly controls DSP Writes (mock/live)
 - API: /api/health 'mode' is engine simulation (mock); added dspWriteMode for clarity
 - API: /api/config now includes dsp.mode; admin config writer persists it
+
+## v0.2.77
+
+- Fix: Engineering config Mode Save now reliably changes the *running engine* mode (mock/live) by reloading the same canonical config file the engine started with.
+- Add: Explicit "Last DSP write" status in Engineering DSP summary (shows last write attempt, timestamp, and error if any).
+- Safety: DSP writes still follow the existing gate; only Speaker Mute intent writes in LIVE.

@@ -26,10 +26,21 @@ func ConfigFilePath() (string, error) {
 	if err != nil || strings.TrimSpace(home) == "" {
 		return "", fmt.Errorf("cannot determine HOME for config file: %v", err)
 	}
-	return filepath.Join(home, ".StudioB-UI", "config", "config.yml"), nil
+	return filepath.Join(home, ".StudioB-UI", "config", "config.v1"), nil
 }
 
-// EditableConfig is the small subset of config.yml the UI is allowed to edit.
+
+// LegacyConfigFilePath returns the pre-v0.2.77 operator config path.
+//
+// We keep this only to migrate existing installs forward.
+func LegacyConfigFilePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return "", fmt.Errorf("cannot determine HOME for legacy config file: %v", err)
+	}
+	return filepath.Join(home, ".StudioB-UI", "config", "config.yml"), nil
+}
+// EditableConfig is the small subset of config.v1 the UI is allowed to edit.
 //
 // We intentionally limit edits to mode + DSP host/port to reduce risk.
 // Other keys remain managed by install scripts and advanced operators.
@@ -45,10 +56,36 @@ type EditableConfig struct {
 // Missing file is not an error; Exists=false is returned.
 func ReadEditableConfig() (cfg EditableConfig, exists bool, raw string, err error) {
 	p, err := ConfigFilePath()
+	// If the new file does not exist yet, but the legacy config.yml does,
+	// copy it forward first so we preserve all existing keys.
+	if err == nil {
+		if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
+			lp, lerr := LegacyConfigFilePath();
+			if lerr == nil {
+				if b, rerr := os.ReadFile(lp); rerr == nil {
+					_ = os.MkdirAll(filepath.Dir(p), 0755)
+					_ = os.WriteFile(p, b, 0644)
+				}
+			}
+		}
+	}
 	if err != nil {
 		return cfg, false, "", err
 	}
 	b, err := os.ReadFile(p)
+	if err != nil {
+		// Backwards compatibility: if the new file is missing but the legacy
+		// config.yml exists, read it so the Engineering page can display current
+		// settings and migrate forward on next Save.
+		lp, lerr := LegacyConfigFilePath()
+		if lerr == nil {
+			if lb, lread := os.ReadFile(lp); lread == nil {
+				p = lp
+				b = lb
+				err = nil
+			}
+		}
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			return cfg, false, "", nil
@@ -89,13 +126,26 @@ func ValidateEditableConfig(c EditableConfig) error {
 	return nil
 }
 
-// WriteEditableConfig atomically writes config.yml and keeps a timestamped backup
+// WriteEditableConfig atomically writes config.v1 and keeps a timestamped backup
 // of the previous file (if present).
 func WriteEditableConfig(c EditableConfig) (string, error) {
 	if err := ValidateEditableConfig(c); err != nil {
 		return "", err
 	}
 	p, err := ConfigFilePath()
+	// If the new file does not exist yet, but the legacy config.yml does,
+	// copy it forward first so we preserve all existing keys.
+	if err == nil {
+		if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
+			lp, lerr := LegacyConfigFilePath();
+			if lerr == nil {
+				if b, rerr := os.ReadFile(lp); rerr == nil {
+					_ = os.MkdirAll(filepath.Dir(p), 0755)
+					_ = os.WriteFile(p, b, 0644)
+				}
+			}
+		}
+	}
 	if err != nil {
 		return "", err
 	}

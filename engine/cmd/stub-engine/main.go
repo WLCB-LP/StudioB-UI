@@ -14,13 +14,23 @@ import (
 	"strings"
 
 	app "stub-mixer/internal"
+
+func defaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err == nil && strings.TrimSpace(home) != "" {
+		return home + "/.StudioB-UI/config/config.v1"
+	}
+	// Fallback: relative path (mainly for dev)
+	return "config.v1"
+}
+
 )
 
 var version = "dev"
 
 func main() {
 	var cfgPath string
-	flag.StringVar(&cfgPath, "config", "config.yml", "Path to config.yml")
+	flag.StringVar(&cfgPath, "config", defaultConfigPath(), "Path to operator config.v1")
 	flag.Parse()
 
 	cfg, err := app.LoadConfig(cfgPath)
@@ -28,7 +38,7 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	engine := app.NewEngine(cfg, version)
+	engine := app.NewEngine(cfg, version, cfgPath)
 
 	mux := http.NewServeMux()
 

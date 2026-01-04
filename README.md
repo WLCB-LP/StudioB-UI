@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.76
+# STUB Mixer UI (Studio B) — Release 0.2.77
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -203,5 +203,10 @@ Hotfix for v0.2.67: fixes a JavaScript syntax error that prevented the UI from i
 ### Release 0.2.69
 UI clarity update. The header now shows Engine mode separately from DSP connectivity state and DSP write mode, so operators can distinguish simulation state from real DSP connection/controls.
 
-### Release 0.2.74
+### Release 0.2.77
 DSP-mode-only fix. StudioB-UI always monitors DSP connectivity on startup. The Engineering mode selector controls DSP write behavior via dsp.mode (mock/live). No new engine config fields were added.
+
+
+### Operator config
+
+The Engineering page edits the operator config file at `~/.StudioB-UI/config/config.v1` (persisted across updates). Mode changes are applied immediately by hot-reloading the running engine.

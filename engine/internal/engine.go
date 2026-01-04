@@ -78,7 +78,12 @@ type Engine struct {
 	// Timestamp of last successful DSP validation in LIVE mode
 	dspValidatedAt time.Time
 	// v0.2.55: signature of DSP-relevant config at last LIVE validation
-	dspValidatedConfigSig string
+	dspValidatedConfigSig st
+	// lastDSPWrite captures the most recent DSP write attempt (success or failure).
+	// This is shown on the Engineering page so operators can verify that a control
+	// action actually attempted to write when in LIVE mode.
+	lastDSPWriteMu sync.Mutex
+	lastDSPWrite   *DSPWriteStatusring
 	// ------------------------------------------------------------------
 	// DSP monitor (v0.2.61)
 	//
@@ -192,7 +197,7 @@ type StudioStatus struct {
 	} `json:"meters"`
 }
 
-func NewEngine(cfg *Config, version string) *Engine {
+func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	e := &Engine{
 		cfg:      cfg,
 		version:  version,
@@ -401,6 +406,17 @@ func (e *Engine) ApplySpeakerMuteIntent(mute bool, source string) error {
 			// Logging failure must be visible.
 			return fmt.Errorf("dsp write log failed: %w", err)
 		}
+		// Record the attempt for the Engineering UI.
+		e.setLastDSPWrite(&DSPWriteStatus{
+			TS:    wev.TS,
+			Name:  "STUB_SPK_MUTE",
+			RC:    rcNameToID["STUB_SPK_MUTE"],
+			Value: val,
+			Ok:    (werr == nil),
+			Resp:  resp,
+			Mode:  mode,
+			Error: func() string { if werr != nil { return werr.Error() }; return "" }(),
+		})
 		if werr != nil {
 			return fmt.Errorf("dsp write failed: %w", werr)
 		}
@@ -575,23 +591,24 @@ func (e *Engine) Reconnect() {
 // This is intentionally conservative: it only changes in-memory config.
 // It does NOT restart services and does NOT touch runtime releases.
 func (e *Engine) ReloadConfig() error {
-	// NOTE: called by Engineering UI after saving config.yml.
-	// We want the running engine to reflect file changes immediately.
-	//
-	// IMPORTANT: e.cfg is protected by cfgMu (not e.mu). e.mu is for other
-	// runtime state (meters, RC cache, websocket clients, etc.).
-	e.cfgMu.RLock()
-	yamlPath := ""
-	if e.cfg != nil {
-		yamlPath = strings.TrimSpace(e.cfg.Meta.YAMLPath)
+	// NOTE: called by Engineering UI after saving the operator config.
+	// We hot-reload from the SAME canonical file path the engine was started with.
+	// This avoids confusing situations where the UI edits one file but the engine
+	// is still reading another.
+	cfgPath := strings.TrimSpace(e.cfgPath)
+	if cfgPath == "" {
+		// Fallback for legacy runs: use the path we originally loaded.
+		e.cfgMu.RLock()
+		if e.cfg != nil {
+			cfgPath = strings.TrimSpace(e.cfg.Meta.YAMLPath)
+		}
+		e.cfgMu.RUnlock()
 	}
-	e.cfgMu.RUnlock()
-
-	if yamlPath == "" {
-		return fmt.Errorf("cannot reload config: YAML path unknown")
+	if cfgPath == "" {
+		return fmt.Errorf("cannot reload config: config path unknown")
 	}
 
-	newCfg, err := LoadConfig(yamlPath)
+	newCfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		return err
 	}
@@ -1042,6 +1059,17 @@ func tailLines(s string, n int) string {
 //   - desiredMode: what config requests (cfg.DSP.Mode)
 //   - activeMode:  what the engine will allow for DSP *writes*
 //     (live writes are only enabled after operator arms them)
+type DSPWriteStatus struct {
+	TS    string  `json:"ts"`
+	Name  string  `json:"name"`
+	RC    int     `json:"rc"`
+	Value float64 `json:"value"`
+	Ok    bool    `json:"ok"`
+	Resp  string  `json:"resp,omitempty"`
+	Error string  `json:"error,omitempty"`
+	Mode  string  `json:"mode,omitempty"` // "live" or "mock" at time of attempt
+}
+
 type DSPModeStatus struct {
 	DesiredMode string `json:"mode"`
 	ActiveMode  string `json:"activeMode"`
@@ -1052,7 +1080,8 @@ type DSPModeStatus struct {
 	Port          int    `json:"port,omitempty"`
 	Validated     bool   `json:"validated"`
 	ValidatedAt   string `json:"validatedAt,omitempty"`
-	ConfigChanged bool   `json:"configChanged"`
+	ConfigChanged bool            `json:"configChanged"`
+	LastWrite     *DSPWriteStatus  `json:"lastWrite,omitempty"`
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
@@ -1094,6 +1123,7 @@ func (e *Engine) DSPModeStatus() DSPModeStatus {
 		Validated:     validated,
 		ValidatedAt:   vts,
 		ConfigChanged: changed,
+		LastWrite:     e.getLastDSPWriteCopy(),
 	}
 }
 

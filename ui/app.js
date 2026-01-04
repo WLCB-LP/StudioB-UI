@@ -1320,6 +1320,20 @@ function renderWatchdogDSP(){
   const wlp = $("#wdDspLastPoll");
   if(wlp) wlp.textContent = (h.lastPollAt || "—");
   $("#wdDspFailures").textContent = String(h.failures ?? "—");
+  // Last DSP write attempt (v0.2.77) — explicit operator feedback.
+  const lwEl = $("#wdDspLastWrite");
+  if(lwEl){
+    const lw = (m.lastWrite || null);
+    if(!lw){
+      lwEl.textContent = "—";
+    }else{
+      const ok = lw.ok ? "OK" : "ERROR";
+      const val = (typeof lw.value === "number") ? lw.value : "—";
+      const ts = lw.ts || "—";
+      const err = lw.error ? ` (${lw.error})` : "";
+      lwEl.textContent = `${ts}  ${lw.name}=${val}  ${ok}${err}`;
+    }
+  }
 
   // Validation context (LIVE only)
   let vtxt = "—";
