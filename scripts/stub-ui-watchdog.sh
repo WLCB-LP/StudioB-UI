@@ -38,7 +38,17 @@ RESTART_FLAG="${BASE_DIR}/state/restart_required.json"
 
 
 # How many consecutive stub-engine health check failures before we restart it.
-ENGINE_HEALTH_FAIL_THRESHOLD=2
+#
+# Why this is higher than 2 (v0.2.93):
+# - When the DSP/network is having transient issues, the engine may still be
+#   healthy, but HTTP requests can briefly fail.
+# - A low threshold caused "restart loops" where the watchdog repeatedly
+#   restarted a perfectly fine engine, creating the appearance of
+#   "Empty reply from server" in curl.
+#
+# We keep restarts conservative: require a longer streak of failures before
+# taking disruptive action.
+ENGINE_HEALTH_FAIL_THRESHOLD=6
 engine_fail_count=0
 
 # "Last known good" marker written by the watchdog when the system has
@@ -239,7 +249,18 @@ check_nginx_config() {
 
 check_engine_health() {
   # The engine listens on 127.0.0.1:8787.
+  # NOTE: We keep this *very* defensive.
+  # If /api/health is temporarily unhappy, but other endpoints respond,
+  # we should NOT restart the engine and make the situation worse.
   if curl -fsS --max-time 2 http://127.0.0.1:8787/api/health >/dev/null 2>&1; then
+    engine_fail_count=0
+    return 0
+  fi
+
+  # Fallback probe (v0.2.93): if /api/config responds, the engine HTTP server is alive.
+  # This avoids restart loops caused by a single endpoint regression.
+  if curl -fsS --max-time 2 http://127.0.0.1:8787/api/config >/dev/null 2>&1; then
+    log "WARN: /api/health failed but /api/config is OK. Treating engine as up (no restart)."
     engine_fail_count=0
     return 0
   fi

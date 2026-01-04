@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.92
+# STUB Mixer UI (Studio B) — Release 0.2.93
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.2.93: Watchdog is more conservative about engine restarts: if `/api/health` fails but `/api/config` responds, it will **not** restart the engine (prevents restart loops). `/api/health` and `/api/version` were also simplified to reduce lock contention risk.
 - v0.2.92: Fixes a config precedence bug where a stale `~/.StudioB-UI/config.json` could override a newer `config.v1` and keep the engine in `mock` mode. YAML now wins when it is newer, and the engine syncs JSON to match.
 - v0.2.91: Fixes installer build/test failure caused by a `yamlPath` variable typo in `engine/internal/config.go` (no behavior change).
 - Update UI: When an in-app **Update** completes, the Engineering page now **auto-reloads the UI (cache-busted)**. The “Refresh now” button is still provided as a fallback.

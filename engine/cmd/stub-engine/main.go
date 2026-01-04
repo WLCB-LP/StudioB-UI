@@ -71,40 +71,65 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Health
-	// Health
+	//
+	// This endpoint is used by:
+	//   - install.sh health checks
+	//   - the watchdog (curl --max-time 2)
+	//   - the UI status indicator
+	//
+	// Therefore it MUST be:
+	//   - fast (no DSP I/O)
+	//   - reliable (never "empty reply")
+	//   - explicit about mock/live safety
+	//
+	// IMPORTANT:
+	// A previous regression caused watchdog restart loops because curl saw
+	// "empty reply from server". That symptom is typically a panic in a
+	// handler or a handler that is blocked until the service is restarted.
+	//
+	// This handler is now deliberately minimal and wrapped with a hard
+	// panic-recovery that ALWAYS emits a JSON response.
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		// IMPORTANT: /api/health must NEVER block on DSP I/O or slow disk operations.
-		// Operators (and the installer) rely on it to be fast and reliable.
-		// If anything goes wrong, we still return JSON explaining what we know.
 		w.Header().Set("Content-Type", "application/json")
+		// Always ensure we send an HTTP status line. (Without this, a panic
+		// or abrupt close can look like "empty reply" to curl.)
+		w.WriteHeader(http.StatusOK)
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Printf("panic in /api/health: %v", rec)
-				// Best effort JSON error. If headers/body already started, this is a no-op.
+				// Best effort JSON error. If the client already got partial output,
+				// this may fail, but the status line was already sent.
 				_ = json.NewEncoder(w).Encode(map[string]any{
 					"ok":      false,
 					"version": engine.Version(),
 					"time":    time.Now().UTC().Format(time.RFC3339),
-					"error":   "panic in health handler",
+					"error":   "panic in /api/health",
 				})
 			}
 		}()
 
 		// Desired mode: what the running engine believes the operator config contains.
-		// NOTE: We intentionally do NOT re-read the config file from disk here.
-		// Disk reads can block or race with writes, and health must stay fast.
-		desiredMode := strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode))
+		// NOTE: We do NOT re-read config files from disk here.
+		cfg := engine.GetConfigCopy()
+		desiredMode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
 		if desiredMode == "" {
 			desiredMode = "mock"
 		}
 
-		// Active mode: what the engine has actually armed for DSP writes.
-		active := strings.ToLower(strings.TrimSpace(engine.DSPModeStatus().ActiveMode))
-		if active == "" {
-			active = "mock"
+		// Active write mode: what the engine has actually armed.
+		//
+		// IMPORTANT (v0.2.93):
+		// We intentionally avoid calling engine.DSPModeStatus() here.
+		// DSPModeStatus() is a richer helper that touches multiple locks and reads
+		// additional state for UI display. /api/health is used by the watchdog,
+		// so we keep it as small and low-risk as possible.
+		active := "mock"
+		if desiredMode == "live" && engine.DSPLiveActive() {
+			active = "live"
 		}
 
-		if err := json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":               true,
 			"version":          engine.Version(),
 			"time":             time.Now().UTC().Format(time.RFC3339),
@@ -113,18 +138,43 @@ func main() {
 			// Back-compat field used by some UI bits.
 			"mode":            active,
 			"restartRequired": app.RestartRequired(),
-		}); err != nil {
-			log.Printf("/api/health encode error: %v", err)
-		}
+		})
 	})
 
 	// Version (stable, explicit)
+	//
+	// This MUST be safe to call from the watchdog at any time.
+	// Keep it extremely small and avoid anything that could block.
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("panic in /api/version: %v", rec)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"version": engine.Version(),
+					"time":    time.Now().UTC().Format(time.RFC3339),
+					"error":   "panic in /api/version",
+				})
+			}
+		}()
+
+		cfg := engine.GetConfigCopy()
+		// Report BOTH desired + active write mode for clarity.
+		desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+		if desired == "" {
+			desired = "mock"
+		}
+		active := "mock"
+		if desired == "live" && engine.DSPLiveActive() {
+			active = "live"
+		}
+
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"version": engine.Version(),
-			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    engine.DSPModeStatus().ActiveMode,
+			"version":          engine.Version(),
+			"time":             time.Now().UTC().Format(time.RFC3339),
+			"desiredWriteMode": desired,
+			"dspWriteMode":     active,
 		})
 	})
 

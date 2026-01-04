@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.93
+
+### Fixed
+- **Stop watchdog restart loops when `/api/health` is flaky:** watchdog now treats `/api/config` as a fallback liveness probe. If `/api/health` fails but `/api/config` succeeds, the watchdog will **not** restart the engine.
+- **Make `/api/health` + `/api/version` extra-low-risk:** both endpoints no longer call the richer `DSPModeStatus()` helper (which touches more state/locks). They now report active write mode using the simplest possible check (`desired == live` AND `DSPLiveActive()`), and still return explicit JSON.
+
+### Notes
+- This release is purely about stabilizing health/version signaling in LIVE mode. No DSP write behavior changed.
+
 ## v0.2.92
 
 ### Fixed
