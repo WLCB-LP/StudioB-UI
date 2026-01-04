@@ -132,7 +132,10 @@ func LoadConfig(path string) (*Config, error) {
 	//
 	// JSON overrides are intentionally shallow and only cover the "mode" + DSP connection fields
 	// for v0.2.x.
-	applyJSONOverrides(&cfg, yamlPath)
+	// NOTE: The caller passes the YAML config path in via `path`.
+	// We use that same path when deciding whether config.json overrides
+	// are applicable (newer than the YAML, etc.).
+	applyJSONOverrides(&cfg, path)
 	applyEnvOverrides(&cfg)
 
 	// If mode is still unset for any reason, default to mock (safe).

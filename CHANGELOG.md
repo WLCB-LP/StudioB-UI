@@ -1,7 +1,11 @@
-## v0.2.90 (2026-01-04)
+# Changelog
 
-- Fix (config precedence): If `/home/wlcb/.StudioB-UI/config/config.v1` is newer than `~/.StudioB-UI/config.json`, the engine now treats **config.v1 (YAML) as authoritative** so stale JSON cannot force the engine back into `mock`.
-- Self-heal: When YAML is authoritative, the engine **syncs `config.json` to match** YAML values (mode + DSP host/port) and logs a clear notice.
+## v0.2.91 (2026-01-04)
+- **Build fix:** restore successful installs by correcting a typo in `engine/internal/config.go` (`yamlPath` -> `path`).
+
+## v0.2.90 (2026-01-04)
+- Fix (config precedence): If `config.v1` (YAML) is newer than `config.json`, treat YAML as authoritative so stale JSON cannot force the engine back into `mock`.
+- Self-heal: When YAML is authoritative, sync `config.json` to match YAML values (mode + DSP host/port) and log a clear notice.
 
 ## v0.2.89 (2026-01-04)
 
