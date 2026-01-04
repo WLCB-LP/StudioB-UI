@@ -110,6 +110,15 @@ func ReadEditableConfig() (cfg EditableConfig, exists bool, raw string, err erro
 // ValidateEditableConfig ensures operator edits are sane and safe.
 func ValidateEditableConfig(c EditableConfig) error {
 	m := strings.ToLower(strings.TrimSpace(c.Mode))
+	// The UI may send labels like "live (reserved)".
+	// We accept anything that begins with "live" or "mock" to keep the UX friendly
+	// while the engine stays strict (it only ever writes "live" or "mock" to disk).
+	if strings.HasPrefix(m, "live") {
+		m = "live"
+	}
+	if strings.HasPrefix(m, "mock") {
+		m = "mock"
+	}
 	if m != "" && m != "mock" && m != "live" {
 		return fmt.Errorf("mode must be 'mock' or 'live' (got %q)", c.Mode)
 	}
@@ -169,7 +178,14 @@ func WriteEditableConfig(c EditableConfig) (string, error) {
 	}
 	// Apply edits.
 	if strings.TrimSpace(c.Mode) != "" {
-		full.DSP.Mode = strings.ToLower(strings.TrimSpace(c.Mode))
+		nm := strings.ToLower(strings.TrimSpace(c.Mode))
+		if strings.HasPrefix(nm, "live") {
+			nm = "live"
+		}
+		if strings.HasPrefix(nm, "mock") {
+			nm = "mock"
+		}
+		full.DSP.Mode = nm
 	}
 	if strings.TrimSpace(c.DSP.IP) != "" {
 		full.DSP.Host = strings.TrimSpace(c.DSP.IP)

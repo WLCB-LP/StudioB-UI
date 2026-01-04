@@ -1,3 +1,10 @@
+## v0.2.81
+
+- Fix Engineering Mode save: accept UI label `live (reserved)` and normalize to `live` in config.v1.
+- Make DSP write mode changes deterministic: saving config requests an engine restart (watchdog restarts stub-engine).
+- /api/health now reports desired vs active write modes and whether a restart is pending (restartRequired).
+- Engineering UI now tells the operator when a restart is required for changes to take effect.
+
 ## v0.2.80
 
 - FIX: Engineering config editor now writes the *actual* config.v1 keys used by the engine (dsp.host / dsp.port / dsp.mode).

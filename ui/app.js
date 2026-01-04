@@ -715,15 +715,32 @@ $("#btnDspTest").addEventListener("click", async ()=>{
     };
     $("#cfgMsg").textContent = "Saving…";
     try{
-      await fetch("/api/admin/config/file", {
-        method: "PUT",
-        headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
-        body: JSON.stringify(body)
-      }).then(async r=>{ if(!r.ok) throw new Error(await r.text()); });
-      $("#cfgMsg").textContent = "Saved. Reloading effective config…";
-      // Refresh /api/config view (and mode pill) immediately.
-      await loadConfigPill();
-      $("#cfgMsg").textContent = "Saved and applied.";
+      const resp = await fetch("/api/admin/config/file", {
+  method: "PUT",
+  headers: { "Content-Type":"application/json", "X-Admin-PIN": pin },
+  body: JSON.stringify(body)
+}).then(async r=>{
+  if(!r.ok) throw new Error(await r.text());
+  // The engine returns JSON with optional restart_required=true.
+  try { return await r.json(); } catch { return { ok:true }; }
+});
+
+if(resp && resp.restart_required){
+  $("#cfgMsg").textContent = "Saved. Engine restart requested (watchdog will restart stub-engine).";
+} else {
+  $("#cfgMsg").textContent = "Saved. Reloading effective config…";
+}
+
+// Refresh /api/config view (and mode pill) immediately.
+await loadConfigPill();
+
+if(resp && resp.restart_required){
+  // Give the watchdog a moment to restart the engine, then refresh pills again.
+  setTimeout(()=>{ loadConfigPill(); }, 2500);
+  $("#cfgMsg").textContent = "Saved. Waiting for engine restart to apply changes…";
+} else {
+  $("#cfgMsg").textContent = "Saved and applied.";
+}
     }catch(e){
       $("#cfgMsg").textContent = "Save failed: " + e.message;
     }

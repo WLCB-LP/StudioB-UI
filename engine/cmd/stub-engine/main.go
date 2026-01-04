@@ -47,15 +47,31 @@ func main() {
 	// Health
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		// IMPORTANT: We report both DESIRED and ACTIVE write modes.
+		// - Desired mode comes from the on-disk config file (what the operator saved).
+		// - Active mode comes from the running engine state (what is actually armed).
+		//
+		// This avoids ambiguous situations where a config change is saved but not yet
+		// applied (e.g., because we require a restart for safety).
+		desiredMode := strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode))
+		if diskCfg, err := app.LoadConfig(cfgPath); err == nil && diskCfg != nil {
+			desiredMode = strings.ToLower(strings.TrimSpace(diskCfg.DSP.Mode))
+		}
+		active := engine.DSPModeStatus().ActiveMode
+
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"ok":           true,
-			"version":      engine.Version(),
-			"time":         time.Now().UTC().Format(time.RFC3339),
-			"mode":         strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode)),
-			"dspWriteMode": engine.DSPModeStatus().ActiveMode,
-			"desiredWriteMode": strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode)),
+			"ok":              true,
+			"version":         engine.Version(),
+			"time":            time.Now().UTC().Format(time.RFC3339),
+			"desiredWriteMode": desiredMode,
+			"dspWriteMode":    active,
+			// Back-compat field used by some UI bits.
+			"mode":            active,
+			"restartRequired": app.RestartRequired(),
 		})
 	})
+
 
 	// Version (stable, explicit)
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +137,27 @@ func main() {
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				writeAPIError(w, http.StatusBadRequest, "bad json")
 				return
+			}
+			p, err := app.WriteEditableConfig(body)
+			if err != nil {
+				writeAPIError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+
+			// SAFETY: Mode changes (mock/live) are applied ONLY on engine restart.
+			// This makes the system deterministic and keeps "live writes" from being
+			// enabled mid-flight inside a long-running process.
+			//
+			// The watchdog is responsible for observing this flag and restarting the
+			// stub-engine service.
+			_ = app.RequestEngineRestart("config saved via Engineering UI")
+
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok":               true,
+				"path":             p,
+				"restart_required": true,
+			})
+			return
 			}
 			p, err := app.WriteEditableConfig(body)
 			if err != nil {

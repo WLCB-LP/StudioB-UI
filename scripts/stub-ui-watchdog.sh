@@ -24,11 +24,18 @@
 
 set -euo pipefail
 
-RUNTIME_BASE="/home/wlcb/.StudioB-UI/runtime"
+BASE_DIR="/home/wlcb/.StudioB-UI"
+RUNTIME_BASE="${BASE_DIR}/runtime"
 CURRENT_LINK="$RUNTIME_BASE/current"
 RELEASES_DIR="$RUNTIME_BASE/releases"
 LOG_FILE="/var/log/stub-ui-watchdog.log"
 CHECK_INTERVAL_SECONDS=15
+
+# When the operator saves a config change that requires a deterministic restart,
+# the engine records a restart request flag file here. The watchdog is responsible
+# for noticing it and restarting stub-engine.
+RESTART_FLAG="${BASE_DIR}/state/restart_required.json"
+
 
 # How many consecutive stub-engine health check failures before we restart it.
 ENGINE_HEALTH_FAIL_THRESHOLD=2
@@ -106,6 +113,21 @@ ensure_current_symlink() {
   ln -sfn "$newest" "$CURRENT_LINK"
   log "Repaired symlink: $CURRENT_LINK -> $newest"
   return 0
+}
+
+
+handle_restart_flag() {
+  if [[ -f "$RESTART_FLAG" ]]; then
+    log "INFO: Restart requested via $RESTART_FLAG; restarting stub-engine…"
+    # Attempt restart; even if it fails, do NOT delete the flag (so we keep trying and it's visible).
+    if restart_service stub-engine; then
+      # If restart succeeded, remove the flag so we don't loop. The operator can re-request anytime.
+      rm -f "$RESTART_FLAG" || true
+      log "INFO: stub-engine restarted and restart flag cleared."
+    else
+      log "ERROR: stub-engine restart failed; leaving restart flag in place."
+    fi
+  fi
 }
 
 current_release_path() {
@@ -253,7 +275,10 @@ main_loop() {
       fi
     done
 
-    # 3) Validate and (if OK) reload nginx
+    # 2b) Apply any operator-requested restart (e.g., config mode change)
+handle_restart_flag || true
+
+# 3) Validate and (if OK) reload nginx
     local nginx_ok=0
     if check_nginx_config; then
       nginx_ok=1
