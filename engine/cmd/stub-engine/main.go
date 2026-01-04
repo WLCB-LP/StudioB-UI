@@ -158,24 +158,6 @@ func main() {
 				"restart_required": true,
 			})
 			return
-			}
-			p, err := app.WriteEditableConfig(body)
-			if err != nil {
-				writeAPIError(w, http.StatusBadRequest, err.Error())
-				return
-			}
-			// Hot-reload so operator sees immediate effect in /api/config.
-			if err := engine.ReloadConfigFrom(p); err != nil {
-				// File saved, but reload failed. Return 500 with details so operator can act.
-				writeAPIError(w, http.StatusInternalServerError, "config saved to "+p+" but reload failed: "+err.Error())
-				return
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"ok":   true,
-				"path": p,
-			})
-			return
-
 		default:
 			writeAPIError(w, http.StatusMethodNotAllowed, "GET or PUT required")
 			return

@@ -231,6 +231,10 @@
 
 # Changelog
 
+
+## v0.2.82
+- Fix Go build error introduced in v0.2.81 (duplicate block in engine main.go).
+- No behavior changes; restores successful install.
 ## v0.1.32
 
 - Release bump for update-path testing.
