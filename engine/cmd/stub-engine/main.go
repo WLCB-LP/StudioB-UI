@@ -212,6 +212,50 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	// -----------------------------------------------------------------------
+	// Operator intents (v0.2.75)
+	//
+	// Phase 1 control plumbing (safe / non-destructive): Speaker Mute.
+	//
+	// Contract:
+	// - UI sends an explicit intent.
+	// - Engine logs the intent (timestamped) to ~/.StudioB-UI/state/intents.jsonl.
+	// - Engine updates its in-memory RC cache so the UI reflects the new state.
+	// - DSP writes remain mocked/blocked in this phase.
+	// -----------------------------------------------------------------------
+	mux.HandleFunc("/api/intent/speaker/mute", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+			return
+		}
+		var body struct {
+			Mute   *bool  `json:"mute"`
+			Source string `json:"source"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "bad json")
+			return
+		}
+		if body.Mute == nil {
+			writeAPIError(w, http.StatusBadRequest, "missing field: mute")
+			return
+		}
+		// Defense-in-depth: keep the same DSP control guard used by /api/rc.
+		if ok, reason := engine.DSPControlAllowed(); !ok {
+			writeAPIError(w, http.StatusConflict, reason)
+			return
+		}
+		src := strings.TrimSpace(body.Source)
+		if src == "" {
+			src = "ui"
+		}
+		if err := engine.ApplySpeakerMuteIntent(*body.Mute, src); err != nil {
+			writeAPIError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// DSP health + manual connectivity test (operator-driven; no polling).
 	
 mux.HandleFunc("/api/dsp/mode", func(w http.ResponseWriter, r *http.Request) {

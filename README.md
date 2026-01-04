@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.37
+# STUB Mixer UI (Studio B) — Release 0.2.75
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -17,6 +17,10 @@ Run:
 
 - Update UI: Update/Rollback now show an explicit “Refresh Now” button when the engine restarts or the version changes.
 - DSP control protocol is intentionally stubbed ("mock mode") until we wire it to Symetrix control.
+- v0.2.75: Speaker Mute is now plumbed through the explicit **intent** path:
+  UI → intent → engine → (DSP write gate).
+  - Intents are append-logged to: `~/.StudioB-UI/state/intents.jsonl`
+  - DSP writes remain **MOCKED** in this phase (safe plumbing only).
 - Update/Rollback are implemented as **local git operations** on the VM:
   - Update: fetch + fast-forward main (or latest tag if configured) then reinstall
   - Rollback: checkout a prior git tag and reinstall
@@ -27,6 +31,7 @@ Run:
 - `GET /api/state` — full RC snapshot (debug)
 - `GET /api/studio/status` — stable Studio UI contract (speaker + meters)
 - `POST /api/rc/<id>` — set allowlisted RC value (debug / interim)
+- `POST /api/intent/speaker/mute` — Speaker Mute via intent (logs action + timestamp)
 - `POST /api/reconnect` — operator-safe reconnect (stub)
 
 ## Runtime layout (LOCKED)

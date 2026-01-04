@@ -290,6 +290,27 @@ async function postRC(name, value){
   });
 }
 
+// postSpeakerMuteIntent sends the Speaker Mute action through the "intent" API.
+//
+// Phase 1 safety:
+// - This does NOT enable DSP writes. Engine continues to report "DSP writes: MOCK".
+// - This only proves end-to-end UI → intent → engine plumbing.
+async function postSpeakerMuteIntent(mute){
+  // Reuse the same front-end DSP guard used by postRC for immediate operator feedback.
+  if((state.dspHealth && String(state.dspHealth.state||"").toUpperCase()==="DISCONNECTED")){
+    const warn = $("#dspControlWarn");
+    if(warn){ warn.style.display="block"; }
+    throw new Error("DSP control blocked: DSP is disconnected");
+  }
+  await fetch("/api/intent/speaker/mute", {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify({ mute: !!mute, source: "ui" })
+  }).then(async res=>{
+    if(!res.ok) throw new Error(await res.text());
+  });
+}
+
 
 
 // ---------------------------------------------------------------------------
@@ -637,7 +658,12 @@ $("#btnDspTest").addEventListener("click", async ()=>{
       if(rc === "STUB_SPK_AUTOMUTE") return; // indicator only
       if(rc === "STUB_SPK_MUTE"){
         const next = !state.speaker.mute;
-        try{ await postRC(rc, next ? 1 : 0); }catch(e){}
+        try{
+          await postSpeakerMuteIntent(next);
+          // Optimistic UI update: the next /api/studio/status poll will confirm.
+          state.speaker.mute = next;
+          updateSpeakerUI();
+        }catch(e){}
         return;
       }
       // mic toggles: UI-visible, logic-stubbed (store local visual state)

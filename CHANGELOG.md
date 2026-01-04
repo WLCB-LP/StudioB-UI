@@ -1,3 +1,10 @@
+## v0.2.75 (2026-01-03)
+
+- Phase 1 control plumbing (SAFE): Speaker Mute now uses an explicit intent endpoint.
+  - UI calls `POST /api/intent/speaker/mute` instead of `POST /api/rc/...`.
+  - Engine appends intents to `~/.StudioB-UI/state/intents.jsonl` (timestamped JSONL).
+  - DSP writes remain **MOCKED** (no behavior change to live audio).
+
 ## v0.2.37 (2026-01-03)
 
 - UI: harden Update/Rollback operator flow:

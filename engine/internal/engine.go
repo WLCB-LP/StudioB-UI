@@ -120,6 +120,17 @@ type Engine struct {
 dspOnce sync.Once
 dspMu   sync.Mutex
 dsp     *dspHealth
+
+	// v0.2.75: Operator intent log (append-only)
+	//
+	// Requirement:
+	// - UI actions must be represented as explicit "intents".
+	// - Intents must be logged with timestamps for auditability.
+	//
+	// Safety:
+	// - This is LOGGING ONLY. It does NOT bypass any DSP write guards.
+	// - It is append-only (JSON Lines) so the watchdog/operator can inspect
+	//   what was requested even if something later failed.
 }
 
 // WatchdogStatus describes the current systemd status of stub-ui-watchdog.
@@ -256,6 +267,111 @@ func (e *Engine) SetRC(idStr string, value float64) error {
 	e.rc[id] = value
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// Operator Intent Logging (v0.2.75)
+//
+// StudioB-UI uses an explicit "intent" model for control actions:
+//   UI → intent → engine → (DSP write gate)
+//
+// In v0.2.74 and earlier, most UI controls used /api/rc/<id> directly.
+// That path is still allowed for engineering/debug purposes, but the first
+// production-safe control we are plumbing through the intent model is:
+//   - Speaker Mute (RC 161)
+
+// IntentEvent is a single append-only record in state/intents.jsonl.
+//
+// We keep it deliberately small and explicit so it is easy to audit.
+type IntentEvent struct {
+	TS      string         `json:"ts"`
+	Action  string         `json:"action"`
+	Source  string         `json:"source,omitempty"`
+	Mode    string         `json:"mode,omitempty"`      // cfg.DSP.Mode (mock|live) - intended write mode
+	Details map[string]any `json:"details,omitempty"`   // small structured payload
+}
+
+// intentLogPath returns the absolute path to the intent log.
+// This is derived from the installer-managed stateDir.
+func (e *Engine) intentLogPath() string {
+	if strings.TrimSpace(e.stateDir) == "" {
+		// Defensive fallback (should not happen in production).
+		return "./intents.jsonl"
+	}
+	return filepath.Join(e.stateDir, "intents.jsonl")
+}
+
+// appendIntent writes an IntentEvent to the append-only JSONL file.
+//
+// IMPORTANT:
+// - This is best-effort logging. If logging fails, we still return the error
+//   so API handlers can surface it, but the engine continues to run.
+func (e *Engine) appendIntent(ev IntentEvent) error {
+	// Ensure timestamps are always present and normalized.
+	if strings.TrimSpace(ev.TS) == "" {
+		ev.TS = time.Now().UTC().Format(time.RFC3339)
+	}
+	// Ensure we record the intended DSP write mode for operator clarity.
+	if strings.TrimSpace(ev.Mode) == "" {
+		c := e.GetConfigCopy()
+		ev.Mode = strings.ToLower(strings.TrimSpace(c.DSP.Mode))
+	}
+
+	// Ensure state dir exists.
+	if strings.TrimSpace(e.stateDir) != "" {
+		_ = os.MkdirAll(e.stateDir, 0755)
+	}
+
+	path := e.intentLogPath()
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	b, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ApplySpeakerMuteIntent performs the Speaker Mute intent:
+// - Logs the intent with an explicit timestamp
+// - Updates the engine RC cache (RC 161)
+//
+// SAFETY: This does NOT write to the DSP. DSP writes remain mocked/blocked.
+func (e *Engine) ApplySpeakerMuteIntent(mute bool, source string) error {
+	// Log first (audit trail). If logging fails, return the error.
+	// This makes failure visible, matching the "failures must be visible" philosophy.
+	ev := IntentEvent{
+		TS:     time.Now().UTC().Format(time.RFC3339),
+		Action: "speaker.mute",
+		Source: source,
+		Details: map[string]any{
+			"mute": mute,
+			"rc":   rcNameToID["STUB_SPK_MUTE"],
+			"name": "STUB_SPK_MUTE",
+		},
+	}
+	if err := e.appendIntent(ev); err != nil {
+		return fmt.Errorf("intent log failed: %w", err)
+	}
+
+	// Then apply to the in-memory RC cache.
+	val := 0.0
+	if mute {
+		val = 1.0
+	}
+	if err := e.SetRC("STUB_SPK_MUTE", val); err != nil {
+		return err
+	}
+	log.Printf("intent applied: speaker.mute=%v (rc=%d source=%s)", mute, rcNameToID["STUB_SPK_MUTE"], source)
+	return nil
+}
+
 
 func (e *Engine) StateSnapshot() map[string]any {
 	e.mu.RLock()
