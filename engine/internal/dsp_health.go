@@ -58,12 +58,17 @@ func (e *Engine) ensureDSPHealthInit() {
 	})
 }
 
-// DSPHealth returns the current snapshot. This is read-only and safe.
-func (e *Engine) DSPHealth() DSPHealthSnapshot {
-	e.ensureDSPHealthInit()
-	e.dspMu.Lock()
-	defer e.dspMu.Unlock()
-
+// dspHealthSnapshotLocked returns the current DSP health snapshot.
+//
+// IMPORTANT:
+//   - Caller MUST already hold e.dspMu.
+//   - This exists because TestDSPConnectivity() updates e.dsp.* under e.dspMu.
+//     If we called DSPHealth() (which also locks e.dspMu) from inside that
+//     critical section, we would deadlock.
+//
+// Keep this intentionally boring and explicit; this code runs in a hot path
+// (the 2s DSP monitor loop) and must never block on I/O.
+func (e *Engine) dspHealthSnapshotLocked() DSPHealthSnapshot {
 	snap := DSPHealthSnapshot{
 		State:               e.dsp.state,
 		Connected:           e.dsp.connected,
@@ -82,6 +87,15 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 		snap.LastTestAt = e.dsp.lastTestAt.UTC().Format(time.RFC3339)
 	}
 	return snap
+}
+
+// DSPHealth returns the current snapshot. This is read-only and safe.
+func (e *Engine) DSPHealth() DSPHealthSnapshot {
+	e.ensureDSPHealthInit()
+	e.dspMu.Lock()
+	defer e.dspMu.Unlock()
+
+	return e.dspHealthSnapshotLocked()
 }
 
 // TestDSPConnectivity performs a single bounded TCP connect to the configured DSP host/port.
@@ -136,7 +150,12 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 	}
 
 	e.dspMu.Lock()
-	defer e.dspMu.Unlock()
+	// NOTE: Do NOT call e.DSPHealth() while holding this lock.
+	// DSPHealth() locks e.dspMu too, and Go mutexes are not re-entrant.
+	//
+	// This exact bug caused /api/health and /api/version to hang in LIVE mode
+	// because the always-on DSP monitor loop calls TestDSPConnectivity() every
+	// 2 seconds.
 
 	e.dsp.lastTestAt = now
 	e.dsp.lastPollAt = now
@@ -168,7 +187,9 @@ func (e *Engine) TestDSPConnectivity(timeout time.Duration) DSPHealthSnapshot {
 		}
 	}
 
-	return e.DSPHealth()
+	snap := e.dspHealthSnapshotLocked()
+	e.dspMu.Unlock()
+	return snap
 }
 
 // DSPControlAllowed answers: "should we accept an operator RC write?"

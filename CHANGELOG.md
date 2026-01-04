@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.94
+
+### Fixed
+- **Harden `/api/health` and `/api/version` in LIVE mode:** both endpoints now derive `desiredWriteMode` and `dspWriteMode` strictly from the loaded YAML config (no DSP-health locks). This prevents curl hangs / "Empty reply from server" symptoms that could cascade into watchdog restarts.
+
+### Notes
+- This is intentionally a narrow change: it only affects how the *health/version endpoints report mode*, not how DSP polling or DSP writes work.
+
 ## v0.2.93
 
 ### Fixed

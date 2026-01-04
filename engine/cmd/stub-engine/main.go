@@ -117,17 +117,20 @@ func main() {
 			desiredMode = "mock"
 		}
 
-		// Active write mode: what the engine has actually armed.
+		// Effective write mode.
 		//
-		// IMPORTANT (v0.2.93):
-		// We intentionally avoid calling engine.DSPModeStatus() here.
-		// DSPModeStatus() is a richer helper that touches multiple locks and reads
-		// additional state for UI display. /api/health is used by the watchdog,
-		// so we keep it as small and low-risk as possible.
-		active := "mock"
-		if desiredMode == "live" && engine.DSPLiveActive() {
-			active = "live"
-		}
+		// IMPORTANT (v0.2.94):
+		// /api/health is used by the watchdog. It MUST return quickly and
+		// deterministically.
+		//
+		// Earlier releases derived an "active" mode by consulting additional
+		// engine state (DSPLiveActive / DSP health locks). In some scenarios,
+		// that could cause /api/health to stall while the DSP monitor was mid-check,
+		// leading to watchdog restarts and curl "Empty reply" symptoms.
+		//
+		// To harden the watchdog path, we now report effective write mode strictly
+		// from the loaded config.
+		active := desiredMode
 
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":               true,
@@ -165,10 +168,10 @@ func main() {
 		if desired == "" {
 			desired = "mock"
 		}
-		active := "mock"
-		if desired == "live" && engine.DSPLiveActive() {
-			active = "live"
-		}
+		// v0.2.94: match /api/health hardening.
+		// We keep /api/version lock-free and deterministic by deriving the
+		// effective mode from the loaded config.
+		active := desired
 
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version":          engine.Version(),
