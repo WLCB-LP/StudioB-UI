@@ -44,6 +44,29 @@ const state = {
   speaker: { level: 0, mute: false, automute: false },
 };
 
+// Engineering page config form state.
+//
+// IMPORTANT UX NOTE:
+// Historically, the Engineering → Configuration form did NOT auto-load
+// the saved config on page refresh; it showed default placeholders
+// (e.g. "mock (default)") until the user clicked "Load".
+//
+// That behavior is correct but confusing: it *looks* like the system
+// reverted to mock mode when, in reality, only the form reset.
+//
+// To reduce confusion we:
+//   1) Auto-load the saved config into the form when the Engineering page opens.
+//   2) Never overwrite user edits in-progress ("dirty" tracking).
+let engCfgLoaded = false;
+let engCfgDirty = false;
+
+//
+// We now auto-load the config when the Engineering page is shown,
+// *as long as the user hasn't started editing*.
+let engCfgLoaded = false;
+let engCfgDirty = false;
+let engCfgAutoLoadInFlight = false;
+
 function $(sel){ return document.querySelector(sel); }
 // ---------------------------------------------------------------------------
 // Shared JSON fetch helper (v0.2.51)
@@ -618,6 +641,21 @@ async function refreshEngineering(){
   }catch(e){
     $("#watchdogMsg").textContent = "Watchdog status: failed to load";
   }
+
+  // UX hardening:
+  // When the browser is refreshed while on the Engineering tab, the config
+  // form would reset to placeholders ("mock (default)") even though the
+  // engine is still running in live mode. To avoid that confusion, we
+  // auto-load the saved config into the form once per tab-session.
+  //
+  // We also track a "dirty" flag so we never overwrite in-progress edits.
+  if(state.activePage === "engineering" && !engCfgLoaded && !engCfgDirty){
+    // Only attempt if we have a PIN saved (Engineering is PIN-gated anyway).
+    const pin = getSavedPin();
+    if(pin){
+      try{ await loadConfigFromFile({ silent: true }); }catch(_e){ /* ignore */ }
+    }
+  }
 }
 
 function wireUI(){
@@ -753,9 +791,25 @@ $("#btnDspTest").addEventListener("click", async ()=>{
 
   // Engineering: Config editor (v0.2.1)
   // This edits ~/.StudioB-UI/config.json so settings persist across updates/rollbacks.
-  $("#btnCfgLoad").addEventListener("click", async ()=>{
+
+  // Track whether the user has begun editing the form so we never overwrite
+  // their in-progress changes during auto-load/poll refreshes.
+  ["#cfgMode", "#cfgDspHost", "#cfgDspPort"].forEach(sel=>{
+    const el = $(sel);
+    if(!el) return;
+    el.addEventListener("input", ()=>{ engCfgDirty = true; });
+    el.addEventListener("change", ()=>{ engCfgDirty = true; });
+  });
+  // NOTE: We keep this as an explicit, admin-protected endpoint because it
+  // returns extra metadata (path/exists). For status displays we use /api/config.
+  async function loadConfigFromFile(opts = {}) {
     const pin = $("#adminPin").value.trim();
-    if(!pin) return alert("Enter Admin PIN.");
+    if(!pin) {
+      if(opts.silent) return false;
+      alert("Enter Admin PIN.");
+      return false;
+    }
+
     $("#cfgMsg").textContent = "Loading…";
     try{
       const resp = await fetchJSON("/api/admin/config/file", { headers: {"X-Admin-PIN": pin} }, 1200);
@@ -764,13 +818,31 @@ $("#btnDspTest").addEventListener("click", async ()=>{
         $("#cfgDspIp").value = (resp.config.dsp && resp.config.dsp.ip) ? resp.config.dsp.ip : "";
         $("#cfgDspPort").value = (resp.config.dsp && resp.config.dsp.port) ? resp.config.dsp.port : "";
       }
-      const path = resp.path || "~/.StudioB-UI/config.json";
+      const path = resp.path || "~/.StudioB-UI/config.v1";
       const exists = resp.exists ? "exists" : "missing";
       $("#cfgMsg").textContent = "Loaded (" + exists + "): " + path;
       if(resp.error){ $("#cfgMsg").textContent += " — WARNING: " + resp.error; }
+
+      engCfgLoaded = true;
+      engCfgDirty = false;
+      return true;
     }catch(e){
-      $("#cfgMsg").textContent = "Load failed: " + e.message;
+      // If we're doing a silent auto-load, don't replace the UI message.
+      if(!opts.silent) $("#cfgMsg").textContent = "Load failed: " + e.message;
+      return false;
     }
+  }
+
+  // Track whether the user has started editing the form so we don't overwrite.
+  ["#cfgMode", "#cfgDspIp", "#cfgDspPort"].forEach(sel=>{
+    const el = $(sel);
+    if(!el) return;
+    el.addEventListener("input", ()=>{ engCfgDirty = true; });
+    el.addEventListener("change", ()=>{ engCfgDirty = true; });
+  });
+
+  $("#btnCfgLoad").addEventListener("click", async ()=>{
+    await loadConfigFromFile({ silent: false });
   });
 
   $("#btnCfgSave").addEventListener("click", async ()=>{

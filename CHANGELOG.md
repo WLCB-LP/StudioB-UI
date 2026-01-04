@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.95
+
+### Fixed
+- **Engineering UI clarity:** on the Engineering tab, the Configuration form now auto-loads the saved config on page open/refresh (unless the user has started editing). This prevents a browser refresh from *appearing* to revert to "mock (default)" when the engine is still running LIVE.
+
+### Notes
+- No DSP read/write behavior changed; this is a UI hardening/quality-of-life fix.
+
 ## v0.2.94
 
 ### Fixed
