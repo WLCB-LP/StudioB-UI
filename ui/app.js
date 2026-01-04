@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.87";
+const UI_BUILD_VERSION="0.2.89";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -28,6 +28,9 @@ const state = {
     lastMsg:"",
     lastTitle:"",
     lastErr:"",
+    // When an update completes, we auto-trigger a cache-busting reload.
+    // This avoids the common "nothing happened until I hit refresh" confusion.
+    autoReloadArmed:false,
   },
   // meter smoothing
   meters: {
@@ -990,9 +993,17 @@ async function waitForVersion(expectedVersion){
 
       // If caller provided an expected version, wait for it.
       if(expectedVersion && v === expectedVersion){
-        // Update complete. Tell the operator explicitly and provide a refresh button.
-        setSvcStatus("ok", `Update complete. Engine is now ${v}. Refresh required to load the new UI.`);
+        // Update complete. Tell the operator explicitly and refresh the UI.
+        // We still show the button (in case the browser blocks navigation), but we
+        // also auto-trigger a cache-busting reload so the operator doesn't have to
+        // remember to manually refresh.
+        setSvcStatus("ok", `Update complete. Engine is now ${v}. Reloading the UI now (cache-busting)…`);
         showRefreshButton();
+        state.update = state.update || {};
+        if(!state.update.autoReloadArmed){
+          state.update.autoReloadArmed = true;
+          setTimeout(() => hardReload(), 1250);
+        }
         state.update = state.update || {};
         state.update.inProgress = false;
         // Re-enable admin controls (operator can refresh at their convenience).
@@ -1003,9 +1014,17 @@ async function waitForVersion(expectedVersion){
 
       // If we don't know the expected version, reload on any version change.
       if(!expectedVersion && before && v && v !== before){
-        // Update complete. Tell the operator explicitly and provide a refresh button.
-        setSvcStatus("ok", `Update complete. Engine is now ${v}. Refresh required to load the new UI.`);
+        // Update complete. Tell the operator explicitly and refresh the UI.
+        // We still show the button (in case the browser blocks navigation), but we
+        // also auto-trigger a cache-busting reload so the operator doesn't have to
+        // remember to manually refresh.
+        setSvcStatus("ok", `Update complete. Engine is now ${v}. Reloading the UI now (cache-busting)…`);
         showRefreshButton();
+        state.update = state.update || {};
+        if(!state.update.autoReloadArmed){
+          state.update.autoReloadArmed = true;
+          setTimeout(() => hardReload(), 1250);
+        }
         state.update = state.update || {};
         state.update.inProgress = false;
         // Re-enable admin controls (operator can refresh at their convenience).

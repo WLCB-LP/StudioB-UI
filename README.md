@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.88
+# STUB Mixer UI (Studio B) — Release 0.2.89
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,8 +15,8 @@ Run:
 
 ## Notes
 
-- Update UI: Update/Rollback now show an explicit “Refresh Now” button when the engine restarts or the version changes.
-- v0.2.88: Engineering now surfaces **engine restart-required** state more clearly, and provides a
+- Update UI: When an in-app **Update** completes, the Engineering page now **auto-reloads the UI (cache-busted)**. The “Refresh now” button is still provided as a fallback.
+- v0.2.88: Engineering surfaces **engine restart-required** state more clearly, and provides a
   one-click **Restart engine now** button (admin-only) so you don't have to manually refresh while
   testing mode changes.
 - DSP control protocol is intentionally gated ("mock mode") until Engineering explicitly enables writes.

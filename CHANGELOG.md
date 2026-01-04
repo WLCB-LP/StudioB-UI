@@ -1,3 +1,8 @@
+## v0.2.89 (2026-01-04)
+
+- UX (restart/refresh signaling): When an in-app **Update** finishes, the Engineering page now **automatically performs a cache-busting reload** (after showing an explicit message), instead of relying on the operator to manually refresh the browser.
+  - The **"Refresh now"** button is still shown as a fallback, but you should no longer need to hit F5.
+
 ## v0.2.88 (2026-01-04)
 
 - Fix: engine build error in cmd/stub-engine (package alias typo: `internal` -> `app`).
