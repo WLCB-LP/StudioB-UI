@@ -51,8 +51,9 @@ func main() {
 			"ok":           true,
 			"version":      engine.Version(),
 			"time":         time.Now().UTC().Format(time.RFC3339),
-			"mode":         "mock",
-			"dspWriteMode": engine.GetConfigCopy().DSP.Mode,
+			"mode":         strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode)),
+			"dspWriteMode": engine.DSPModeStatus().ActiveMode,
+			"desiredWriteMode": strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode)),
 		})
 	})
 
@@ -127,7 +128,7 @@ func main() {
 				return
 			}
 			// Hot-reload so operator sees immediate effect in /api/config.
-			if err := engine.ReloadConfig(); err != nil {
+			if err := engine.ReloadConfigFrom(p); err != nil {
 				// File saved, but reload failed. Return 500 with details so operator can act.
 				writeAPIError(w, http.StatusInternalServerError, "config saved to "+p+" but reload failed: "+err.Error())
 				return

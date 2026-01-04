@@ -1,3 +1,9 @@
+## v0.2.80
+
+- FIX: Engineering config editor now writes the *actual* config.v1 keys used by the engine (dsp.host / dsp.port / dsp.mode).
+- FIX: /api/status and DSP mode reporting now reflect the running engine config (no more hard-coded "mock").
+- UX: Mode "Saved and applied" now truly applies to the engine because reload updates the correct keys; LIVE can now be proven via Last write.
+
 ## v0.2.79 (2026-01-04)
 
 - Fix build break in engine main.go (broken import block) that caused go build to fail during install.

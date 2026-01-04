@@ -596,9 +596,13 @@ func (e *Engine) Reconnect() {
 // It does NOT restart services and does NOT touch runtime releases.
 func (e *Engine) ReloadConfig() error {
 	// NOTE: called by Engineering UI after saving the operator config.
-	// We hot-reload from the SAME canonical file path the engine was started with.
-	// This avoids confusing situations where the UI edits one file but the engine
-	// is still reading another.
+	// This method reloads from the engine's *current* config path.
+	//
+	// IMPORTANT:
+	// Historically we had confusing states where the UI wrote one file, but the
+	// engine was started with a different path (or vice-versa). To keep behavior
+	// explicit and debuggable, we also provide ReloadConfigFrom(path) which the
+	// config-save handler uses with the exact file it wrote.
 	cfgPath := strings.TrimSpace(e.cfgPath)
 	if cfgPath == "" {
 		// Fallback for legacy runs: use the path we originally loaded.
@@ -611,22 +615,53 @@ func (e *Engine) ReloadConfig() error {
 	if cfgPath == "" {
 		return fmt.Errorf("cannot reload config: config path unknown")
 	}
+	return e.ReloadConfigFrom(cfgPath)
+}
+
+// ReloadConfigFrom reloads engine configuration from an explicit path and makes it the new canonical path.
+//
+// We use this after an operator Save because the UI knows exactly which file it wrote.
+// That means the engine state will always match what the operator just edited.
+//
+// SAFETY:
+// - Switching to non-live always disarms writes immediately.
+// - Switching to live attempts to arm writes, but only succeeds if DSP is connected.
+//   If arming fails, desired mode remains "live" (config truth) but ActiveMode remains "mock".
+func (e *Engine) ReloadConfigFrom(path string) error {
+	cfgPath := strings.TrimSpace(path)
+	if cfgPath == "" {
+		return fmt.Errorf("cannot reload config: empty path")
+	}
 
 	newCfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		return err
 	}
 
+	// Swap config atomically.
 	e.cfgMu.Lock()
 	e.cfg = newCfg
 	e.cfgMu.Unlock()
 
-	// v0.2.66: If desired mode is not live, ensure LIVE writes are disarmed.
-	if strings.ToLower(strings.TrimSpace(newCfg.DSP.Mode)) != "live" {
+	// Persist the canonical path we are now using (for future reloads + transparency).
+	e.cfgPath = cfgPath
+
+	desired := strings.ToLower(strings.TrimSpace(newCfg.DSP.Mode))
+	if desired != "live" {
+		// Safe fallback.
 		e.DisarmDSPLive()
+	} else {
+		// Operator explicitly requested LIVE writes. Attempt to arm.
+		// If this fails (e.g. DSP disconnected), we log it and remain disarmed.
+		if err := e.ArmDSPLive(); err != nil {
+			log.Printf("LIVE requested but could not arm writes: %v", err)
+			// Ensure we're disarmed (explicit).
+			e.DisarmDSPLive()
+		}
 	}
 
-	log.Printf("config reloaded (mode=%s dsp=%s:%d)", newCfg.DSP.Mode, newCfg.DSP.Host, newCfg.DSP.Port)
+	log.Printf("config reloaded from %s (desired=%s host=%s port=%d liveArmed=%v)",
+		cfgPath, newCfg.DSP.Mode, newCfg.DSP.Host, newCfg.DSP.Port, e.DSPLiveActive())
 	return nil
 }
 
@@ -1139,11 +1174,19 @@ func (e *Engine) DSPModeStatus() DSPModeStatus {
 		}
 	}
 
-	// Active mode for writes (v0.2.67, Option 1):
-	// Writes follow the desired config mode immediately; there is no arming step.
-	active := desired
-	liveArmed := (desired == "live")
+	// Active mode for writes (v0.2.80):
+	// Even if the desired config says "live", we only consider writes ACTIVE when the engine
+	// has successfully armed live writes (DSP connected, etc.). This prevents the UI from
+	// claiming "live" when the engine is still safely disarmed.
+	active := "mock"
+	liveArmed := e.DSPLiveActive()
+	if liveArmed {
+		active = "live"
+	}
 	var lts string
+	if liveArmed && !e.dspLiveArmedAt.IsZero() {
+		lts = e.dspLiveArmedAt.UTC().Format(time.RFC3339)
+	}
 
 	return DSPModeStatus{
 		DesiredMode:   desired,
