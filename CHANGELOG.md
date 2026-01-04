@@ -1,3 +1,10 @@
+## v0.2.84 (2026-01-04)
+
+- Fix: Engineering config editor now resolves the operator config path deterministically under systemd.
+  - Prefer `/home/wlcb/.StudioB-UI/config/config.v1` to avoid accidental drift to `/root/...` when HOME is unexpected.
+  - Optional override: set `STUDIOB_UI_HOME` to force a different home (advanced/rare).
+- Result: Saving Mode/DSP IP/Port updates the SAME config file the engine reads at startup, so restarts actually apply LIVE mode.
+
 ## v0.2.81
 
 - Fix Engineering Mode save: accept UI label `live (reserved)` and normalize to `live` in config.v1.

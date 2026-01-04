@@ -22,6 +22,27 @@ import (
 // (systemd starts the engine with it, and install scripts validate it), so the
 // Engineering-page editor should modify THIS file.
 func ConfigFilePath() (string, error) {
+	// We must be absolutely deterministic about where the operator-editable config lives.
+	//
+	// Why this exists:
+	// - systemd services sometimes run with a surprising HOME (or no HOME)
+	// - the Engineering page MUST edit the same file the engine reads on startup
+	//
+	// In WLCB deployments the runtime user is always "wlcb", and the config is always:
+	//   /home/wlcb/.StudioB-UI/config/config.v1
+	//
+	// If we cannot use that path (e.g. different user), we fall back to os.UserHomeDir().
+	//
+	// Optional override:
+	//   STUDIOB_UI_HOME=/some/home (advanced; rarely needed)
+	if v := strings.TrimSpace(os.Getenv("STUDIOB_UI_HOME")); v != "" {
+		return filepath.Join(v, ".StudioB-UI", "config", "config.v1"), nil
+	}
+	// Prefer the known production home if it exists. This avoids accidental drift to /root.
+	if st, err := os.Stat("/home/wlcb"); err == nil && st.IsDir() {
+		return filepath.Join("/home/wlcb", ".StudioB-UI", "config", "config.v1"), nil
+	}
+	// Fallback: use the current user's home.
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
 		return "", fmt.Errorf("cannot determine HOME for config file: %v", err)
@@ -30,16 +51,28 @@ func ConfigFilePath() (string, error) {
 }
 
 
+
+
 // LegacyConfigFilePath returns the pre-v0.2.77 operator config path.
 //
 // We keep this only to migrate existing installs forward.
 func LegacyConfigFilePath() (string, error) {
+	// Legacy path used before config.v1 lived under ~/.StudioB-UI/config/.
+	// Keep the same home-resolution behavior as ConfigFilePath() so migrations
+	// don't accidentally read from /root when running under systemd.
+	if v := strings.TrimSpace(os.Getenv("STUDIOB_UI_HOME")); v != "" {
+		return filepath.Join(v, ".StudioB-UI", "config.yml"), nil
+	}
+	if st, err := os.Stat("/home/wlcb"); err == nil && st.IsDir() {
+		return filepath.Join("/home/wlcb", ".StudioB-UI", "config.yml"), nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
 		return "", fmt.Errorf("cannot determine HOME for legacy config file: %v", err)
 	}
-	return filepath.Join(home, ".StudioB-UI", "config", "config.yml"), nil
+	return filepath.Join(home, ".StudioB-UI", "config.yml"), nil
 }
+
 // EditableConfig is the small subset of config.v1 the UI is allowed to edit.
 //
 // We intentionally limit edits to mode + DSP host/port to reduce risk.
