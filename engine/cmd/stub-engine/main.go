@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,31 @@ func main() {
 	var cfgPath string
 	flag.StringVar(&cfgPath, "config", defaultConfigPath(), "Path to operator config.v1")
 	flag.Parse()
+
+	// ---------------------------------------------------------------------
+	// Canonicalize config path.
+	//
+	// We have *two* sources of truth that must stay in sync:
+	//   1) The engine startup flag (--config ...) typically set by systemd.
+	//   2) The Engineering UI config editor which always targets the canonical
+	//      operator path returned by app.ConfigFilePath().
+	//
+	// In the field we observed cases where the running engine was reading one
+	// config path while the UI was writing another, leading to confusing
+	// "Saved, waiting for restart..." loops where the engine restarted back
+	// into MOCK. To prevent that class of drift, we prefer the canonical path
+	// when it is available.
+	// ---------------------------------------------------------------------
+	if p, err := app.ConfigFilePath(); err == nil && strings.TrimSpace(p) != "" {
+		// If the flag is relative or empty, always replace it.
+		if strings.TrimSpace(cfgPath) == "" || !filepath.IsAbs(cfgPath) {
+			cfgPath = p
+		} else if filepath.Clean(cfgPath) != filepath.Clean(p) {
+			// If the flag points somewhere else, keep it but log loudly.
+			log.Printf("WARN: engine --config path (%s) differs from canonical UI path (%s). Using canonical to stay in sync.", cfgPath, p)
+			cfgPath = p
+		}
+	}
 
 	cfg, err := app.LoadConfig(cfgPath)
 	if err != nil {

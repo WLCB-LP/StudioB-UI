@@ -232,6 +232,11 @@
 # Changelog
 
 
+## v0.2.83
+
+- Fix: Engine now always uses the canonical operator config path (~/.StudioB-UI/config/config.v1) so the Engineering UI and engine never drift (prevents "saved live but restarted back into mock" loops).
+- Diagnostics: Log a loud warning if a non-canonical --config path is supplied, then force canonical for safety/clarity.
+
 ## v0.2.82
 - Fix Go build error introduced in v0.2.81 (duplicate block in engine main.go).
 - No behavior changes; restores successful install.
