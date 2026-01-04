@@ -119,8 +119,20 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.Updates.TokenEnv = "GITHUB_TOKEN"
 	}
 	// Apply optional JSON config (~/.StudioB-UI/config.json) and env overrides.
-	// These are intentionally shallow and only cover the "mode" + DSP connection fields for v0.2.x.
-	applyJSONOverrides(&cfg)
+	//
+	// IMPORTANT (v0.2.90+): historically we treated config.json as "persistent UI edits" and
+	// allowed it to override the YAML file. That works fine *when config.json is current*, but it
+	// becomes dangerous if a user/admin updates config.v1 directly (or via installer) and an older
+	// config.json remains on disk — the engine would silently keep running the stale JSON values.
+	//
+	// To make this safe and self-healing:
+	//   - If config.v1 exists and is NEWER than config.json, YAML wins.
+	//   - When YAML wins, we best-effort sync config.json to match YAML (so future UI edits start
+	//     from the correct baseline).
+	//
+	// JSON overrides are intentionally shallow and only cover the "mode" + DSP connection fields
+	// for v0.2.x.
+	applyJSONOverrides(&cfg, yamlPath)
 	applyEnvOverrides(&cfg)
 
 	// If mode is still unset for any reason, default to mock (safe).
@@ -157,16 +169,46 @@ func LoadConfig(path string) (*Config, error) {
 // NOTE: helper functions below intentionally avoid external dependencies and do not
 // change behavior unless the user explicitly configures mock/live.
 
-func applyJSONOverrides(cfg *Config) {
+func applyJSONOverrides(cfg *Config, yamlPath string) {
 	// Default location: ~/.StudioB-UI/config.json
+	//
+	// config.json is written by the UI and is meant to persist across updates, but it
+	// should never silently override a newer YAML config written/managed by install
+	// scripts or an operator.
+	//
+	// Rule:
+	//   - If YAML exists AND is newer than config.json -> YAML wins (and we best-effort sync JSON)
+	//   - Otherwise -> JSON wins (legacy behavior)
+	//	(Env vars still win over everything.)
 	home := os.Getenv("HOME")
 	if strings.TrimSpace(home) == "" {
 		return
 	}
 	p := filepath.Join(home, ".StudioB-UI", "config.json")
-	b, err := os.ReadFile(p)
+
+	jsonInfo, err := os.Stat(p)
 	if err != nil {
 		// Missing is fine.
+		return
+	}
+	// Record path even if we later choose to ignore JSON due to staleness.
+	cfg.Meta.JSONPath = p
+
+	// If YAML exists and is newer than JSON, do NOT apply JSON overrides.
+	// (This is the situation when install.sh writes config.v1 but a stale config.json remains.)
+	if yi, err := os.Stat(yamlPath); err == nil {
+		if yi.ModTime().After(jsonInfo.ModTime()) {
+			cfg.Meta.Warnings = append(cfg.Meta.Warnings,
+				fmt.Sprintf("config.json is older than %s; ignoring JSON overrides and syncing JSON to YAML", yamlPath))
+			// Best-effort sync JSON so future restarts are consistent.
+			// We only store the shallow fields we currently support in v0.2.x.
+			syncJSONToConfig(cfg, p)
+			return
+		}
+	}
+
+	b, err := os.ReadFile(p)
+	if err != nil {
 		return
 	}
 	type jsonCfg struct {
@@ -181,7 +223,6 @@ func applyJSONOverrides(cfg *Config) {
 		cfg.Meta.Warnings = append(cfg.Meta.Warnings, fmt.Sprintf("config.json parse error (%s): %v", p, err))
 		return
 	}
-	cfg.Meta.JSONPath = p
 
 	if strings.TrimSpace(jc.Mode) != "" {
 		cfg.DSP.Mode = jc.Mode
@@ -194,6 +235,34 @@ func applyJSONOverrides(cfg *Config) {
 	if jc.DSP.Port != 0 {
 		cfg.DSP.Port = jc.DSP.Port
 		cfg.Meta.DSPPortSource = "json"
+	}
+}
+
+// syncJSONToConfig writes a minimal config.json file that matches the currently loaded
+// config. This is best-effort and should never fail the engine start.
+func syncJSONToConfig(cfg *Config, jsonPath string) {
+	tmp := jsonPath + ".tmp"
+	out := map[string]any{
+		"mode": cfg.DSP.Mode,
+		"dsp": map[string]any{
+			"ip":   cfg.DSP.Host,
+			"port": cfg.DSP.Port,
+		},
+	}
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		cfg.Meta.Warnings = append(cfg.Meta.Warnings, fmt.Sprintf("config.json sync marshal error: %v", err))
+		return
+	}
+	// Write atomically.
+	if err := os.WriteFile(tmp, append(b, '\n'), 0o644); err != nil {
+		cfg.Meta.Warnings = append(cfg.Meta.Warnings, fmt.Sprintf("config.json sync write error (%s): %v", tmp, err))
+		return
+	}
+	if err := os.Rename(tmp, jsonPath); err != nil {
+		cfg.Meta.Warnings = append(cfg.Meta.Warnings, fmt.Sprintf("config.json sync rename error (%s): %v", jsonPath, err))
+		_ = os.Remove(tmp)
+		return
 	}
 }
 

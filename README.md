@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.89
+# STUB Mixer UI (Studio B) — Release 0.2.90
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.2.90: Fixes a config precedence bug where a stale `~/.StudioB-UI/config.json` could override a newer `config.v1` and keep the engine in `mock` mode. YAML now wins when it is newer, and the engine syncs JSON to match.
 - Update UI: When an in-app **Update** completes, the Engineering page now **auto-reloads the UI (cache-busted)**. The “Refresh now” button is still provided as a fallback.
 - v0.2.88: Engineering surfaces **engine restart-required** state more clearly, and provides a
   one-click **Restart engine now** button (admin-only) so you don't have to manually refresh while

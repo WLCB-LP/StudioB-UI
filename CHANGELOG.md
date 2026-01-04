@@ -1,3 +1,8 @@
+## v0.2.90 (2026-01-04)
+
+- Fix (config precedence): If `/home/wlcb/.StudioB-UI/config/config.v1` is newer than `~/.StudioB-UI/config.json`, the engine now treats **config.v1 (YAML) as authoritative** so stale JSON cannot force the engine back into `mock`.
+- Self-heal: When YAML is authoritative, the engine **syncs `config.json` to match** YAML values (mode + DSP host/port) and logs a clear notice.
+
 ## v0.2.89 (2026-01-04)
 
 - UX (restart/refresh signaling): When an in-app **Update** finishes, the Engineering page now **automatically performs a cache-busting reload** (after showing an explicit message), instead of relying on the operator to manually refresh the browser.
