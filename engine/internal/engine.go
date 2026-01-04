@@ -1,7 +1,6 @@
 package app
 
 import (
-	"path/filepath"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,7 +70,7 @@ type Engine struct {
 	// v0.2.66: LIVE write gating
 	// When cfg.DSP.Mode == "live", writes are still blocked until the operator
 	// explicitly clicks "Enter LIVE Mode" (admin-gated).
-	dspLiveArmed bool
+	dspLiveArmed   bool
 	dspLiveArmedAt time.Time
 	// cfgMu protects access to e.cfg at runtime.
 	cfgMu sync.RWMutex
@@ -94,8 +94,8 @@ type Engine struct {
 	dspMonOn   bool
 	// Base state directory (written by installer). Used for small, append-only state files.
 	stateDir string
-	cfg     *Config
-	version string
+	cfg      *Config
+	version  string
 
 	mu       sync.RWMutex
 	rc       map[int]float64
@@ -113,13 +113,13 @@ type Engine struct {
 	// adminUpdateMu guards adminUpdateStatus (last update-from-UI attempt).
 	adminUpdateMu     sync.Mutex
 	adminUpdateStatus AdminUpdateStatus
-// v0.2.47 DSP health / guard state (defense-in-depth)
-// IMPORTANT:
-// - These values are updated ONLY by explicit operator-triggered tests.
-// - There is NO background polling in this phase.
-dspOnce sync.Once
-dspMu   sync.Mutex
-dsp     *dspHealth
+	// v0.2.47 DSP health / guard state (defense-in-depth)
+	// IMPORTANT:
+	// - These values are updated ONLY by explicit operator-triggered tests.
+	// - There is NO background polling in this phase.
+	dspOnce sync.Once
+	dspMu   sync.Mutex
+	dsp     *dspHealth
 
 	// v0.2.75: Operator intent log (append-only)
 	//
@@ -147,12 +147,11 @@ type WatchdogStatus struct {
 	// quickly see what systemd thinks is happening without SSH.
 	// Example (from `systemctl status stub-ui-watchdog`):
 	//   "Active: active (running) since Tue 2026-01-03 10:00:00 CST; 2h ago"
-	SystemdActiveLine  string `json:"systemdActiveLine,omitempty"`
+	SystemdActiveLine string `json:"systemdActiveLine,omitempty"`
 	// Example (from `systemctl show -p SubState stub-ui-watchdog`):
 	//   "SubState=running"
 	SystemdSubStateLine string `json:"systemdSubStateLine,omitempty"`
 }
-
 
 // AdminUpdateStatus tracks the last update-from-UI attempt.
 // This is safe to expose because it only contains installer output (already visible via journal).
@@ -286,8 +285,8 @@ type IntentEvent struct {
 	TS      string         `json:"ts"`
 	Action  string         `json:"action"`
 	Source  string         `json:"source,omitempty"`
-	Mode    string         `json:"mode,omitempty"`      // cfg.DSP.Mode (mock|live) - intended write mode
-	Details map[string]any `json:"details,omitempty"`   // small structured payload
+	Mode    string         `json:"mode,omitempty"`    // cfg.DSP.Mode (mock|live) - intended write mode
+	Details map[string]any `json:"details,omitempty"` // small structured payload
 }
 
 // intentLogPath returns the absolute path to the intent log.
@@ -303,8 +302,8 @@ func (e *Engine) intentLogPath() string {
 // appendIntent writes an IntentEvent to the append-only JSONL file.
 //
 // IMPORTANT:
-// - This is best-effort logging. If logging fails, we still return the error
-//   so API handlers can surface it, but the engine continues to run.
+//   - This is best-effort logging. If logging fails, we still return the error
+//     so API handlers can surface it, but the engine continues to run.
 func (e *Engine) appendIntent(ev IntentEvent) error {
 	// Ensure timestamps are always present and normalized.
 	if strings.TrimSpace(ev.TS) == "" {
@@ -339,10 +338,13 @@ func (e *Engine) appendIntent(ev IntentEvent) error {
 }
 
 // ApplySpeakerMuteIntent performs the Speaker Mute intent:
-// - Logs the intent with an explicit timestamp
-// - Updates the engine RC cache (RC 161)
+// - Logs the intent with an explicit timestamp (append-only JSONL)
+// - Optionally performs a REAL DSP write (v0.2.76) when dsp.mode=live
+// - Updates the engine RC cache (RC 161) so the UI snapshot reflects the commanded state
 //
-// SAFETY: This does NOT write to the DSP. DSP writes remain mocked/blocked.
+// SAFETY MODEL (DO NOT "CLEAN UP"):
+// - In mock mode, we NEVER send external control traffic; we only log + update cache.
+// - In live mode, this release is still strictly scoped to Speaker Mute only.
 func (e *Engine) ApplySpeakerMuteIntent(mute bool, source string) error {
 	// Log first (audit trail). If logging fails, return the error.
 	// This makes failure visible, matching the "failures must be visible" philosophy.
@@ -360,18 +362,58 @@ func (e *Engine) ApplySpeakerMuteIntent(mute bool, source string) error {
 		return fmt.Errorf("intent log failed: %w", err)
 	}
 
-	// Then apply to the in-memory RC cache.
+	// Determine the intended control value.
 	val := 0.0
 	if mute {
 		val = 1.0
 	}
+
+	// Phase 2 (v0.2.76): when dsp.mode=live, perform a REAL DSP write.
+	//
+	// IMPORTANT SAFETY:
+	// - This release is still STRICTLY scoped to Speaker Mute only.
+	// - We do NOT change config, we do NOT auto-toggle modes.
+	// - In mock mode, we continue to behave like Phase 1 (log + cache only).
+	cfg := e.GetConfigCopy()
+	mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+	if mode == "live" {
+		// Attempt the write first. If it fails, do NOT update the cache.
+		// This keeps UI state truthful and prevents silent divergence.
+		resp, werr := e.ecpSendCSV("STUB_SPK_MUTE", val, 1200*time.Millisecond)
+		// Always append an explicit write audit record, even on failure.
+		wev := IntentEvent{
+			TS:     time.Now().UTC().Format(time.RFC3339),
+			Action: "dsp.write",
+			Source: source,
+			Details: map[string]any{
+				"rc":     rcNameToID["STUB_SPK_MUTE"],
+				"name":   "STUB_SPK_MUTE",
+				"value":  val,
+				"ok":     (werr == nil),
+				"resp":   resp,
+				"target": strings.TrimSpace(cfg.DSP.Host) + ":" + itoa(cfg.DSP.Port),
+			},
+		}
+		if werr != nil {
+			wev.Details["error"] = werr.Error()
+		}
+		if err := e.appendIntent(wev); err != nil {
+			// Logging failure must be visible.
+			return fmt.Errorf("dsp write log failed: %w", err)
+		}
+		if werr != nil {
+			return fmt.Errorf("dsp write failed: %w", werr)
+		}
+		log.Printf("dsp write OK: STUB_SPK_MUTE=%v (resp=%s)", val, resp)
+	}
+
+	// Finally apply to the in-memory RC cache (used by the UI snapshot).
 	if err := e.SetRC("STUB_SPK_MUTE", val); err != nil {
 		return err
 	}
-	log.Printf("intent applied: speaker.mute=%v (rc=%d source=%s)", mute, rcNameToID["STUB_SPK_MUTE"], source)
+	log.Printf("intent applied: speaker.mute=%v (rc=%d source=%s mode=%s)", mute, rcNameToID["STUB_SPK_MUTE"], source, mode)
 	return nil
 }
-
 
 func (e *Engine) StateSnapshot() map[string]any {
 	e.mu.RLock()
@@ -566,7 +608,6 @@ func (e *Engine) ReloadConfig() error {
 	log.Printf("config reloaded (mode=%s dsp=%s:%d)", newCfg.DSP.Mode, newCfg.DSP.Host, newCfg.DSP.Port)
 	return nil
 }
-
 
 func normalizeVersion(v string) string {
 	v = strings.TrimSpace(v)
@@ -993,86 +1034,79 @@ func tailLines(s string, n int) string {
 	return strings.Join(lines[len(lines)-n:], "\n")
 }
 
-
 // DSPModeStatus is returned to the UI for transition warnings.
 // DSPModeStatus is returned to the UI for transition warnings.
 // DSPModeStatus is returned to the UI for transition warnings and LIVE gating.
 //
 // Terminology:
-// - desiredMode: what config requests (cfg.DSP.Mode)
-// - activeMode:  what the engine will allow for DSP *writes*
-//   (live writes are only enabled after operator arms them)
+//   - desiredMode: what config requests (cfg.DSP.Mode)
+//   - activeMode:  what the engine will allow for DSP *writes*
+//     (live writes are only enabled after operator arms them)
 type DSPModeStatus struct {
-    DesiredMode    string `json:"mode"`
-    ActiveMode     string `json:"activeMode"`
-    LiveArmed      bool   `json:"liveArmed"`
-    LiveArmedAt    string `json:"liveArmedAt,omitempty"`
+	DesiredMode string `json:"mode"`
+	ActiveMode  string `json:"activeMode"`
+	LiveArmed   bool   `json:"liveArmed"`
+	LiveArmedAt string `json:"liveArmedAt,omitempty"`
 
-    Host          string `json:"host,omitempty"`
-    Port          int    `json:"port,omitempty"`
-    Validated     bool   `json:"validated"`
-    ValidatedAt   string `json:"validatedAt,omitempty"`
-    ConfigChanged bool   `json:"configChanged"`
+	Host          string `json:"host,omitempty"`
+	Port          int    `json:"port,omitempty"`
+	Validated     bool   `json:"validated"`
+	ValidatedAt   string `json:"validatedAt,omitempty"`
+	ConfigChanged bool   `json:"configChanged"`
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
-    cfg := e.GetConfigCopy()
-    desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
-    host := strings.TrimSpace(cfg.DSP.Host)
-    port := cfg.DSP.Port
+	cfg := e.GetConfigCopy()
+	desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+	host := strings.TrimSpace(cfg.DSP.Host)
+	port := cfg.DSP.Port
 
-    // LIVE validation context is based on the cached timestamps.
-    validated := false
-    var vts string
-    if desired == "live" && !e.dspValidatedAt.IsZero() {
-        validated = true
-        vts = e.dspValidatedAt.UTC().Format(time.RFC3339)
-    }
+	// LIVE validation context is based on the cached timestamps.
+	validated := false
+	var vts string
+	if desired == "live" && !e.dspValidatedAt.IsZero() {
+		validated = true
+		vts = e.dspValidatedAt.UTC().Format(time.RFC3339)
+	}
 
-    // configChanged is meaningful primarily in LIVE mode.
-    changed := false
-    if validated {
-        curSig := e.dspConfigSignature()
-        if strings.TrimSpace(e.dspValidatedConfigSig) != "" && curSig != e.dspValidatedConfigSig {
-            changed = true
-        }
-    }
+	// configChanged is meaningful primarily in LIVE mode.
+	changed := false
+	if validated {
+		curSig := e.dspConfigSignature()
+		if strings.TrimSpace(e.dspValidatedConfigSig) != "" && curSig != e.dspValidatedConfigSig {
+			changed = true
+		}
+	}
 
-    // Active mode for writes (v0.2.67, Option 1):
-// Writes follow the desired config mode immediately; there is no arming step.
-active := desired
-liveArmed := (desired == "live")
-var lts string
+	// Active mode for writes (v0.2.67, Option 1):
+	// Writes follow the desired config mode immediately; there is no arming step.
+	active := desired
+	liveArmed := (desired == "live")
+	var lts string
 
-return DSPModeStatus{
-        DesiredMode:    desired,
-        ActiveMode:     active,
-        LiveArmed:      liveArmed,
-        LiveArmedAt:    lts,
-        Host:           host,
-        Port:           port,
-        Validated:      validated,
-        ValidatedAt:    vts,
-        ConfigChanged:  changed,
-    }
+	return DSPModeStatus{
+		DesiredMode:   desired,
+		ActiveMode:    active,
+		LiveArmed:     liveArmed,
+		LiveArmedAt:   lts,
+		Host:          host,
+		Port:          port,
+		Validated:     validated,
+		ValidatedAt:   vts,
+		ConfigChanged: changed,
+	}
 }
-
-
 
 // dspConfigSignature creates a small, stable string representing the DSP-relevant config.
 // We keep it explicit and easy to reason about.
 func (e *Engine) dspConfigSignature() string {
-    // Use a snapshot to avoid races.
-    c := e.GetConfigCopy()
-    mode := strings.ToLower(strings.TrimSpace(c.DSP.Mode))
-    host := strings.TrimSpace(c.DSP.Host)
-    port := c.DSP.Port
-    return mode + "|" + host + "|" + itoa(port)
+	// Use a snapshot to avoid races.
+	c := e.GetConfigCopy()
+	mode := strings.ToLower(strings.TrimSpace(c.DSP.Mode))
+	host := strings.TrimSpace(c.DSP.Host)
+	port := c.DSP.Port
+	return mode + "|" + host + "|" + itoa(port)
 }
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // Runtime config application (v0.2.59)
@@ -1095,51 +1129,51 @@ func (e *Engine) dspConfigSignature() string {
 // GetConfigCopy returns a by-value snapshot of the current config.
 // Callers can read fields safely without holding locks.
 func (e *Engine) GetConfigCopy() Config {
-    e.cfgMu.RLock()
-    defer e.cfgMu.RUnlock()
-    if e.cfg == nil {
-        return Config{}
-    }
-    return *e.cfg
+	e.cfgMu.RLock()
+	defer e.cfgMu.RUnlock()
+	if e.cfg == nil {
+		return Config{}
+	}
+	return *e.cfg
 }
 
 // dspConfigSignatureFrom creates a small stable string representing DSP-relevant config.
 func dspConfigSignatureFrom(cfg *Config) string {
-    if cfg == nil {
-        return ""
-    }
-    mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
-    host := strings.TrimSpace(cfg.DSP.Host)
-    port := cfg.DSP.Port
-    return mode + "|" + host + "|" + itoa(port)
+	if cfg == nil {
+		return ""
+	}
+	mode := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+	host := strings.TrimSpace(cfg.DSP.Host)
+	port := cfg.DSP.Port
+	return mode + "|" + host + "|" + itoa(port)
 }
 
 // ApplyConfig updates the running engine's config pointer in-memory.
 // The config MUST already be validated and written to disk by the handler.
 func (e *Engine) ApplyConfig(newCfg *Config) {
-    // Determine whether DSP-relevant config changed (compare old vs new signatures).
-    e.cfgMu.RLock()
-    oldSig := dspConfigSignatureFrom(e.cfg)
-    e.cfgMu.RUnlock()
+	// Determine whether DSP-relevant config changed (compare old vs new signatures).
+	e.cfgMu.RLock()
+	oldSig := dspConfigSignatureFrom(e.cfg)
+	e.cfgMu.RUnlock()
 
-    newSig := dspConfigSignatureFrom(newCfg)
+	newSig := dspConfigSignatureFrom(newCfg)
 
-    e.cfgMu.Lock()
-    e.cfg = newCfg
-    e.cfgMu.Unlock()
+	e.cfgMu.Lock()
+	e.cfg = newCfg
+	e.cfgMu.Unlock()
 
-    if oldSig != newSig {
-        // Clear validation + set state UNKNOWN so operator is prompted to validate in LIVE mode.
-        e.ensureDSPHealthInit()
-        e.dspMu.Lock()
-        e.dspValidatedAt = time.Time{}
-        e.dspValidatedConfigSig = ""
-        e.dsp.state = DSPHealthUnknown
-        e.dsp.lastErr = ""
-        e.dsp.failures = 0
-        e.dsp.lastTestAt = time.Time{}
-        e.dspMu.Unlock()
-    }
+	if oldSig != newSig {
+		// Clear validation + set state UNKNOWN so operator is prompted to validate in LIVE mode.
+		e.ensureDSPHealthInit()
+		e.dspMu.Lock()
+		e.dspValidatedAt = time.Time{}
+		e.dspValidatedConfigSig = ""
+		e.dsp.state = DSPHealthUnknown
+		e.dsp.lastErr = ""
+		e.dsp.failures = 0
+		e.dsp.lastTestAt = time.Time{}
+		e.dspMu.Unlock()
+	}
 }
 
 // ArmDSPLive enables DSP *write* operations when the desired mode is LIVE.
@@ -1152,37 +1186,37 @@ func (e *Engine) ApplyConfig(newCfg *Config) {
 // No auto-testing is performed here; the always-on monitor already provides
 // a continuously updated connectivity state.
 func (e *Engine) ArmDSPLive() error {
-    cfg := e.GetConfigCopy()
-    desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
-    if desired != "live" {
-        return fmt.Errorf("cannot enter live: config dsp.mode is %q (set to 'live' first)", cfg.DSP.Mode)
-    }
+	cfg := e.GetConfigCopy()
+	desired := strings.ToLower(strings.TrimSpace(cfg.DSP.Mode))
+	if desired != "live" {
+		return fmt.Errorf("cannot enter live: config dsp.mode is %q (set to 'live' first)", cfg.DSP.Mode)
+	}
 
-    e.ensureDSPHealthInit()
-    e.dspMu.Lock()
-    defer e.dspMu.Unlock()
+	e.ensureDSPHealthInit()
+	e.dspMu.Lock()
+	defer e.dspMu.Unlock()
 
-    if e.dsp.state == DSPHealthDisconnected {
-        return fmt.Errorf("cannot enter live: DSP is disconnected")
-    }
+	if e.dsp.state == DSPHealthDisconnected {
+		return fmt.Errorf("cannot enter live: DSP is disconnected")
+	}
 
-    e.dspLiveArmed = true
-    e.dspLiveArmedAt = time.Now().UTC()
-    return nil
+	e.dspLiveArmed = true
+	e.dspLiveArmedAt = time.Now().UTC()
+	return nil
 }
 
 // DisarmDSPLive disables DSP write operations (safe fallback).
 func (e *Engine) DisarmDSPLive() {
-    e.dspMu.Lock()
-    e.dspLiveArmed = false
-    e.dspLiveArmedAt = time.Time{}
-    e.dspMu.Unlock()
+	e.dspMu.Lock()
+	e.dspLiveArmed = false
+	e.dspLiveArmedAt = time.Time{}
+	e.dspMu.Unlock()
 }
 
 // DSPLiveActive reports whether DSP writes are currently armed.
 func (e *Engine) DSPLiveActive() bool {
-    e.dspMu.Lock()
-    v := e.dspLiveArmed
-    e.dspMu.Unlock()
-    return v
+	e.dspMu.Lock()
+	v := e.dspLiveArmed
+	e.dspMu.Unlock()
+	return v
 }

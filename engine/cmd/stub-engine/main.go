@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strconv"
 	"crypto/subtle"
 	"encoding/json"
 	"flag"
@@ -9,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"strings"
@@ -36,10 +36,10 @@ func main() {
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"ok":      true,
-			"version": engine.Version(),
-			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    "mock",
+			"ok":           true,
+			"version":      engine.Version(),
+			"time":         time.Now().UTC().Format(time.RFC3339),
+			"mode":         "mock",
 			"dspWriteMode": engine.GetConfigCopy().DSP.Mode,
 		})
 	})
@@ -168,8 +168,8 @@ func main() {
 				resp["outputTail"] = outStr
 			}
 		}
-    // writeJSON signature is (w, statusCode, payload)
-    writeJSON(w, http.StatusOK, resp)
+		// writeJSON signature is (w, statusCode, payload)
+		writeJSON(w, http.StatusOK, resp)
 	})
 
 	// Snapshot
@@ -257,15 +257,13 @@ func main() {
 	})
 
 	// DSP health + manual connectivity test (operator-driven; no polling).
-	
-mux.HandleFunc("/api/dsp/mode", func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(engine.DSPModeStatus())
-})
 
+	mux.HandleFunc("/api/dsp/mode", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.DSPModeStatus())
+	})
 
-
-mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(engine.DSPHealth())
 	})
@@ -282,24 +280,27 @@ mux.HandleFunc("/api/dsp/health", func(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Operator-safe reconnect
-	
 
-mux.HandleFunc("/api/dsp/timeline", func(w http.ResponseWriter, r *http.Request) {
-    // Read-only: returns recent DSP health transitions.
-    // Query param: ?n=50 (default 50, max 200)
-    n := 50
-    if v := strings.TrimSpace(r.URL.Query().Get("n")); v != "" {
-        if i, err := strconv.Atoi(v); err == nil {
-            n = i
-        }
-    }
-    if n > 200 { n = 200 }
-    if n < 1 { n = 1 }
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(engine.ReadDSPTimeline(n))
-})
+	mux.HandleFunc("/api/dsp/timeline", func(w http.ResponseWriter, r *http.Request) {
+		// Read-only: returns recent DSP health transitions.
+		// Query param: ?n=50 (default 50, max 200)
+		n := 50
+		if v := strings.TrimSpace(r.URL.Query().Get("n")); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				n = i
+			}
+		}
+		if n > 200 {
+			n = 200
+		}
+		if n < 1 {
+			n = 1
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(engine.ReadDSPTimeline(n))
+	})
 
-mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
 			return
@@ -416,11 +417,11 @@ mux.HandleFunc("/api/reconnect", func(w http.ResponseWriter, r *http.Request) {
 // It validates the caller-provided admin PIN against the configured PIN.
 //
 // IMPORTANT:
-// - The PIN MUST be provided by the caller via the X-Admin-PIN header.
-// - The server does NOT accept the PIN via URL query parameters (those leak
-//   too easily via logs and browser history).
-// - We intentionally keep this helper local to main.go to avoid accidental
-//   reuse in other packages.
+//   - The PIN MUST be provided by the caller via the X-Admin-PIN header.
+//   - The server does NOT accept the PIN via URL query parameters (those leak
+//     too easily via logs and browser history).
+//   - We intentionally keep this helper local to main.go to avoid accidental
+//     reuse in other packages.
 func requireAdminPin(w http.ResponseWriter, r *http.Request, expectedPIN string) bool {
 	callerPIN := strings.TrimSpace(r.Header.Get("X-Admin-PIN"))
 	if expectedPIN == "" {

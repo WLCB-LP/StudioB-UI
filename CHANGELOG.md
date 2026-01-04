@@ -1,3 +1,14 @@
+## v0.2.76 (2026-01-03)
+
+- Phase 2 control plumbing (Speaker Mute becomes a REAL DSP write when `dsp.mode=live`):
+  - Speaker Mute intent (`POST /api/intent/speaker/mute`) now attempts an External Control Protocol (ECP) write
+    to the configured DSP host/port using `csv STUB_SPK_MUTE <0|1>`.
+  - All writes are still *strictly scoped* to **Speaker Mute only** in this release.
+  - The engine now appends a second, explicit audit record describing the DSP write attempt and result.
+- Clarify LIVE gating:
+  - `dsp.mode=live` enables writes immediately (there is no separate "arming" API/button in this project).
+  - DISCONNECTED DSP still blocks control writes (defense-in-depth).
+
 ## v0.2.75 (2026-01-03)
 
 - Phase 1 control plumbing (SAFE): Speaker Mute now uses an explicit intent endpoint.

@@ -292,9 +292,9 @@ async function postRC(name, value){
 
 // postSpeakerMuteIntent sends the Speaker Mute action through the "intent" API.
 //
-// Phase 1 safety:
-// - This does NOT enable DSP writes. Engine continues to report "DSP writes: MOCK".
-// - This only proves end-to-end UI → intent → engine plumbing.
+// Safety note:
+// - In mock mode, this remains non-destructive (log + cache only).
+// - In live mode (v0.2.76+), Speaker Mute attempts a real DSP write via the engine.
 async function postSpeakerMuteIntent(mute){
   // Reuse the same front-end DSP guard used by postRC for immediate operator feedback.
   if((state.dspHealth && String(state.dspHealth.state||"").toUpperCase()==="DISCONNECTED")){
