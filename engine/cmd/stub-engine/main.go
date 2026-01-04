@@ -461,6 +461,29 @@ func main() {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
+	// Admin: request an engine restart.
+	//
+	// We do *not* restart the process directly here. Instead we create the same
+	// restart-required flag file used by config changes. The watchdog observes
+	// that flag and performs the systemctl restart (and logs the details).
+	mux.HandleFunc("/api/admin/restart", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+			return
+		}
+		if !engine.CheckAdmin(r) {
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		// Best-effort: if we fail to create the flag, return a helpful error.
+		if err := internal.RequestEngineRestart("manual restart requested from UI"); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
+
 	// Watchdog status (read-only) + start (admin)
 	mux.HandleFunc("/api/watchdog/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

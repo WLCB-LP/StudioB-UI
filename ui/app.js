@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.74";
+const UI_BUILD_VERSION="0.2.87";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -497,6 +497,74 @@ async function refreshEngineering(){
   try{
     const h = await fetchJSON("/api/health", {}, 800);
     $("#engineInfo").textContent = JSON.stringify(h, null, 2);
+
+    // Restart-required UX (no manual page refresh required)
+    // -----------------------------------------------------
+    // Some configuration changes (e.g., switching between mock/live DSP mode)
+    // require a stub-engine restart to take effect. The backend will set
+    // restartRequired=true, and the watchdog performs the systemctl restart.
+    // Historically the UI would show "Waiting for engine restart..." and the
+    // user would refresh the whole page to see the new state.
+    //
+    // Instead, we detect the flag transitions here and:
+    //  - show a clear banner while restart is pending
+    //  - provide a "Restart engine now" button (safe; it only re-asserts the
+    //    restart-required flag) in case something got stuck
+    //  - automatically clear the banner once the engine comes back.
+    const cfgMsg = $("#cfgMsg");
+    const rr = !!h.restartRequired;
+    const wasRR = !!state._prevRestartRequired;
+    state._prevRestartRequired = rr;
+
+    function ensureRestartButton(){
+      // Inject the button only when needed so we don't touch index.html.
+      if(!rr) return;
+      if(cfgMsg.querySelector("#btnEngineRestart")) return;
+
+      const btn = document.createElement("button");
+      btn.id = "btnEngineRestart";
+      btn.className = "btn";
+      btn.textContent = "Restart engine now";
+      btn.style.marginLeft = "10px";
+      btn.onclick = async () => {
+        try{
+          btn.disabled = true;
+          btn.textContent = "Restarting…";
+          await fetchJSON("/api/admin/restart", {
+            method: "POST",
+            headers: {"X-Admin-PIN": getSavedPin()}
+          }, 3000);
+        }catch(e){
+          console.error(e);
+        }finally{
+          // The watchdog restart is async; keep the button disabled while the
+          // restartRequired flag remains true.
+          btn.disabled = true;
+          btn.textContent = "Restarting…";
+        }
+      };
+
+      cfgMsg.appendChild(btn);
+    }
+
+    if(rr){
+      // If cfgMsg currently contains a "Saved..." message, keep it; otherwise
+      // provide a consistent banner.
+      if(!cfgMsg.textContent || cfgMsg.textContent.trim() === ""){
+        cfgMsg.textContent = "Restart required. Waiting for engine restart to apply changes…";
+      }
+      ensureRestartButton();
+    }else if(wasRR && !rr){
+      // Restart completed.
+      cfgMsg.textContent = "Engine restarted. Settings applied.";
+      // Clear the message after a short delay so the page doesn't feel "stuck".
+      setTimeout(() => {
+        // Only clear if nothing else has written to the message area.
+        if($("#cfgMsg").textContent === "Engine restarted. Settings applied."){
+          $("#cfgMsg").textContent = "";
+        }
+      }, 4000);
+    }
   }catch(e){
     $("#engineInfo").textContent = "Failed to load /api/health";
   }

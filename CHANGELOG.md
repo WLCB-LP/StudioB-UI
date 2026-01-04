@@ -1,3 +1,9 @@
+## v0.2.87 (2026-01-04)
+
+- UX: Engineering shows clearer “restart required” status and provides an admin-only “Restart engine now” button.
+- UX: Engineering auto-clears the restart-required message once the watchdog restart completes (no manual page refresh).
+- Fix: UI build version shown in the header is now kept in sync with VERSION.
+
 ## v0.2.86 (2026-01-04)
 - Fix: Engineering config save now prefers `dsp.mode` when present (some UI builds send both `mode` and `dsp.mode`, which previously could save the wrong mode).
 - Add: PUT /api/admin/config/file returns `mode_input_top`, `mode_input_dsp`, and `mode_source` for debugging.
