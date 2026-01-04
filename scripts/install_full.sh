@@ -384,6 +384,24 @@ deploy_release() {
   # - We pin GOPATH so the module cache is stable across root/systemd-run contexts.
   # - We build with -mod=readonly so Go will NOT attempt to edit go.sum or fetch new deps.
   #   If a dependency is missing, the build will fail loudly and we'll capture the error.
+  TEST_OUT="${rel}/.go-test.log"
+  : > "${TEST_OUT}"
+
+  # Run unit tests before building so releases are self-validating and the installer output
+  # clearly shows whether tests passed. (Per project requirement: show tests ran & succeeded.)
+  if ! sudo -u "${APP_USER}" env -i \
+    HOME="/home/${APP_USER}" \
+    PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    GOPATH="/home/${APP_USER}/go" \
+    GOMODCACHE="/home/${APP_USER}/go/pkg/mod" \
+    GOCACHE="/home/${APP_USER}/.cache/go-build" \
+    /usr/bin/go test ./... >"${TEST_OUT}" 2>&1; then
+    log "ERROR: go test failed. Last 120 lines:"
+    tail -n 120 "${TEST_OUT}" | sed -e "s/^/[go-test] /" || true
+    return 1
+  fi
+  log "Go tests: PASS (see ${TEST_OUT})"
+
   BUILD_OUT="${rel}/.go-build.log"
   : > "${BUILD_OUT}"
 

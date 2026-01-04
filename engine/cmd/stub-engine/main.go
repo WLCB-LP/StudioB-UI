@@ -476,7 +476,7 @@ func main() {
 			return
 		}
 		// Best-effort: if we fail to create the flag, return a helpful error.
-		if err := internal.RequestEngineRestart("manual restart requested from UI"); err != nil {
+		if err := app.RequestEngineRestart("manual restart requested from UI"); err != nil {
 			writeAPIError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

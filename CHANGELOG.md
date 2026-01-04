@@ -1,3 +1,8 @@
+## v0.2.88 (2026-01-04)
+
+- Fix: engine build error in cmd/stub-engine (package alias typo: `internal` -> `app`).
+- Add: installer now runs `go test ./...` before building and prints a clear PASS/FAIL result (logs saved in each release folder).
+
 ## v0.2.87 (2026-01-04)
 
 - UX: Engineering shows clearer “restart required” status and provides an admin-only “Restart engine now” button.
