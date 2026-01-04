@@ -1,3 +1,7 @@
+## v0.2.85
+- Fix: accept Engineering config mode sent as either top-level `mode` or `dsp.mode` (prevents silent mock fallback when UI sends nested value).
+- Improve: API `/api/admin/config/file` PUT response includes normalized mode and saved config path.
+
 ## v0.2.84 (2026-01-04)
 
 - Fix: Engineering config editor now resolves the operator config path deterministically under systemd.

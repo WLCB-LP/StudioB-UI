@@ -159,11 +159,32 @@ func main() {
 			return
 
 		case http.MethodPut:
-			var body app.EditableConfig
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				writeAPIError(w, http.StatusBadRequest, "bad json")
-				return
-			}
+// The UI historically sent mode in two shapes:
+//   1) { "mode": "live", "dsp": { "ip": "...", "port": 123 } }
+//   2) { "dsp": { "mode": "live", "ip": "...", "port": 123 } }
+//
+// We accept BOTH to avoid silent "mode stays mock" situations when the client
+// uses the nested form. (Unknown JSON fields are ignored by default decoding.)
+type editableConfigWire struct {
+	Mode string `json:"mode"`
+	DSP  struct {
+		Mode string `json:"mode"`
+		IP   string `json:"ip"`
+		Port int    `json:"port"`
+	} `json:"dsp"`
+}
+var wire editableConfigWire
+if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
+	writeAPIError(w, http.StatusBadRequest, "bad json")
+	return
+}
+if strings.TrimSpace(wire.Mode) == "" && strings.TrimSpace(wire.DSP.Mode) != "" {
+	wire.Mode = wire.DSP.Mode
+}
+var body app.EditableConfig
+body.Mode = wire.Mode
+body.DSP.IP = wire.DSP.IP
+body.DSP.Port = wire.DSP.Port
 			p, err := app.WriteEditableConfig(body)
 			if err != nil {
 				writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -181,6 +202,7 @@ func main() {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"ok":               true,
 				"path":             p,
+				"mode_saved":       strings.ToLower(strings.TrimSpace(body.Mode)),
 				"restart_required": true,
 			})
 			return
