@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -50,9 +51,6 @@ func ConfigFilePath() (string, error) {
 	return filepath.Join(home, ".StudioB-UI", "config", "config.v1"), nil
 }
 
-
-
-
 // LegacyConfigFilePath returns the pre-v0.2.77 operator config path.
 //
 // We keep this only to migrate existing installs forward.
@@ -93,7 +91,7 @@ func ReadEditableConfig() (cfg EditableConfig, exists bool, raw string, err erro
 	// copy it forward first so we preserve all existing keys.
 	if err == nil {
 		if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
-			lp, lerr := LegacyConfigFilePath();
+			lp, lerr := LegacyConfigFilePath()
 			if lerr == nil {
 				if b, rerr := os.ReadFile(lp); rerr == nil {
 					_ = os.MkdirAll(filepath.Dir(p), 0755)
@@ -179,7 +177,7 @@ func WriteEditableConfig(c EditableConfig) (string, error) {
 	// copy it forward first so we preserve all existing keys.
 	if err == nil {
 		if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
-			lp, lerr := LegacyConfigFilePath();
+			lp, lerr := LegacyConfigFilePath()
 			if lerr == nil {
 				if b, rerr := os.ReadFile(lp); rerr == nil {
 					_ = os.MkdirAll(filepath.Dir(p), 0755)
@@ -219,6 +217,7 @@ func WriteEditableConfig(c EditableConfig) (string, error) {
 			nm = "mock"
 		}
 		full.DSP.Mode = nm
+		log.Printf("[config] Saving dsp.mode=%q (from editable mode=%q)", nm, c.Mode)
 	}
 	if strings.TrimSpace(c.DSP.IP) != "" {
 		full.DSP.Host = strings.TrimSpace(c.DSP.IP)

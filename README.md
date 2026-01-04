@@ -17,7 +17,7 @@ Run:
 
 - Update UI: Update/Rollback now show an explicit “Refresh Now” button when the engine restarts or the version changes.
 - DSP control protocol is intentionally gated ("mock mode") until Engineering explicitly enables writes.
-- v0.2.85: Speaker Mute is plumbed through the explicit **intent** path:
+- v0.2.86: Speaker Mute is plumbed through the explicit **intent** path:
   UI → intent → engine → (DSP write gate).
   - Intents are append-logged to: `~/.StudioB-UI/state/intents.jsonl`
 - v0.2.76: Speaker Mute can now perform a **real DSP write** when `dsp.mode=live`.

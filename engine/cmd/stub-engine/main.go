@@ -87,17 +87,16 @@ func main() {
 		active := engine.DSPModeStatus().ActiveMode
 
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"ok":              true,
-			"version":         engine.Version(),
-			"time":            time.Now().UTC().Format(time.RFC3339),
+			"ok":               true,
+			"version":          engine.Version(),
+			"time":             time.Now().UTC().Format(time.RFC3339),
 			"desiredWriteMode": desiredMode,
-			"dspWriteMode":    active,
+			"dspWriteMode":     active,
 			// Back-compat field used by some UI bits.
 			"mode":            active,
 			"restartRequired": app.RestartRequired(),
 		})
 	})
-
 
 	// Version (stable, explicit)
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
@@ -159,32 +158,51 @@ func main() {
 			return
 
 		case http.MethodPut:
-// The UI historically sent mode in two shapes:
-//   1) { "mode": "live", "dsp": { "ip": "...", "port": 123 } }
-//   2) { "dsp": { "mode": "live", "ip": "...", "port": 123 } }
-//
-// We accept BOTH to avoid silent "mode stays mock" situations when the client
-// uses the nested form. (Unknown JSON fields are ignored by default decoding.)
-type editableConfigWire struct {
-	Mode string `json:"mode"`
-	DSP  struct {
-		Mode string `json:"mode"`
-		IP   string `json:"ip"`
-		Port int    `json:"port"`
-	} `json:"dsp"`
-}
-var wire editableConfigWire
-if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
-	writeAPIError(w, http.StatusBadRequest, "bad json")
-	return
-}
-if strings.TrimSpace(wire.Mode) == "" && strings.TrimSpace(wire.DSP.Mode) != "" {
-	wire.Mode = wire.DSP.Mode
-}
-var body app.EditableConfig
-body.Mode = wire.Mode
-body.DSP.IP = wire.DSP.IP
-body.DSP.Port = wire.DSP.Port
+			// The UI historically sent mode in two shapes:
+			//  1. { "mode": "live", "dsp": { "ip": "...", "port": 123 } }
+			//  2. { "dsp": { "mode": "live", "ip": "...", "port": 123 } }
+			//
+			// We accept BOTH to avoid silent "mode stays mock" situations when the client
+			// uses the nested form. (Unknown JSON fields are ignored by default decoding.)
+			type editableConfigWire struct {
+				Mode string `json:"mode"`
+				DSP  struct {
+					Mode string `json:"mode"`
+					IP   string `json:"ip"`
+					Port int    `json:"port"`
+				} `json:"dsp"`
+			}
+			var wire editableConfigWire
+			if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
+				writeAPIError(w, http.StatusBadRequest, "bad json")
+				return
+			}
+
+			// MODE NORMALIZATION / BACKWARDS COMPATIBILITY
+			//
+			// Over multiple releases, the Engineering UI has sent mode in two shapes:
+			//  1. { "mode": "live", "dsp": { "ip": "...", "port": 123 } }
+			//  2. { "dsp": { "mode": "live", "ip": "...", "port": 123 } }
+			//
+			// Some UI builds can (briefly) send BOTH, where the top-level "mode" still
+			// contains a stale default label like "mock (default)" while dsp.mode is the
+			// operator's real selection.
+			//
+			// To prevent "I picked LIVE but it saved MOCK", we always prefer dsp.mode when
+			// it is present.
+			modeInTop := strings.TrimSpace(wire.Mode)
+			modeInDSP := strings.TrimSpace(wire.DSP.Mode)
+			modeSource := "mode"
+			modeChosen := modeInTop
+			if modeInDSP != "" {
+				modeChosen = modeInDSP
+				modeSource = "dsp.mode"
+			}
+			wire.Mode = modeChosen
+			var body app.EditableConfig
+			body.Mode = wire.Mode
+			body.DSP.IP = wire.DSP.IP
+			body.DSP.Port = wire.DSP.Port
 			p, err := app.WriteEditableConfig(body)
 			if err != nil {
 				writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -200,9 +218,14 @@ body.DSP.Port = wire.DSP.Port
 			_ = app.RequestEngineRestart("config saved via Engineering UI")
 
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"ok":               true,
-				"path":             p,
-				"mode_saved":       strings.ToLower(strings.TrimSpace(body.Mode)),
+				"ok":   true,
+				"path": p,
+				// Saved/normalized mode (the engine's config expects: mock|live).
+				"mode_saved": strings.ToLower(strings.TrimSpace(body.Mode)),
+				// Debug: what we received and which field we trusted.
+				"mode_input_top":   modeInTop,
+				"mode_input_dsp":   modeInDSP,
+				"mode_source":      modeSource,
 				"restart_required": true,
 			})
 			return

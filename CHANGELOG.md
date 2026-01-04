@@ -1,3 +1,8 @@
+## v0.2.86 (2026-01-04)
+- Fix: Engineering config save now prefers `dsp.mode` when present (some UI builds send both `mode` and `dsp.mode`, which previously could save the wrong mode).
+- Add: PUT /api/admin/config/file returns `mode_input_top`, `mode_input_dsp`, and `mode_source` for debugging.
+- Add: engine logs `[config] Saving dsp.mode=...` when writing the operator config file.
+
 ## v0.2.85
 - Fix: accept Engineering config mode sent as either top-level `mode` or `dsp.mode` (prevents silent mock fallback when UI sends nested value).
 - Improve: API `/api/admin/config/file` PUT response includes normalized mode and saved config path.
