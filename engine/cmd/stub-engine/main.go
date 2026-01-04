@@ -71,22 +71,40 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Health
+	// Health
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		// IMPORTANT: /api/health must NEVER block on DSP I/O or slow disk operations.
+		// Operators (and the installer) rely on it to be fast and reliable.
+		// If anything goes wrong, we still return JSON explaining what we know.
 		w.Header().Set("Content-Type", "application/json")
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("panic in /api/health: %v", rec)
+				// Best effort JSON error. If headers/body already started, this is a no-op.
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"ok":      false,
+					"version": engine.Version(),
+					"time":    time.Now().UTC().Format(time.RFC3339),
+					"error":   "panic in health handler",
+				})
+			}
+		}()
 
-		// IMPORTANT: We report both DESIRED and ACTIVE write modes.
-		// - Desired mode comes from the on-disk config file (what the operator saved).
-		// - Active mode comes from the running engine state (what is actually armed).
-		//
-		// This avoids ambiguous situations where a config change is saved but not yet
-		// applied (e.g., because we require a restart for safety).
+		// Desired mode: what the running engine believes the operator config contains.
+		// NOTE: We intentionally do NOT re-read the config file from disk here.
+		// Disk reads can block or race with writes, and health must stay fast.
 		desiredMode := strings.ToLower(strings.TrimSpace(engine.GetConfigCopy().DSP.Mode))
-		if diskCfg, err := app.LoadConfig(cfgPath); err == nil && diskCfg != nil {
-			desiredMode = strings.ToLower(strings.TrimSpace(diskCfg.DSP.Mode))
+		if desiredMode == "" {
+			desiredMode = "mock"
 		}
-		active := engine.DSPModeStatus().ActiveMode
 
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		// Active mode: what the engine has actually armed for DSP writes.
+		active := strings.ToLower(strings.TrimSpace(engine.DSPModeStatus().ActiveMode))
+		if active == "" {
+			active = "mock"
+		}
+
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"ok":               true,
 			"version":          engine.Version(),
 			"time":             time.Now().UTC().Format(time.RFC3339),
@@ -95,7 +113,9 @@ func main() {
 			// Back-compat field used by some UI bits.
 			"mode":            active,
 			"restartRequired": app.RestartRequired(),
-		})
+		}); err != nil {
+			log.Printf("/api/health encode error: %v", err)
+		}
 	})
 
 	// Version (stable, explicit)
@@ -104,7 +124,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version": engine.Version(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    "mock",
+			"mode":    engine.DSPModeStatus().ActiveMode,
 		})
 	})
 

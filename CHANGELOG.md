@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.92
+
+### Fixed
+- **Health endpoint reliability:** `/api/health` no longer performs on-demand config disk reloads (which could stall or race with writes). It now returns fast, always-JSON health using the engine's in-memory config snapshot, with panic protection and explicit logging.
+- **Version endpoint correctness:** `/api/version` now reports the engine's active DSP write mode instead of a hard-coded value.
+
 ## v0.2.91 (2026-01-04)
 - **Build fix:** restore successful installs by correcting a typo in `engine/internal/config.go` (`yamlPath` -> `path`).
 
