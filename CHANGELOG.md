@@ -1,3 +1,8 @@
+## v0.2.78 (2026-01-04)
+
+- Fix build break in engine main.go (broken import block) that caused go build to fail during install.
+- No behavior changes from the v0.2.77 intent (Mode hot-reload + Last write visibility); this is a compile/package fix only.
+
 ## v0.2.76 (2026-01-03)
 
 - Phase 2 control plumbing (Speaker Mute becomes a REAL DSP write when `dsp.mode=live`):

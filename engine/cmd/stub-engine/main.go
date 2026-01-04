@@ -9,12 +9,16 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
-	"strings"
-
 	app "stub-mixer/internal"
+)
 
+// defaultConfigPath returns the canonical location for the operator configuration.
+//
+// IMPORTANT: This must match where install.sh writes the config file.
+// We keep this logic in one place so the UI/engine/install stay in sync.
 func defaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err == nil && strings.TrimSpace(home) != "" {
@@ -23,8 +27,6 @@ func defaultConfigPath() string {
 	// Fallback: relative path (mainly for dev)
 	return "config.v1"
 }
-
-)
 
 var version = "dev"
 
