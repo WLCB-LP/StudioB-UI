@@ -72,18 +72,21 @@ type Engine struct {
 	// explicitly clicks "Enter LIVE Mode" (admin-gated).
 	dspLiveArmed   bool
 	dspLiveArmedAt time.Time
+	// cfgPath is the canonical on-disk config path the engine was started with.
+	// v0.2.77: used for hot-reload when Engineering saves config.
+	cfgPath string
 	// cfgMu protects access to e.cfg at runtime.
 	cfgMu sync.RWMutex
 	// v0.2.52 DSP mode transition visibility
 	// Timestamp of last successful DSP validation in LIVE mode
 	dspValidatedAt time.Time
 	// v0.2.55: signature of DSP-relevant config at last LIVE validation
-	dspValidatedConfigSig st
+	dspValidatedConfigSig string
 	// lastDSPWrite captures the most recent DSP write attempt (success or failure).
 	// This is shown on the Engineering page so operators can verify that a control
 	// action actually attempted to write when in LIVE mode.
 	lastDSPWriteMu sync.Mutex
-	lastDSPWrite   *DSPWriteStatusring
+	lastDSPWrite   *DSPWriteStatus
 	// ------------------------------------------------------------------
 	// DSP monitor (v0.2.61)
 	//
@@ -201,6 +204,7 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	e := &Engine{
 		cfg:      cfg,
 		version:  version,
+		cfgPath: cfgPath,
 		rc:       make(map[int]float64),
 		lastSent: make(map[int]float64),
 		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
@@ -1059,6 +1063,34 @@ func tailLines(s string, n int) string {
 //   - desiredMode: what config requests (cfg.DSP.Mode)
 //   - activeMode:  what the engine will allow for DSP *writes*
 //     (live writes are only enabled after operator arms them)
+
+// setLastDSPWrite stores the most recent DSP write attempt (success or failure).
+// This is purely observational state for the Engineering UI. It must never crash
+// the engine or affect DSP polling. We keep it behind a mutex and copy the struct
+// so callers can't mutate shared state accidentally.
+func (e *Engine) setLastDSPWrite(st *DSPWriteStatus) {
+    if st == nil {
+        return
+    }
+    e.lastDSPWriteMu.Lock()
+    defer e.lastDSPWriteMu.Unlock()
+    // Copy by value to avoid holding references to caller-owned memory.
+    c := *st
+    e.lastDSPWrite = &c
+}
+
+// getLastDSPWriteCopy returns a copy of the last DSP write attempt for API responses.
+// Returning a copy prevents accidental mutation races with the engine loop.
+func (e *Engine) getLastDSPWriteCopy() *DSPWriteStatus {
+    e.lastDSPWriteMu.Lock()
+    defer e.lastDSPWriteMu.Unlock()
+    if e.lastDSPWrite == nil {
+        return nil
+    }
+    c := *e.lastDSPWrite
+    return &c
+}
+
 type DSPWriteStatus struct {
 	TS    string  `json:"ts"`
 	Name  string  `json:"name"`

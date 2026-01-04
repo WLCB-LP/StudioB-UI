@@ -1,4 +1,4 @@
-## v0.2.78 (2026-01-04)
+## v0.2.79 (2026-01-04)
 
 - Fix build break in engine main.go (broken import block) that caused go build to fail during install.
 - No behavior changes from the v0.2.77 intent (Mode hot-reload + Last write visibility); this is a compile/package fix only.
