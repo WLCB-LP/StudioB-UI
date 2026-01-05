@@ -1,3 +1,7 @@
+## 0.2.96
+- UI: Increase default API request timeout (WAN-friendly) to prevent the UI from getting stuck on "Connecting..." and disabling controls when accessed over slower links.
+- UI: Use cache-busted asset URLs for v0.2.96.
+
 # Changelog
 
 ## v0.2.95

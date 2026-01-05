@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.95
+# STUB Mixer UI (Studio B) — Release 0.2.96
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,7 +15,7 @@ Run:
 
 ## Notes
 
-- v0.2.95: Engineering UI hardening — auto-load the saved config into the Engineering → Configuration form after a browser refresh (avoids the misleading "mock (default)" placeholder state).
+- v0.2.96: Engineering UI hardening — auto-load the saved config into the Engineering → Configuration form after a browser refresh (avoids the misleading "mock (default)" placeholder state).
 - v0.2.94: **Hardening change:** `/api/health` and `/api/version` now derive `desiredWriteMode`/`dspWriteMode` strictly from the loaded YAML config (no DSP-health locks). This prevents curl timeouts/"Empty reply" symptoms in LIVE mode and gives the watchdog a deterministic, fast endpoint.
 - v0.2.92: Fixes a config precedence bug where a stale `~/.StudioB-UI/config.json` could override a newer `config.v1` and keep the engine in `mock` mode. YAML now wins when it is newer, and the engine syncs JSON to match.
 - v0.2.91: Fixes installer build/test failure caused by a `yamlPath` variable typo in `engine/internal/config.go` (no behavior change).

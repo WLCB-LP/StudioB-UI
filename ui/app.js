@@ -287,7 +287,12 @@ function syncTogglesFromStatus(){
   });
 }
 
-async function fetchJSON(url, opts={}, timeoutMs=500){
+// NOTE: This UI is frequently used over WAN links (home access, port-forwards,
+// VPNs). A 500ms timeout can be too aggressive and can leave the UI stuck on
+// "Connecting..." even though the backend is healthy.
+//
+// We still want to fail fast on real outages, so we pick a few seconds.
+async function fetchJSON(url, opts={}, timeoutMs=2500){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   try{
@@ -432,7 +437,8 @@ function applyStudioStatus(j){
 
 async function pollLoop(){
   try{
-    const j = await fetchJSON("/api/studio/status", {}, 500);
+    // Remote links can add latency; use the default timeout (a few seconds).
+    const j = await fetchJSON("/api/studio/status");
     state.connected = true;
     state.lastOkAt = Date.now();
     applyStudioStatus(j);
