@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.96
+# STUB Mixer UI (Studio B) — Release 0.2.97
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.2.97: Fixes a JavaScript syntax error that prevented any buttons/controls from responding in the Studio UI (duplicate variable declarations in ui/app.js).
 
 - v0.2.96: Engineering UI hardening — auto-load the saved config into the Engineering → Configuration form after a browser refresh (avoids the misleading "mock (default)" placeholder state).
 - v0.2.94: **Hardening change:** `/api/health` and `/api/version` now derive `desiredWriteMode`/`dspWriteMode` strictly from the loaded YAML config (no DSP-health locks). This prevents curl timeouts/"Empty reply" symptoms in LIVE mode and gives the watchdog a deterministic, fast endpoint.

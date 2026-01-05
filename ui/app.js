@@ -5,7 +5,7 @@ const POLL_MS = 250;
 // This is used to detect "new engine / old UI" mismatches caused by browser caching.
 // If the engine version differs, we trigger a one-time hardReload() to pull the
 // new cache-busted assets.
-const UI_BUILD_VERSION="0.2.90";
+const UI_BUILD_VERSION = "0.2.97";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -57,10 +57,6 @@ const state = {
 // To reduce confusion we:
 //   1) Auto-load the saved config into the form when the Engineering page opens.
 //   2) Never overwrite user edits in-progress ("dirty" tracking).
-let engCfgLoaded = false;
-let engCfgDirty = false;
-
-//
 // We now auto-load the config when the Engineering page is shown,
 // *as long as the user hasn't started editing*.
 let engCfgLoaded = false;

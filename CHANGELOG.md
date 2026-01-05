@@ -1,3 +1,8 @@
+## 0.2.97
+
+- Fix: UI controls were unresponsive due to a JavaScript syntax error (duplicate variable declarations in ui/app.js).
+- Fix: UI build version banner now matches the release version.
+
 ## 0.2.96
 - UI: Increase default API request timeout (WAN-friendly) to prevent the UI from getting stuck on "Connecting..." and disabling controls when accessed over slower links.
 - UI: Use cache-busted asset URLs for v0.2.96.
