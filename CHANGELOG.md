@@ -1,7 +1,8 @@
-## 0.2.97
+## 0.2.98
 
 - Fix: UI controls were unresponsive due to a JavaScript syntax error (duplicate variable declarations in ui/app.js).
-- Fix: UI build version banner now matches the release version.
+- Fix: “DSP Writes”/active mode no longer falls back to MOCK after refresh or engine restarts. Active mode is now derived from desired mode + DSP connectivity (removes volatile in-memory arming from the decision).
+- UX: Engineering config form now auto-loads the *effective* (running) config via /api/config without requiring an admin PIN, so the Mode/DSP fields remain accurate across refreshes. Loading from the persisted config file still requires the PIN.
 
 ## 0.2.96
 - UI: Increase default API request timeout (WAN-friendly) to prevent the UI from getting stuck on "Connecting..." and disabling controls when accessed over slower links.

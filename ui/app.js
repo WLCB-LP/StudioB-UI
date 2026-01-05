@@ -647,16 +647,18 @@ async function refreshEngineering(){
   // UX hardening:
   // When the browser is refreshed while on the Engineering tab, the config
   // form would reset to placeholders ("mock (default)") even though the
-  // engine is still running in live mode. To avoid that confusion, we
-  // auto-load the saved config into the form once per tab-session.
+  // engine is still running in live mode.
   //
-  // We also track a "dirty" flag so we never overwrite in-progress edits.
+  // Important nuance:
+  // - Loading the *file* config is PIN-gated.
+  // - But simply *displaying* the currently-running config should not
+  //   require a PIN (otherwise the UI looks "wrong" after every refresh).
+  //
+  // So: on first entry to Engineering, load the effective config from
+  // /api/config and paint it into the form. This never overwrites
+  // in-progress edits (dirty form).
   if(state.activePage === "engineering" && !engCfgLoaded && !engCfgDirty){
-    // Only attempt if we have a PIN saved (Engineering is PIN-gated anyway).
-    const pin = getSavedPin();
-    if(pin){
-      try{ await loadConfigFromFile({ silent: true }); }catch(_e){ /* ignore */ }
-    }
+    try{ await loadEffectiveConfigIntoForm({ silent: true }); }catch(_e){ /* ignore */ }
   }
 }
 
@@ -804,6 +806,43 @@ $("#btnDspTest").addEventListener("click", async ()=>{
   });
   // NOTE: We keep this as an explicit, admin-protected endpoint because it
   // returns extra metadata (path/exists). For status displays we use /api/config.
+  
+  // Load the *effective* config from the engine (no PIN required).
+  //
+  // Why this exists:
+  // - /api/admin/config/file requires a PIN (by design).
+  // - On refresh, the PIN field is empty, so the config editor would otherwise
+  //   show defaults (mock) even if the engine is currently running in live mode.
+  // - This caused confusion: the system *was* in live, but the form looked like
+  //   it reverted.
+  async function loadEffectiveConfigIntoForm(opts = {}) {
+    // Never overwrite in-progress edits.
+    if(engCfgDirty) return false;
+
+    try{
+      const cfg = await fetchJSON('/api/config', {}, 1200);
+      if(cfg){
+        // The engine exposes both a top-level mode and dsp.mode.
+        const mode = (cfg.dsp && cfg.dsp.mode) ? cfg.dsp.mode : (cfg.mode || 'mock');
+        $("#cfgMode").value = mode;
+        $("#cfgDspIp").value = (cfg.dsp && cfg.dsp.ip) ? cfg.dsp.ip : '';
+        $("#cfgDspPort").value = (cfg.dsp && cfg.dsp.port) ? cfg.dsp.port : '';
+
+        // Make it clear this came from the running engine.
+        if(!opts.silent){
+          $("#cfgMsg").textContent = "Loaded (effective from engine): " + (cfg.sources && cfg.sources.yaml_path ? cfg.sources.yaml_path : "config");
+        }
+        engCfgLoaded = true;
+        engCfgDirty = false;
+        return true;
+      }
+      return false;
+    }catch(e){
+      if(!opts.silent) $("#cfgMsg").textContent = "Load failed: " + e.message;
+      return false;
+    }
+  }
+
   async function loadConfigFromFile(opts = {}) {
     const pin = $("#adminPin").value.trim();
     if(!pin) {

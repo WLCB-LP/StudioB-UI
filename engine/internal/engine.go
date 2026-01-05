@@ -1320,8 +1320,30 @@ func (e *Engine) DisarmDSPLive() {
 
 // DSPLiveActive reports whether DSP writes are currently armed.
 func (e *Engine) DSPLiveActive() bool {
-	e.dspMu.Lock()
-	v := e.dspLiveArmed
-	e.dspMu.Unlock()
-	return v
+    // In this project, "live" vs "mock" is about whether we *should* talk to the DSP.
+    //
+    // Earlier versions used an in-memory "arming" flag (set after a manual test) to decide
+    // whether live was "active". That caused confusing behavior after engine restarts: the
+    // desired mode would remain "live" (persisted), but the UI would show "MOCK" until you
+    // manually re-armed.
+    //
+    // We now treat live as active whenever:
+    //   1) desired mode is live, AND
+    //   2) the DSP is not in a disconnected state.
+    //
+    // This matches DSPControlAllowed(), which already gates writes on connectivity rather
+    // than an in-memory flag.
+
+    e.cfgMu.Lock()
+    desired := e.cfg.DSP.Mode
+    e.cfgMu.Unlock()
+
+    if !strings.EqualFold(desired, "live") {
+        return false
+    }
+
+    // Snapshot is safe and already handles nil DSP state.
+    snap := e.DSPHealthSnapshot()
+    return snap.State != DSPHealthDisconnected
 }
+
