@@ -1,3 +1,7 @@
+## 0.3.01
+
+- Fix: Engineering config “Mode” display now always reflects the engine’s **desired** DSP write mode (so a browser refresh can’t *appear* to revert to `mock (default)` while the engine is still configured for LIVE).
+
 ## 0.3.00
 
 - Fix: build failure in config editor after Config struct cleanup — reintroduced legacy top-level `mode` field (kept for backward compatibility; dsp.mode remains authoritative).

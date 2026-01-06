@@ -189,8 +189,10 @@ func applyJSONOverrides(cfg *Config, yamlPath string) {
 	// scripts or an operator.
 	//
 	// Rule:
-	//   - If YAML exists AND is newer than config.json -> YAML wins (and we best-effort sync JSON)
-	//   - Otherwise -> JSON wins (legacy behavior)
+	//   - If config.v1 (YAML) exists -> YAML is the *only* source of truth.
+	//     We DO NOT apply JSON overrides at all (but we best-effort sync JSON to YAML
+	//     so older tooling doesn't drift).
+	//   - If YAML does not exist -> JSON may be used (legacy-only fallback).
 	//	(Env vars still win over everything.)
 	home := os.Getenv("HOME")
 	if strings.TrimSpace(home) == "" {
@@ -206,17 +208,17 @@ func applyJSONOverrides(cfg *Config, yamlPath string) {
 	// Record path even if we later choose to ignore JSON due to staleness.
 	cfg.Meta.JSONPath = p
 
-	// If YAML exists and is newer than JSON, do NOT apply JSON overrides.
-	// (This is the situation when install.sh writes config.v1 but a stale config.json remains.)
-	if yi, err := os.Stat(yamlPath); err == nil {
-		if yi.ModTime().After(jsonInfo.ModTime()) {
-			cfg.Meta.Warnings = append(cfg.Meta.Warnings,
-				fmt.Sprintf("config.json is older than %s; ignoring JSON overrides and syncing JSON to YAML", yamlPath))
-			// Best-effort sync JSON so future restarts are consistent.
-			// We only store the shallow fields we currently support in v0.2.x.
-			syncJSONToConfig(cfg, p)
-			return
-		}
+	// If YAML exists, NEVER apply JSON overrides.
+	//
+	// Why so strict?
+	// A stale config.json (often containing mode=mock from early development) can
+	// silently flip the system back to mock after a refresh/restart, even when the
+	// operator explicitly set live mode via the v1 config.
+	if _, err := os.Stat(yamlPath); err == nil {
+		cfg.Meta.Warnings = append(cfg.Meta.Warnings,
+			fmt.Sprintf("config.json exists but %s is present; ignoring JSON overrides and syncing JSON to YAML", yamlPath))
+		syncJSONToConfig(cfg, p)
+		return
 	}
 
 	b, err := os.ReadFile(p)

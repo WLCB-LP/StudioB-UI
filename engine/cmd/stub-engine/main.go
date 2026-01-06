@@ -189,17 +189,34 @@ func main() {
 			writeAPIError(w, http.StatusMethodNotAllowed, "GET required")
 			return
 		}
+		// NOTE:
+		// This endpoint is used by the Engineering UI to *display* configuration after a page
+		// refresh. We intentionally report the engine's **desired** DSP write mode, not merely
+		// the last-loaded config field, because:
+		//   - The engine may be running in desired=live while actively disconnected / in a safe
+		//     "mock" write state.
+		//   - During a migration window, older config files could hold stale values.
+		//
+		// Reporting the desired mode prevents confusing UX where the top-right status shows
+		// dsp writes LIVE, but the Configuration dropdown snaps back to "mock (default)" after
+		// a refresh.
+		cfg := engine.GetConfigCopy()
+		dspStatus := engine.DSPModeStatus()
+		if cfg == nil {
+			cfg = internal.DefaultConfig()
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version": engine.Version(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    engine.GetConfigCopy().DSP.Mode,
+			"mode":    dspStatus.Desired,
 			"dsp": map[string]any{
-				"ip":   engine.GetConfigCopy().DSP.Host,
-				"port": engine.GetConfigCopy().DSP.Port,
-				"mode": engine.GetConfigCopy().DSP.Mode,
+				"ip":   cfg.DSP.Host,
+				"port": cfg.DSP.Port,
+				"mode": dspStatus.Desired,
 			},
-			"sources": engine.GetConfigCopy().Meta,
+			"sources": cfg.Meta,
 		})
 	})
 
