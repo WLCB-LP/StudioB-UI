@@ -1,3 +1,9 @@
+## 0.2.99
+
+- Fix: build/installer regression — restore missing `Engine.DSPHealthSnapshot()` method used by debug snapshot code.
+- Fix: when saving Engineering config, keep deprecated top-level `mode` in sync with `dsp.mode` to prevent any older tooling (or stale overrides) from appearing to “revert” after refresh.
+- UI: bump UI build version to match release.
+
 ## 0.2.98
 
 - Fix: UI controls were unresponsive due to a JavaScript syntax error (duplicate variable declarations in ui/app.js).

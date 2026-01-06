@@ -98,6 +98,17 @@ func (e *Engine) DSPHealth() DSPHealthSnapshot {
 	return e.dspHealthSnapshotLocked()
 }
 
+// DSPHealthSnapshot is a small compatibility shim.
+//
+// Earlier versions of the code referenced e.DSPHealthSnapshot(). During the
+// health refactor we consolidated everything behind DSPHealth(), but the call
+// site in engine.go was updated without adding the method.
+//
+// Keeping this wrapper avoids breaking builds and keeps the intent obvious.
+func (e *Engine) DSPHealthSnapshot() DSPHealthSnapshot {
+	return e.DSPHealth()
+}
+
 // TestDSPConnectivity performs a single bounded TCP connect to the configured DSP host/port.
 //
 // Why TCP connect?

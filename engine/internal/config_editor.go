@@ -216,7 +216,12 @@ func WriteEditableConfig(c EditableConfig) (string, error) {
 		if strings.HasPrefix(nm, "mock") {
 			nm = "mock"
 		}
+		// Keep both the new (dsp.mode) and legacy (mode) fields in sync.
+		//
+		// The UI reads/writes dsp.mode, but older versions (and some operator
+		// tooling) may still look at the top-level "mode" field.
 		full.DSP.Mode = nm
+		full.Mode = nm
 		log.Printf("[config] Saving dsp.mode=%q (from editable mode=%q)", nm, c.Mode)
 	}
 	if strings.TrimSpace(c.DSP.IP) != "" {

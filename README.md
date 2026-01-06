@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.2.98
+# STUB Mixer UI (Studio B) — Release 0.2.99
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.2.99: Fixes a v0.2.98 build failure (missing `DSPHealthSnapshot()` compatibility shim) and keeps deprecated top-level `mode` in sync with `dsp.mode` when saving config to avoid apparent “reverts” after refresh.
 
 - v0.2.98: Fixes unresponsive UI controls (JS syntax error), keeps “DSP Writes”/active mode accurate after refresh, and loads the effective config into the Engineering form without requiring a PIN.
 
