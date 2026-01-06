@@ -215,8 +215,12 @@ func applyJSONOverrides(cfg *Config, yamlPath string) {
 	// silently flip the system back to mock after a refresh/restart, even when the
 	// operator explicitly set live mode via the v1 config.
 	if _, err := os.Stat(yamlPath); err == nil {
+		mtime := "unknown"
+		if jsonInfo != nil {
+			mtime = jsonInfo.ModTime().UTC().Format(time.RFC3339)
+		}
 		cfg.Meta.Warnings = append(cfg.Meta.Warnings,
-			fmt.Sprintf("config.json exists but %s is present; ignoring JSON overrides and syncing JSON to YAML", yamlPath))
+			fmt.Sprintf("config.json exists (mtime=%s) but %s is present; ignoring JSON overrides and syncing JSON to YAML", mtime, yamlPath))
 		syncJSONToConfig(cfg, p)
 		return
 	}

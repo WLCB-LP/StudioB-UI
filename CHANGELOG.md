@@ -1,3 +1,7 @@
+## 0.3.02
+
+- Fix: build failure during install — remove unused variable in config load warning path.
+
 ## 0.3.01
 
 - Fix: Engineering config “Mode” display now always reflects the engine’s **desired** DSP write mode (so a browser refresh can’t *appear* to revert to `mock (default)` while the engine is still configured for LIVE).
