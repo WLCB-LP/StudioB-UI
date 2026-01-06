@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.01
+# STUB Mixer UI (Studio B) — Release 0.3.03
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.03: Fixes an install-time build failure (`go test`) in the `/api/health` handler (invalid nil check + wrong DSP mode field name).
 - v0.3.01: Fixes a UI refresh issue where Engineering could show `mock (default)` even when the engine's **desired** DSP write mode is `live`. `/api/config` now reports the engine's desired mode, avoiding confusing "flip back to mock" displays after refresh.
 - v0.3.02: Fixes an install-time build failure (`go test`) caused by an unused variable in the config loader warning path.
 - v0.2.99: Fixes a v0.2.98 build failure (missing `DSPHealthSnapshot()` compatibility shim) and keeps deprecated top-level `mode` in sync with `dsp.mode` when saving config to avoid apparent “reverts” after refresh.

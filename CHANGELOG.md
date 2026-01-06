@@ -1,3 +1,7 @@
+## 0.3.03
+
+- Fix: build failure during install — /api/health handler no longer does an invalid nil check on a non-pointer config copy, and uses the correct `DSPModeStatus` field name (`DesiredMode`).
+
 ## 0.3.02
 
 - Fix: build failure during install — remove unused variable in config load warning path.

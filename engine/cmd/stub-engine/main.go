@@ -200,21 +200,21 @@ func main() {
 		// Reporting the desired mode prevents confusing UX where the top-right status shows
 		// dsp writes LIVE, but the Configuration dropdown snaps back to "mock (default)" after
 		// a refresh.
+		// GetConfigCopy() returns a concrete app.Config (not a pointer), so it will never be nil.
+		// Keep this as a value copy so /api/config is always safe to serve even if the engine
+		// is mid-reload.
 		cfg := engine.GetConfigCopy()
 		dspStatus := engine.DSPModeStatus()
-		if cfg == nil {
-			cfg = internal.DefaultConfig()
-		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version": engine.Version(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"mode":    dspStatus.Desired,
+			"mode":    dspStatus.DesiredMode,
 			"dsp": map[string]any{
 				"ip":   cfg.DSP.Host,
 				"port": cfg.DSP.Port,
-				"mode": dspStatus.Desired,
+				"mode": dspStatus.DesiredMode,
 			},
 			"sources": cfg.Meta,
 		})
