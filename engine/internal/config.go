@@ -28,6 +28,15 @@ type ConfigMeta struct {
 }
 
 type Config struct {
+	// Mode is a legacy top-level field from early versions of the project.
+	//
+	// It is intentionally kept for backwards compatibility with older
+	// config.json / config editor code paths. The authoritative write mode
+	// is dsp.mode.
+	//
+	// NOTE: The engine does not use this value for behavior.
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"`
+
 	DSP struct {
 		Host string `yaml:"host"`
 		Port int    `yaml:"port"`

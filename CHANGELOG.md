@@ -1,3 +1,7 @@
+## 0.3.00
+
+- Fix: build failure in config editor after Config struct cleanup — reintroduced legacy top-level `mode` field (kept for backward compatibility; dsp.mode remains authoritative).
+
 ## 0.2.99
 
 - Fix: build/installer regression — restore missing `Engine.DSPHealthSnapshot()` method used by debug snapshot code.
