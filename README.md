@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.06
+# STUB Mixer UI (Studio B) — Release 0.3.07
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.07: Engineering page clarifies persisted vs runtime mode (label + runtime override badge).
 - v0.3.06: Engineering page config loads reliably after refresh; header shows both UI and engine versions.
 - v0.3.04: Fixes a regression where DSP write mode could fail to persist across refresh/restart if a prior release wrote the mode to the deprecated top-level `mode` field (we now migrate it into `dsp.mode`).
 - v0.3.03: Fixes an install-time build failure (`go test`) in the `/api/health` handler (invalid nil check + wrong DSP mode field name).

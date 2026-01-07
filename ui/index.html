@@ -217,7 +217,22 @@
 
         <div class="card">
           <h2>Configuration</h2>
-          <div class="small">Edits <code>~/.StudioB-UI/config/config.v1</code> (persisted across updates).</div>
+          <!--
+            Persisted vs runtime clarity (UI v0.3.07)
+
+            Operators frequently expect this panel to reflect *what is running right now*.
+            In reality, this editor controls the persisted file on disk, which only fully
+            takes effect after an engine restart (watchdog may restart automatically).
+
+            Runtime mode may differ if the watchdog promoted/overrode the running engine
+            without writing back to disk.
+          -->
+          <div class="small">Persisted config (applies on restart). Edits <code>~/.StudioB-UI/config/config.v1</code>.</div>
+          <div class="small cfg-clarity">
+            <span class="muted">Persisted:</span> <span id="cfgPersistedMode">—</span>
+            <span class="muted">Runtime:</span> <span id="cfgRuntimeMode">—</span>
+            <span class="pill pill--warn hidden" id="cfgRuntimeBadge">Runtime override active</span>
+          </div>
           <div class="row">
             <label class="lbl">Mode</label>
             <select class="select" id="cfgMode">

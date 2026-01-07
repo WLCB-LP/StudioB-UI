@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.06";
+const UI_BUILD_VERSION = "0.3.07";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -46,6 +46,17 @@ const state = {
     rsrR: { cur: 0, tgt: 0 },
   },
   speaker: { level: 0, mute: false, automute: false },
+
+  // Persisted-vs-runtime clarity (UI v0.3.07)
+  // - persistedMode: what is stored in ~/.StudioB-UI/config/config.v1
+  // - runtimeMode:   what the running engine currently believes the mode is
+  //   (may be overridden/promoted by watchdog without writing back to disk)
+  cfgClarity: {
+    persistedMode: "",
+    runtimeMode: "",
+    runtimeActiveMode: "",
+    lastUpdatedAt: "",
+  },
 };
 
 // Engineering page config form state.
@@ -215,6 +226,41 @@ function setPills(){
       dspW.classList.add("pill--warn");
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Persisted vs runtime configuration clarity (UI v0.3.07)
+// ---------------------------------------------------------------------------
+// The Engineering → Configuration card edits the persisted on-disk file.
+// The running engine may be in a different mode if the watchdog promoted or
+// overrode runtime state without writing back to disk.
+//
+// This helper keeps the display explicit so operators don't have to guess.
+function renderConfigClarity(){
+  const pEl = $("#cfgPersistedMode");
+  const rEl = $("#cfgRuntimeMode");
+  const bEl = $("#cfgRuntimeBadge");
+  if(!pEl || !rEl || !bEl) return;
+
+  const persisted = (state.cfgClarity.persistedMode || "").toLowerCase();
+  const runtime = (state.cfgClarity.runtimeMode || "").toLowerCase();
+  const active = (state.cfgClarity.runtimeActiveMode || "").toLowerCase();
+
+  pEl.textContent = persisted ? persisted.toUpperCase() : "—";
+
+  // Runtime display includes the "active write" mode if it differs.
+  if(runtime){
+    let rt = runtime.toUpperCase();
+    if(active && active !== runtime){
+      rt += ` (active: ${active.toUpperCase()})`;
+    }
+    rEl.textContent = rt;
+  }else{
+    rEl.textContent = "—";
+  }
+
+  const mismatch = !!(persisted && runtime && persisted !== runtime);
+  bEl.classList.toggle("hidden", !mismatch);
 }
 
 
@@ -665,7 +711,19 @@ async function refreshEngineering(){
   // /api/config and paint it into the form. This never overwrites
   // in-progress edits (dirty form).
   if(state.activePage === "engineering" && !engCfgLoaded && !engCfgDirty){
-    try{ await loadEffectiveConfigIntoForm({ silent: true }); }catch(_e){ /* ignore */ }
+    // UI v0.3.07: Prefer loading the *persisted* config file into the editor.
+    // We can do this safely because the Engineering page is already PIN-gated
+    // and we restore the saved PIN into #adminPin when the tab is shown.
+    //
+    // If, for any reason, the PIN is missing/invalid, fall back to the
+    // non-admin /api/config view so the editor still displays something.
+    let loaded = false;
+    try{ loaded = await loadConfigFromFile({ silent: true }); }catch(_e){ loaded = false; }
+    if(!loaded){
+      try{ await loadEffectiveConfigIntoForm({ silent: true }); }catch(_e){ /* ignore */ }
+    }
+    // Either way, keep the small Persisted/Runtime line updated.
+    renderConfigClarity();
   }
 }
 
@@ -881,6 +939,10 @@ $("#btnDspTest").addEventListener("click", async ()=>{
         $("#cfgMode").value = (resp.config.mode || "mock");
         $("#cfgDspIp").value = (resp.config.dsp && resp.config.dsp.ip) ? resp.config.dsp.ip : "";
         $("#cfgDspPort").value = (resp.config.dsp && resp.config.dsp.port) ? resp.config.dsp.port : "";
+
+        // Persisted-vs-runtime clarity (UI v0.3.07): record persisted mode.
+        state.cfgClarity.persistedMode = String(resp.config.mode || "mock");
+        renderConfigClarity();
       }
       const path = resp.path || "~/.StudioB-UI/config.v1";
       const exists = resp.exists ? "exists" : "missing";
@@ -937,6 +999,12 @@ if(resp && resp.restart_required){
 } else {
   $("#cfgMsg").textContent = "Saved. Reloading effective config…";
 }
+
+// Persisted-vs-runtime clarity (UI v0.3.07): we just wrote the persisted file.
+// Record it immediately so the side-by-side line updates without waiting for
+// another "Load" click.
+state.cfgClarity.persistedMode = String(body.mode || "");
+renderConfigClarity();
 
 // Refresh /api/config view (and mode pill) immediately.
 await loadConfigPill();
@@ -1468,6 +1536,14 @@ async function fetchDSPModeStatus(){
   try{
     const m = await getJSON("/api/dsp/mode");
     state.dspModeStatus = m || state.dspModeStatus;
+
+    // Persisted-vs-runtime clarity wiring (UI v0.3.07)
+    // Runtime mode is derived from the engine's DSPModeStatus.
+    // Persisted mode comes from the config file reader (admin endpoint).
+    state.cfgClarity.runtimeMode = (m && m.mode) ? String(m.mode) : "";
+    state.cfgClarity.runtimeActiveMode = (m && m.activeMode) ? String(m.activeMode) : "";
+    state.cfgClarity.lastUpdatedAt = new Date().toISOString();
+    renderConfigClarity();
     const banner = $("#dspTransitionBanner");
     renderWatchdogDSP();
     setPills();

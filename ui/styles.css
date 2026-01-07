@@ -105,6 +105,13 @@ main{padding:18px}
 .small{font-size:12px}
 .muted{color:var(--muted)}
 
+/*
+  Persisted vs runtime clarity (UI v0.3.07)
+  Keep this visually subtle; it is informational, not an alarm.
+*/
+.cfg-clarity{margin-top:6px}
+.cfg-clarity .pill{margin-left:8px}
+
 .controls{display:flex; flex-wrap:wrap; gap:10px}
 .grid4{display:grid; grid-template-columns: repeat(2, 1fr); gap:10px}
 

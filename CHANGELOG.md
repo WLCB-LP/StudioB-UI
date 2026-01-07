@@ -1,11 +1,16 @@
-## 0.3.05
+## 0.3.07
 
-- Release bump only to trigger updater/import tooling. No functional changes from v0.3.04.
+- UI: Engineering → Configuration now explicitly labels the form as **Persisted config (applies on restart)**.
+- UI: Engineering shows **Persisted vs Runtime** modes side-by-side and displays a **Runtime override active** badge when they differ.
 
 ## 0.3.06
 
 - UI: Header now shows **both** UI version and engine version (engine version comes from `/api/studio/status`, so you can immediately see if the engine failed to restart after an update).
 - Fix: Engineering config form now reliably loads the persisted config after refresh (correct DSP IP field wiring + a safe fallback to engine status mode if the config payload is incomplete).
+
+## 0.3.05
+
+- Release bump only to trigger updater/import tooling. No functional changes from v0.3.04.
 
 ## 0.3.04
 
