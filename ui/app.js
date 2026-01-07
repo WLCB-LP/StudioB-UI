@@ -2,10 +2,14 @@
 const POLL_MS = 250;
 
 // UI_BUILD_VERSION MUST match VERSION for this release.
-// This is used to detect "new engine / old UI" mismatches caused by browser caching.
-// If the engine version differs, we trigger a one-time hardReload() to pull the
-// new cache-busted assets.
-const UI_BUILD_VERSION = "0.2.99";
+// This is used for:
+//   1) Display
+//   2) Update check requests
+//   3) Cache-bust UX
+//
+// NOTE: The UI and engine can update/restart independently, so the header shows
+// BOTH the UI build version (this value) and the engine version (from /api/studio/status).
+const UI_BUILD_VERSION = "0.3.06";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -175,7 +179,10 @@ function setConn(ok){
 
 function setPills(){
   // Engine runtime identity
-  $("#verPill").textContent = "v" + (state.version || "—");
+  // Show UI + engine versions separately so it's obvious what updated.
+  const uiVerPill = $("#uiVerPill");
+  if (uiVerPill) uiVerPill.textContent = `ui v${UI_BUILD_VERSION}`;
+  $("#verPill").textContent = "engine v" + (state.version || "—");
   $("#modePill").textContent = "engine: " + (state.mode || "—");
 
   // DSP connectivity (status/monitoring) — always-on.
@@ -798,7 +805,8 @@ $("#btnDspTest").addEventListener("click", async ()=>{
 
   // Track whether the user has begun editing the form so we never overwrite
   // their in-progress changes during auto-load/poll refreshes.
-  ["#cfgMode", "#cfgDspHost", "#cfgDspPort"].forEach(sel=>{
+  // NOTE: the input is #cfgDspIp (not #cfgDspHost).
+  ["#cfgMode", "#cfgDspIp", "#cfgDspPort"].forEach(sel=>{
     const el = $(sel);
     if(!el) return;
     el.addEventListener("input", ()=>{ engCfgDirty = true; });
@@ -823,7 +831,22 @@ $("#btnDspTest").addEventListener("click", async ()=>{
       const cfg = await fetchJSON('/api/config', {}, 1200);
       if(cfg){
         // The engine exposes both a top-level mode and dsp.mode.
-        const mode = (cfg.dsp && cfg.dsp.mode) ? cfg.dsp.mode : (cfg.mode || 'mock');
+        // Prefer the config API's mode, but fall back to the running status if
+        // the config payload is missing/empty (some older builds served a
+        // partial config schema).
+        let mode = (cfg.dsp && cfg.dsp.mode) ? cfg.dsp.mode : (cfg.mode || '');
+        if (!mode) {
+          try {
+            const stResp = await fetch("/api/studio/status", { cache: "no-store" });
+            if (stResp.ok) {
+              const st = await stResp.json();
+              mode = st.mode || mode;
+            }
+          } catch (_) {
+            // ignore; we'll default below
+          }
+        }
+        if (!mode) mode = 'mock';
         $("#cfgMode").value = mode;
         $("#cfgDspIp").value = (cfg.dsp && cfg.dsp.ip) ? cfg.dsp.ip : '';
         $("#cfgDspPort").value = (cfg.dsp && cfg.dsp.port) ? cfg.dsp.port : '';

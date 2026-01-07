@@ -2,6 +2,11 @@
 
 - Release bump only to trigger updater/import tooling. No functional changes from v0.3.04.
 
+## 0.3.06
+
+- UI: Header now shows **both** UI version and engine version (engine version comes from `/api/studio/status`, so you can immediately see if the engine failed to restart after an update).
+- Fix: Engineering config form now reliably loads the persisted config after refresh (correct DSP IP field wiring + a safe fallback to engine status mode if the config payload is incomplete).
+
 ## 0.3.04
 
 - Fix: DSP write mode now persists across refreshes/restarts even if a prior release wrote it to the deprecated top-level `mode` field (we migrate `mode` -> `dsp.mode` defensively).
