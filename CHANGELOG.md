@@ -1,3 +1,7 @@
+## 0.3.05
+
+- Release bump only to trigger updater/import tooling. No functional changes from v0.3.04.
+
 ## 0.3.04
 
 - Fix: DSP write mode now persists across refreshes/restarts even if a prior release wrote it to the deprecated top-level `mode` field (we migrate `mode` -> `dsp.mode` defensively).
