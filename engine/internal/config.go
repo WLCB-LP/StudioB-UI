@@ -147,6 +147,22 @@ func LoadConfig(path string) (*Config, error) {
 	applyJSONOverrides(&cfg, path)
 	applyEnvOverrides(&cfg)
 
+	// Backward compatibility:
+	// Some earlier releases briefly wrote the requested mode to the deprecated
+	// top-level `mode` field, instead of dsp.mode. If we see that situation, we
+	// treat the top-level value as authoritative and migrate it in-memory.
+	//
+	// NOTE: We do NOT delete the legacy field here because it lives in the YAML
+	// file on disk — but once the user re-saves via the UI (or updates via a
+	// newer release), both fields will be kept in sync.
+	if strings.TrimSpace(cfg.DSP.Mode) == "" && strings.TrimSpace(cfg.Mode) != "" {
+		cfg.DSP.Mode = cfg.Mode
+		if cfg.Meta.ModeSource == "" {
+			cfg.Meta.ModeSource = "yaml-legacy"
+		}
+		cfg.Meta.Warnings = append(cfg.Meta.Warnings, "config uses deprecated top-level 'mode'; treating it as dsp.mode")
+	}
+
 	// If mode is still unset for any reason, default to mock (safe).
 	if strings.TrimSpace(cfg.DSP.Mode) == "" {
 		cfg.DSP.Mode = "mock"

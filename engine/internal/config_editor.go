@@ -132,7 +132,17 @@ func ReadEditableConfig() (cfg EditableConfig, exists bool, raw string, err erro
 	if err := yaml.Unmarshal(b, &full); err != nil {
 		return cfg, exists, raw, fmt.Errorf("invalid yaml: %w", err)
 	}
+	// dsp.mode is authoritative.
+	//
+	// Backward compatibility:
+	// Older releases briefly wrote the requested mode to the deprecated top-level
+	// `mode` field, leaving dsp.mode empty. If we encounter that layout, treat the
+	// top-level mode as the intended value so "live" doesn't silently revert to
+	// the default on refresh/restart.
 	cfg.Mode = strings.TrimSpace(full.DSP.Mode)
+	if cfg.Mode == "" {
+		cfg.Mode = strings.TrimSpace(full.Mode)
+	}
 	cfg.DSP.IP = strings.TrimSpace(full.DSP.Host)
 	cfg.DSP.Port = full.DSP.Port
 	return cfg, exists, raw, nil

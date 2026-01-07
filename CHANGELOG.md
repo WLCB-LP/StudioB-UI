@@ -1,3 +1,7 @@
+## 0.3.04
+
+- Fix: DSP write mode now persists across refreshes/restarts even if a prior release wrote it to the deprecated top-level `mode` field (we migrate `mode` -> `dsp.mode` defensively).
+
 ## 0.3.03
 
 - Fix: build failure during install — /api/health handler no longer does an invalid nil check on a non-pointer config copy, and uses the correct `DSPModeStatus` field name (`DesiredMode`).
