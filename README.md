@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.10
+# STUB Mixer UI (Studio B) — Release 0.3.11
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.3.11: Fix: Header **Update** pill tooltip could still claim "Update available" when the system was up to date. The pill is now always visible as a shortcut to Engineering, and its tooltip/styling are driven only by normalized UI version comparisons (ignoring older engine booleans).
 
 - v0.3.10: Fix sticky "Update available" tooltip/pill when backend versions are formatted differently (e.g. `v0.3.09` vs `0.3.09`) or an older engine sets `updateAvailable=true` incorrectly.
 - v0.3.08: Runtime override badge now includes a tooltip explaining likely source (watchdog vs engine/runtime).

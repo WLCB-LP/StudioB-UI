@@ -30,7 +30,17 @@
 
     <div class="status">
       <div class="pill" id="connStatus">Connecting…</div>
-      <button class="pill pill--warn hidden" id="updatePill" type="button" title="Update available">Update</button>
+      <!--
+        Update pill:
+        - ALWAYS visible as the operator's "jump to Engineering" shortcut.
+        - Styling + tooltip change ONLY when an update is actually available.
+
+        IMPORTANT:
+        StudioB supports decoupled versioning (UI can update while engine is pinned).
+        Therefore "update available" must be UI-version-based and must NOT be inferred
+        from engine/runtime versions.
+      -->
+      <button class="pill pill--muted" id="updatePill" type="button" title="Check for updates">Update</button>
       <div class="pill pill--muted" id="uiVerPill">ui v—</div>
       <div class="pill pill--muted" id="verPill">engine v—</div>
       <div class="pill pill--muted" id="modePill">engine: —</div>

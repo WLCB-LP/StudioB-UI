@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.10";
+const UI_BUILD_VERSION = "0.3.11";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1439,12 +1439,15 @@ async function pollUpdate(){
       setModePill(health.mode);
     }
     // Update availability is UI-version-based (uiCurrent vs latest).
-    // Prefer a normalized compare when we have both versions.
-    // If we do NOT have both, fall back to the engine-provided boolean.
-    const uiAvailByCompare = !!(latest && uiCurrent && uiCurrent !== latest);
-    const uiAvail = (latest && uiCurrent)
-      ? uiAvailByCompare
-      : (typeof upd.updateAvailable === "boolean" ? !!upd.updateAvailable : false);
+    //
+    // IMPORTANT (2026-01-07):
+    // Do NOT trust an older engine's `updateAvailable` boolean.
+    // Some older engines computed it using raw string compares or stale state,
+    // which can produce false positives like "Update available" forever.
+    //
+    // If we don't have BOTH versions, we treat availability as "unknown" and
+    // *do not* claim an update exists.
+    const uiAvail = !!(latest && uiCurrent && uiCurrent !== latest);
 
     state.update.ok = !!(upd && (upd.ok === true || uiCurrent || latest || typeof upd.updateAvailable === "boolean"));
     state.update.available = uiAvail;
@@ -1454,18 +1457,34 @@ async function pollUpdate(){
     const btn = document.getElementById("btnUpdate");
     const up = document.getElementById("updatePill");
     if(state.update.available){
-      if(up){ up.classList.remove("hidden"); up.classList.add("flash"); up.textContent = "Update v" + latest; up.title = "Update available: v" + latest; }
+      // Update is available: make it obvious.
+      if(up){
+        up.classList.add("flash");
+        up.classList.remove("pill--muted");
+        up.classList.add("pill--warn");
+        // Keep the header label short (it's a topbar pill), but make the tooltip explicit.
+        up.textContent = "Update";
+        up.title = "Update available: v" + latest;
+      }
       if(btn){
         btn.classList.add("flash");
         btn.textContent = "Update to v" + latest;
         btn.title = "Update available: v" + latest;
       }
     }else{
-      if(up){ up.classList.add("hidden"); up.classList.remove("flash"); up.textContent = "Update"; up.title = "No updates available"; }
+      // No update: keep the pill visible as a shortcut to Engineering,
+      // but make its tooltip truthful.
+      if(up){
+        up.classList.remove("flash");
+        up.classList.remove("pill--warn");
+        up.classList.add("pill--muted");
+        up.textContent = "Update";
+        up.title = uiCurrent ? ("Up to date (v" + uiCurrent + ")") : "Check for updates";
+      }
       if(btn){
         btn.classList.remove("flash");
         btn.textContent = "Update";
-        btn.title = "No updates available";
+        btn.title = uiCurrent ? ("Up to date (v" + uiCurrent + ")") : "No updates available";
       }
     }
     // Surface update-check diagnostics on Engineering page.

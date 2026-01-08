@@ -1,3 +1,9 @@
+## 0.3.11
+
+- Fix: Header **Update** pill could still show the tooltip "Update available" even when the system was up to date.
+  Root cause: the pill's default HTML tooltip text could remain visible if older engines returned incomplete fields (e.g. missing `latestVersion`) while still returning a stale `updateAvailable` boolean.
+  The pill is now always visible as a shortcut to Engineering, but its tooltip/styling are driven only by normalized UI version comparisons; the UI no longer trusts older engine booleans for availability.
+
 ## 0.3.10
 
 - Fix: The **Update** pill tooltip/banner no longer sticks on "Update available" when the backend returns
