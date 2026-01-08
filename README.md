@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.08
+# STUB Mixer UI (Studio B) — Release 0.3.09
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.09: Fix false "Update available" tooltip/pill when the UI is already up to date (decoupled UI vs engine versions).
 - v0.3.08: Runtime override badge now includes a tooltip explaining likely source (watchdog vs engine/runtime).
 - v0.3.07: Engineering page clarifies persisted vs runtime mode (label + runtime override badge).
 - v0.3.06: Engineering page config loads reliably after refresh; header shows both UI and engine versions.

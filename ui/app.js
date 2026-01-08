@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.08";
+const UI_BUILD_VERSION = "0.3.09";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1373,14 +1373,26 @@ async function pollUpdate(){
       health = null;
     }
 
-    const current = ((health && health.version) || upd.currentVersion || "").toString().trim();
+    // IMPORTANT (2026-01-07):
+    // "Update available" must be based on the UI bundle version, NOT the engine version.
+    // The system supports decoupled versioning (UI can advance while engine is pinned).
+    //
+    // - /api/update/check reports UI update status (current UI version vs latest UI version).
+    // - /api/health reports *runtime* state and engine info.
+    //
+    // Previously we accidentally preferred health.version when present, which caused
+    // false "Update available" signals whenever the engine version (e.g. v0.2.97)
+    // differed from the UI version (e.g. v0.3.08).
+    const engineCurrent = ((health && health.version) || "").toString().trim();
+    const uiCurrent = (upd.currentVersion || "").toString().trim();
     const latest = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");
 
     // Keep global state in sync with reality.
     // This fixes the “Update available” banner sticking around until the user refreshes.
-    if(current){
-      state.version = current;
-      setVersionPill(current);
+    // NOTE: state.version + the header pill are ENGINE-authoritative by design.
+    if(engineCurrent){
+      state.version = engineCurrent;
+      setVersionPill(engineCurrent);
     }
 
     // If the engine version differs from the UI bundle version, we are almost
@@ -1392,10 +1404,10 @@ async function pollUpdate(){
         did = did || (sessionStorage.getItem("studiob_autorefresh_done") === "1");
       }catch(_e){ /* storage may be disabled */ }
 
-      if(!did && current && UI_BUILD_VERSION && String(current) !== String(UI_BUILD_VERSION)){
+      if(!did && engineCurrent && UI_BUILD_VERSION && String(engineCurrent) !== String(UI_BUILD_VERSION)){
         autoRefreshDone = true;
         try{ sessionStorage.setItem("studiob_autorefresh_done", "1"); }catch(_e){ /* ignore */ }
-        setStatus(`New engine v${current} detected (UI v${UI_BUILD_VERSION}). Refreshing…`);
+        setStatus(`New engine v${engineCurrent} detected (UI v${UI_BUILD_VERSION}). Refreshing…`);
         // IMPORTANT: do NOT return early. Some browsers disable storage and/or
         // block the reload, which used to leave the page stuck showing
         // "Update check failed" even though /api/update/check was healthy.
@@ -1406,22 +1418,28 @@ async function pollUpdate(){
       state.mode = health.mode;
       setModePill(health.mode);
     }
-    state.update.ok = !!current;
-    state.update.available = !!(latest && current && current !== latest);
-    state.update.current = current;
+    // Update availability is UI-version-based (uiCurrent vs latest).
+    // If the engine provides an explicit boolean, trust it.
+    const uiAvail = (typeof upd.updateAvailable === "boolean")
+      ? !!upd.updateAvailable
+      : !!(latest && uiCurrent && uiCurrent !== latest);
+
+    state.update.ok = !!(upd && (upd.ok === true || uiCurrent || latest || typeof upd.updateAvailable === "boolean"));
+    state.update.available = uiAvail;
+    state.update.current = uiCurrent;
     state.update.latest = latest;
 
     const btn = document.getElementById("btnUpdate");
     const up = document.getElementById("updatePill");
     if(state.update.available){
-      if(up){ up.classList.remove("hidden"); up.classList.add("flash"); up.textContent = "Update v" + latest; }
+      if(up){ up.classList.remove("hidden"); up.classList.add("flash"); up.textContent = "Update v" + latest; up.title = "Update available: v" + latest; }
       if(btn){
         btn.classList.add("flash");
         btn.textContent = "Update to v" + latest;
         btn.title = "Update available: v" + latest;
       }
     }else{
-      if(up){ up.classList.add("hidden"); up.classList.remove("flash"); }
+      if(up){ up.classList.add("hidden"); up.classList.remove("flash"); up.textContent = "Update"; up.title = "No updates available"; }
       if(btn){
         btn.classList.remove("flash");
         btn.textContent = "Update";
@@ -1450,8 +1468,8 @@ async function pollUpdate(){
       if(ok){
         if(state.update.available){
           msg = "Update available: v" + latest;
-        }else if(current){
-          msg = "Up to date (v" + current + ")";
+        }else if(uiCurrent){
+          msg = "Up to date (v" + uiCurrent + ")";
         }else{
           msg = "Update check: ok";
         }
@@ -1479,9 +1497,9 @@ async function pollUpdate(){
 
     // If an update was initiated and the version changed, proactively refresh the page.
     // This ensures the UI JS/CSS bundle always matches the running engine.
-    if(state.update && state.update.inProgress && state.update.startVersion && current && current !== state.update.startVersion){
+    if(state.update && state.update.inProgress && state.update.startVersion && uiCurrent && uiCurrent !== state.update.startVersion){
       state.update.inProgress = false;
-      setStatus("Update applied (v" + current + "). Refreshing…");
+      setStatus("Update applied (v" + uiCurrent + "). Refreshing…");
       setTimeout(hardReload, 800);
     }
   }catch(e){

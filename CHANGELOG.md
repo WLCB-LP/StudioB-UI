@@ -1,3 +1,9 @@
+## 0.3.09
+
+- Fix: The header **Update** pill no longer claims "Update available" when the UI is already up to date.
+  Update availability is now computed strictly from `/api/update/check` (UI current vs UI latest),
+  and does not accidentally compare against the pinned engine version.
+
 ## 0.3.08
 
 - UI: When **Runtime override active** is shown, the badge now includes a tooltip explaining what it means and the most likely source (watchdog vs engine/runtime), without changing any behavior.
