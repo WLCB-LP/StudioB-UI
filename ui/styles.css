@@ -106,7 +106,7 @@ main{padding:18px}
 .muted{color:var(--muted)}
 
 /*
-  Persisted vs runtime clarity (UI v0.3.07)
+  Persisted vs runtime clarity (UI v0.3.07+)
   Keep this visually subtle; it is informational, not an alarm.
 */
 .cfg-clarity{margin-top:6px}

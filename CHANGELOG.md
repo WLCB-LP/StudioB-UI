@@ -1,3 +1,7 @@
+## 0.3.08
+
+- UI: When **Runtime override active** is shown, the badge now includes a tooltip explaining what it means and the most likely source (watchdog vs engine/runtime), without changing any behavior.
+
 ## 0.3.07
 
 - UI: Engineering → Configuration now explicitly labels the form as **Persisted config (applies on restart)**.

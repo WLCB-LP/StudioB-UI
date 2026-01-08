@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.07";
+const UI_BUILD_VERSION = "0.3.08";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -247,6 +247,7 @@ function renderConfigClarity(){
   const active = (state.cfgClarity.runtimeActiveMode || "").toLowerCase();
 
   pEl.textContent = persisted ? persisted.toUpperCase() : "—";
+  pEl.title = "Persisted mode from ~/.StudioB-UI/config/config.v1 (applies on restart)";
 
   // Runtime display includes the "active write" mode if it differs.
   if(runtime){
@@ -258,9 +259,29 @@ function renderConfigClarity(){
   }else{
     rEl.textContent = "—";
   }
+  rEl.title = "Runtime mode reported by the running engine (may differ from persisted config if overridden)";
 
   const mismatch = !!(persisted && runtime && persisted !== runtime);
   bEl.classList.toggle("hidden", !mismatch);
+
+  // Tooltip (v0.3.08): explain *why* the badge is present.
+  //
+  // We intentionally do not auto-write runtime state back to disk.
+  // The watchdog may temporarily promote/override runtime behavior
+  // (for safety/continuity) while leaving the persisted config file
+  // untouched.
+  //
+  // NOTE: We don't yet have an explicit {source} field from the engine.
+  // Until that API exists, we show a best-effort hint based on watchdog
+  // status so the operator has a plausible explanation.
+  if(mismatch){
+    const wd = window.__lastWatchdogStatus || null;
+    const wdLikely = !!(wd && wd.ok && String(wd.enabled).toLowerCase() === "enabled" && String(wd.active).toLowerCase() === "active");
+    const src = wdLikely ? "watchdog" : "engine/runtime";
+    bEl.title = `Persisted mode (${persisted.toUpperCase()}) differs from runtime mode (${runtime.toUpperCase()}). Possible source: ${src}. Persisted config applies on restart.`;
+  }else{
+    bEl.title = "";
+  }
 }
 
 
