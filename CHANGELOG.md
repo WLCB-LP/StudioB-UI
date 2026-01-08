@@ -1,3 +1,10 @@
+## 0.3.10
+
+- Fix: The **Update** pill tooltip/banner no longer sticks on "Update available" when the backend returns
+  `currentVersion`/`latestVersion` with different formatting (e.g. `v0.3.09` vs `0.3.09`) or when an older
+  engine incorrectly sets `updateAvailable=true`. The UI now prefers a normalized **version compare** whenever
+  both versions are present, and only falls back to the engine boolean when versions are missing.
+
 ## 0.3.09
 
 - Fix: The header **Update** pill no longer claims "Update available" when the UI is already up to date.

@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.09";
+const UI_BUILD_VERSION = "0.3.10";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1329,6 +1329,13 @@ requestAnimationFrame(meterAnimate);
 async function pollUpdate(){
   state.update = state.update || {};
   try{
+    // Version normalization helper.
+    // The backend has historically returned versions both WITH and WITHOUT a leading "v".
+    // If we compare raw strings, "v0.3.09" !== "0.3.09" and we will *wrongly* claim
+    // "Update available" even when we are already up to date.
+    function normVer(v){
+      return (v || "").toString().trim().replace(/^v/i, "");
+    }
     // Update-check should never falsely report "failed" just because ONE endpoint
     // is temporarily unreachable during restart / proxy flaps.
     //
@@ -1354,11 +1361,17 @@ async function pollUpdate(){
     // Render update-check results immediately after parsing so the UI
     // never gets stuck showing the startup placeholder ("pending") just
     // because a later, non-critical step throws.
-    const currFromUpd = (upd.currentVersion || "").toString().trim();
-    const latestFromUpd = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");
-    const updAvailFromUpd = (typeof upd.updateAvailable === "boolean")
-      ? !!upd.updateAvailable
-      : !!(latestFromUpd && currFromUpd && latestFromUpd !== currFromUpd);
+    // Normalize both current + latest for robust comparison.
+    const currFromUpd = normVer(upd.currentVersion || "");
+    const latestFromUpd = normVer(upd.latestVersion || upd.latest || "");
+    // Prefer our own normalized compare when both versions are present.
+    // Reason: some engines historically computed updateAvailable using raw string
+    // compares and could claim an update existed when current="v0.3.09" and
+    // latest="0.3.09".
+    const updAvailByCompare = !!(latestFromUpd && currFromUpd && latestFromUpd !== currFromUpd);
+    const updAvailFromUpd = (latestFromUpd && currFromUpd)
+      ? updAvailByCompare
+      : (typeof upd.updateAvailable === "boolean" ? !!upd.updateAvailable : false);
     const checkedFromUpd = (upd && upd.checkedAt) ? String(upd.checkedAt) : "";
     const earlyMsg = updAvailFromUpd
       ? ("Update available: v" + latestFromUpd)
@@ -1384,8 +1397,9 @@ async function pollUpdate(){
     // false "Update available" signals whenever the engine version (e.g. v0.2.97)
     // differed from the UI version (e.g. v0.3.08).
     const engineCurrent = ((health && health.version) || "").toString().trim();
-    const uiCurrent = (upd.currentVersion || "").toString().trim();
-    const latest = (upd.latestVersion || upd.latest || "").toString().trim().replace(/^v/,"");
+    // UI versions must be normalized (see normVer above).
+    const uiCurrent = normVer(upd.currentVersion || "");
+    const latest = normVer(upd.latestVersion || upd.latest || "");
 
     // Keep global state in sync with reality.
     // This fixes the “Update available” banner sticking around until the user refreshes.
@@ -1404,10 +1418,16 @@ async function pollUpdate(){
         did = did || (sessionStorage.getItem("studiob_autorefresh_done") === "1");
       }catch(_e){ /* storage may be disabled */ }
 
-      if(!did && engineCurrent && UI_BUILD_VERSION && String(engineCurrent) !== String(UI_BUILD_VERSION)){
+      // If the *UI* version we just learned from /api/update/check differs from
+      // the UI bundle version embedded in this JS, we are almost certainly
+      // running stale cached JS/CSS. Trigger a one-time hard reload.
+      //
+      // NOTE: Do NOT compare engineCurrent here; the system supports decoupled
+      // versioning and the engine can be pinned to an older version by design.
+      if(!did && uiCurrent && UI_BUILD_VERSION && String(uiCurrent) !== String(UI_BUILD_VERSION)){
         autoRefreshDone = true;
         try{ sessionStorage.setItem("studiob_autorefresh_done", "1"); }catch(_e){ /* ignore */ }
-        setStatus(`New engine v${engineCurrent} detected (UI v${UI_BUILD_VERSION}). Refreshing…`);
+        setStatus(`New UI v${uiCurrent} detected (bundle v${UI_BUILD_VERSION}). Refreshing…`);
         // IMPORTANT: do NOT return early. Some browsers disable storage and/or
         // block the reload, which used to leave the page stuck showing
         // "Update check failed" even though /api/update/check was healthy.
@@ -1419,10 +1439,12 @@ async function pollUpdate(){
       setModePill(health.mode);
     }
     // Update availability is UI-version-based (uiCurrent vs latest).
-    // If the engine provides an explicit boolean, trust it.
-    const uiAvail = (typeof upd.updateAvailable === "boolean")
-      ? !!upd.updateAvailable
-      : !!(latest && uiCurrent && uiCurrent !== latest);
+    // Prefer a normalized compare when we have both versions.
+    // If we do NOT have both, fall back to the engine-provided boolean.
+    const uiAvailByCompare = !!(latest && uiCurrent && uiCurrent !== latest);
+    const uiAvail = (latest && uiCurrent)
+      ? uiAvailByCompare
+      : (typeof upd.updateAvailable === "boolean" ? !!upd.updateAvailable : false);
 
     state.update.ok = !!(upd && (upd.ok === true || uiCurrent || latest || typeof upd.updateAvailable === "boolean"));
     state.update.available = uiAvail;
