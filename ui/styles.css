@@ -535,7 +535,10 @@ main{padding:18px}
      - Dim neon fill
      - Bright neon border
      (No text/LED; color alone conveys state.) */
-  background: rgba(55,214,122,.14);
+  /* v0.3.18: Make the LIVE (not-muted) interior a little brighter.
+     Operators wanted the button to read "energized" even when unmuted,
+     while still keeping MUTED (red) as the most dominant state. */
+  background: rgba(55,214,122,.20);
   border-color: rgba(55,214,122,.95);
   border-width: 2px;
   box-shadow:
@@ -550,12 +553,14 @@ main{padding:18px}
   /* Muted look:
      - Dim neon fill
      - Bright neon border */
-  background: rgba(255,64,96,.16);
-  border-color: rgba(255,64,96,.95);
+  /* v0.3.18: Border must be BRIGHT neon red when muted.
+     We keep the interior fill darker so the border carries the authority. */
+  background: rgba(255,64,96,.14);
+  border-color: rgba(255,36,72,1);
   box-shadow:
     0 0 0 1px rgba(255,64,96,.22),
-    0 0 22px rgba(255,64,96,.26),
-    0 0 40px rgba(255,64,96,.12),
+    0 0 24px rgba(255,36,72,.40),
+    0 0 46px rgba(255,36,72,.18),
     inset 0 1px 0 rgba(255,255,255,.10),
     inset 0 -1px 0 rgba(0,0,0,.40);
 }

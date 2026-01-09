@@ -1,3 +1,10 @@
+## 0.3.18
+
+- UI: Mixer visual refinement (Studio page):
+  - MUTE buttons: brighter **neon red border** when muted (more authoritative across the room).
+  - MUTE buttons: slightly brighter **neon green interior fill** when live/unmuted.
+  - No behavior changes; purely visual.
+
 ## 0.3.17
 
 - UI: Mixer polish (Studio page):
