@@ -1,3 +1,10 @@
+## 0.3.22
+
+- Installer/update: **repair rc_allowlist safely** by rebuilding the YAML block (prevents config corruption / YAML parse failures).
+  - Extracts existing allowlisted IDs.
+  - Ensures **101–110** are present for fader gain writes.
+  - Rewrites only the `rc_allowlist` section with correct indentation (never touches other config keys).
+
 ## 0.3.21
 
 - Installer: make health checks **tolerant of slow restarts** (avoids false failures where systemd is briefly "activating").

@@ -378,59 +378,111 @@ validate_and_repair_config() {
   #   * Logs each change for post-mortem debugging
   ###########################################################################
 
-  ensure_rc_allowlist_entry() {
-    local id tmp
-    id="$1"
-
-    # Fast path: already present.
-    if grep -Eq "^[[:space:]]*-[[:space:]]*${id}([[:space:]]*#.*)?$" "${CONFIG_FILE}"; then
-      return 0
-    fi
-
-    # If rc_allowlist is missing entirely, append a fresh section.
-    if ! grep -q '^rc_allowlist:' "${CONFIG_FILE}"; then
-      log "Config missing rc_allowlist; adding section."
-      printf "\nrc_allowlist:\n" >> "${CONFIG_FILE}"
-    fi
-
-    log "Repair: adding rc_allowlist entry ${id}"
-
-    # Insert the new entry at the end of the rc_allowlist block.
-    # We detect the end of the block by the next top-level YAML key (no leading
-    # whitespace and ending with ':'). If the allowlist is the last block in
-    # the file, we append at EOF.
+  
+  repair_rc_allowlist_block() {
+    # Rebuild the rc_allowlist YAML block in a safe, indentation-correct way.
+    #
+    # Why this exists:
+    #   We previously tried to "surgically insert" list items with awk. In the
+    #   field, a malformed insertion can corrupt YAML and prevent the engine
+    #   from starting (yaml parse error).
+    #
+    # This function is intentionally conservative and deterministic:
+    #   - Extracts any numeric IDs found inside the existing rc_allowlist block
+    #   - Ensures required fader IDs 101–110 are present
+    #   - Rewrites *only* the rc_allowlist block with correct YAML indentation
+    #   - Never removes other config keys/values
+    #
+    # If rc_allowlist is missing, it is appended at EOF.
+    local existing_ids final_ids tmp
     tmp="${CONFIG_FILE}.tmp.$$"
-    awk -v new_line="  - ${id}" '
-      BEGIN { in_list=0; inserted=0 }
-      {
-        # If we are inside rc_allowlist and we hit the next top-level key,
-        # insert before it.
-        if (in_list==1 && inserted==0 && $0 ~ /^[^[:space:]][A-Za-z0-9_\-]*:/) {
-          print new_line
-          inserted=1
-          in_list=0
+
+    # Extract IDs from the existing rc_allowlist block (if present).
+    # We only parse lines that look like YAML list items: "- 123".
+    existing_ids="$(
+      awk '
+        BEGIN { in_list=0 }
+        /^rc_allowlist:[[:space:]]*$/ { in_list=1; next }
+        # End of block: next top-level key (no leading whitespace) like "admin:"
+        in_list==1 && $0 ~ /^[^[:space:]][A-Za-z0-9_\-]*:/ { in_list=0 }
+        in_list==1 {
+          # Strip comments, then match list item IDs
+          line=$0
+          sub(/[[:space:]]*#.*/, "", line)
+          if (match(line, /^[[:space:]]*-[[:space:]]*([0-9]+)/, m)) {
+            print m[1]
+          }
         }
+      ' "${CONFIG_FILE}" | sort -n | uniq
+    )"
 
-        print $0
+    # Combine existing + required IDs, sort, uniq.
+    final_ids="$(
+      {
+        echo "${existing_ids}"
+        echo "101 102 103 104 105 106 107 108 109 110" | tr ' ' '\n'
+      } | sed '/^[[:space:]]*$/d' | sort -n | uniq
+    )"
 
-        if ($0 ~ /^rc_allowlist:/) {
-          in_list=1
+    # Rewrite config, replacing rc_allowlist block if present.
+    awk -v ids="$(echo "${final_ids}" | tr '\n' ' ')" '
+      BEGIN {
+        n=split(ids, a, " ")
+        in_old_list=0
+        seen=0
+      }
+      function print_new_list() {
+        print "rc_allowlist:"
+        print "  # Mic faders (gain)"
+        print "  - 101"
+        print "  - 102"
+        print "  - 103"
+        print "  - 104"
+        print "  # Source faders (gain)"
+        print "  - 105"
+        print "  - 106"
+        print "  - 107"
+        print "  - 108"
+        print "  - 109"
+        print "  - 110"
+        # Also include any other IDs that were already allowlisted (e.g. mutes/meters).
+        for (i=1; i<=n; i++) {
+          id=a[i]
+          if (id=="") continue
+          # Skip the required IDs (already printed above)
+          if (id>=101 && id<=110) continue
+          print "  - " id
         }
       }
+      /^rc_allowlist:[[:space:]]*$/ {
+        seen=1
+        in_old_list=1
+        print_new_list()
+        next
+      }
+      # While skipping the old block, stop skipping when we hit next top-level key.
+      in_old_list==1 && $0 ~ /^[^[:space:]][A-Za-z0-9_\-]*:/ {
+        in_old_list=0
+      }
+      in_old_list==1 { next }
+      { print $0 }
       END {
-        if (in_list==1 && inserted==0) {
-          print new_line
+        if (seen==0) {
+          print ""
+          print_new_list()
         }
       }
     ' "${CONFIG_FILE}" > "${tmp}"
+
     mv -f "${tmp}" "${CONFIG_FILE}"
   }
 
-  # Ensure the full fader assignment range is allowlisted.
+  # Ensure the full fader assignment range is allowlisted and that YAML remains valid.
   # Host Mic: 101, Guest1–3: 102–104, Sources: 105–110.
-  for _id in 101 102 103 104 105 106 107 108 109 110; do
-    ensure_rc_allowlist_entry "${_id}"
-  done
+  #
+  # NOTE: We rebuild the block (rather than inserting lines) to avoid YAML corruption.
+  log "Validating rc_allowlist…"
+  repair_rc_allowlist_block
   if grep -q 'pin: "CHANGE_ME"' "${CONFIG_FILE}"; then
     log "WARNING: admin.pin is CHANGE_ME. Set it before exposing Engineering page."
   fi
