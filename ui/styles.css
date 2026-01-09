@@ -143,7 +143,6 @@ main{padding:18px}
    We keep it subtle until we have real per-channel levels. */
 .fader__meter{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   left: 50%;
   transform: translateX(-50%);
   top: 14px;
@@ -169,7 +168,6 @@ main{padding:18px}
 */
 .fader__marks{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   left: 0;
   right: 0;
   top: 14px;
@@ -179,7 +177,6 @@ main{padding:18px}
 
 .fader__mark{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   left: 0;
   right: 0;
   transform: translateY(-0.5px); /* keeps 1px lines crisp */
@@ -187,7 +184,6 @@ main{padding:18px}
 
 .fader__markLine{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   left: 50%;
   transform: translateX(-50%);
   width: 56px;
@@ -201,7 +197,6 @@ main{padding:18px}
 
 .fader__mark span{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   right: 10px;
   top: -7px;
   font-size: 10px;
@@ -213,7 +208,7 @@ main{padding:18px}
 
 .fader__puck{
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
+  top: 0;
   left: 50%;
   transform: translate(-50%, 0);
   width: 64px;
@@ -252,7 +247,6 @@ main{padding:18px}
 .fader__puck::before{
   content:"";
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   left: 3px;
   right: 3px;
   top: 3px;
@@ -266,7 +260,6 @@ main{padding:18px}
 .fader__puck::after{
   content:"";
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   inset: 0;
   border-radius: 10px;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
@@ -358,7 +351,6 @@ main{padding:18px}
      Kept extremely subtle so it doesn't look like a nightclub. */
   content:"";
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   inset:0;
   background:
     linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0) 35%),
@@ -377,7 +369,6 @@ main{padding:18px}
   /* Edge glow ring */
   content:"";
   position:absolute;
-  top: 35%; /* pre-init default to reduce visual jump before JS positions */
   inset:10px;
   border-radius: 18px;
   box-shadow:
