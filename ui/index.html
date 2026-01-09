@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.14" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.15" />
 </head>
 <body>
   <header class="topbar">
@@ -69,7 +69,7 @@
     <section id="page-studio" class="page">
       <div class="studioLayout">
         <!--
-          Mixer (UI v0.3.14)
+          Mixer (UI v0.3.15)
 
           DESIGN CONTRACT (operator intent only):
           - No automation modes (no AUTO, no hidden state)
@@ -79,6 +79,7 @@
 
           Phase plan:
           - v0.3.14: multitouch-style fader lanes + RC-backed MUTE buttons.
+          - v0.3.15: blue neon visual skin pass (no behavior changes).
           - later: bind fader position to RC gain when engine semantics are ready.
         -->
         <div class="card mixerCard" id="mixerCard">
@@ -95,14 +96,6 @@
                     <div class="fader__mark fader__mark--major" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                  </div>
-                  </div>
-                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:82%"><span>-30</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
                   </div>
                   <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
@@ -130,14 +123,6 @@
                     <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
                   </div>
-                  </div>
-                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:82%"><span>-30</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                  </div>
                   <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
                 </div>
               </div>
@@ -163,14 +148,6 @@
                     <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
                   </div>
-                  </div>
-                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:82%"><span>-30</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                  </div>
                   <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
                 </div>
               </div>
@@ -194,14 +171,6 @@
                     <div class="fader__mark fader__mark--major" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                  </div>
-                  </div>
-                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                    <div class="fader__mark" style="top:82%"><span>-30</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
                   </div>
                   <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
@@ -457,6 +426,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.14"></script>
+  <script src="/app.js?v=0.3.15"></script>
 </body>
 </html>

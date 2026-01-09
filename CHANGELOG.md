@@ -1,3 +1,8 @@
+## 0.3.15
+
+- UI: Studio mixer reskinned with a **dark blue neon** look (scoped to the mixer card only) to match the latest "high-tech" mockups — **no behavior changes**.
+- UI: Fixed an HTML markup issue inside mixer strips that could duplicate VU marker elements in the DOM (rendering remained mostly OK, but the DOM was messy and harder to debug).
+
 ## 0.3.14
 
 - UI: Studio mixer faders updated with a **glass handle** so the VU lane remains visible through the fader cap.
