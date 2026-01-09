@@ -1,3 +1,8 @@
+## 0.3.14
+
+- UI: Studio mixer faders updated with a **glass handle** so the VU lane remains visible through the fader cap.
+- UI: Added simple **level markers** on the per-channel VU lanes (0, -3, -6, -12, -20, -30, -∞) for faster at-a-glance reads.
+
 ## 0.3.13
 
 - UI: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **WideOrbit-style MUTE buttons**.

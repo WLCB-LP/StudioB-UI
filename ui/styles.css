@@ -154,6 +154,58 @@ main{padding:18px}
   filter: saturate(.9);
 }
 
+/*
+  VU level markers (UI v0.3.14)
+
+  Purpose:
+  - Provide at-a-glance reference marks like a real console.
+  - Keep it subtle and readable (avoid clutter).
+
+  Notes:
+  - These are *markers only*; the per-channel meter is still a visual placeholder
+    until we wire real per-channel level data.
+  - pointer-events:none ensures the marks never interfere with fader dragging.
+*/
+.fader__marks{
+  position:absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  bottom: 14px;
+  pointer-events:none;
+}
+
+.fader__mark{
+  position:absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-0.5px); /* keeps 1px lines crisp */
+}
+
+.fader__markLine{
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  border-top: 1px solid rgba(255,255,255,.10);
+}
+
+.fader__mark--major .fader__markLine{
+  width: 64px;
+  border-top-color: rgba(255,255,255,.18);
+}
+
+.fader__mark span{
+  position:absolute;
+  right: 10px;
+  top: -7px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .2px;
+  color: rgba(255,255,255,.52);
+  text-shadow: 0 1px 2px rgba(0,0,0,.45);
+}
+
 .fader__puck{
   position:absolute;
   left: 50%;
@@ -161,11 +213,56 @@ main{padding:18px}
   width: 64px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(235,240,248,.92);
-  border: 1px solid rgba(0,0,0,.35);
+
+  /*
+    "Glass" fader handle (UI v0.3.14)
+
+    Goal:
+    - Keep the handle clearly visible, but let the meter show *through* it.
+    - Touch-first: a simple rectangle that reads well from across the room.
+
+    Implementation notes:
+    - Semi-transparent fill + backdrop blur makes the handle feel like glass.
+    - Subtle highlight band (::before) mimics a reflected light strip.
+    - We keep shadows conservative so it doesn't look "cheap" or cartoonish.
+
+    IMPORTANT:
+    - The handle must remain pointer-friendly and high-contrast.
+    - All decorative layers are pointer-events:none so dragging is never blocked.
+  */
+  background: rgba(235,240,248,.18);
+  border: 1px solid rgba(255,255,255,.28);
+  backdrop-filter: blur(7px) saturate(1.2);
+  -webkit-backdrop-filter: blur(7px) saturate(1.2);
+
   box-shadow:
-    0 8px 18px rgba(0,0,0,.35),
-    inset 0 0 0 1px rgba(255,255,255,.35);
+    0 10px 22px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.26),
+    inset 0 -1px 0 rgba(0,0,0,.28);
+
+  overflow:hidden;
+}
+
+.fader__puck::before{
+  content:"";
+  position:absolute;
+  left: 3px;
+  right: 3px;
+  top: 3px;
+  height: 45%;
+  border-radius: 8px;
+  background: linear-gradient(to bottom, rgba(255,255,255,.45), rgba(255,255,255,0));
+  opacity: .85;
+  pointer-events:none;
+}
+
+.fader__puck::after{
+  content:"";
+  position:absolute;
+  inset: 0;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+  pointer-events:none;
 }
 
 .strip__actions{display:flex; justify-content:center; padding-top: 6px}

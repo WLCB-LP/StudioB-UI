@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.13
+# STUB Mixer UI (Studio B) — Release 0.3.14
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.14: Studio mixer faders updated with a **glass handle** (meters visible through) and added **level markers** on the per-channel VU lanes.
 - v0.3.13: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **RC-backed MUTE buttons** (operator intent only; faders are visual-only for now).
 - v0.3.12: Engineering now includes a **Recent Runtime Events** UI-only timeline to provide "When did this change?" context (engine connect/disconnect, engine version/mode changes, DSP health transitions, persisted config loads/saves, and runtime override changes).
 
