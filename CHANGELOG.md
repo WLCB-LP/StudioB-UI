@@ -1,3 +1,8 @@
+## 0.3.12
+
+- UI: Engineering now includes a **Recent Runtime Events** timeline (UI-only, in-memory, bounded) to answer "When did this change?" during troubleshooting.
+  It logs key transitions such as engine connect/disconnect, engine version/mode changes, DSP health state changes, persisted config loads/saves, and runtime override activation/clear.
+
 ## 0.3.11
 
 - Fix: Header **Update** pill could still show the tooltip "Update available" even when the system was up to date.

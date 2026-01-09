@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.11";
+const UI_BUILD_VERSION = "0.3.12";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -57,7 +57,78 @@ const state = {
     runtimeActiveMode: "",
     lastUpdatedAt: "",
   },
+
+  // -----------------------------------------------------------------------
+  // Recent Runtime Events (UI v0.3.12)
+  // -----------------------------------------------------------------------
+  // Purpose:
+  // Operators commonly ask: "When did this change?" (especially when the
+  // watchdog promotes runtime mode or the engine restarts).
+  //
+  // This is a small, UI-only, in-memory event list that records key state
+  // transitions *since the current page load*.
+  //
+  // IMPORTANT SAFETY/CONTINUITY RULES:
+  // - Read-only (does not change runtime state)
+  // - In-memory only (does not write to disk)
+  // - Bounded size (prevents unbounded growth)
+  // - Best-effort: we only log what we can observe from existing endpoints.
+  runtimeEvents: {
+    max: 20,
+    items: [], // { t: "HH:MM:SS", msg: string }
+  },
 };
+
+// Keep prior observed values here so we can detect transitions cleanly.
+// (We avoid sprinkling "prevX" properties across unrelated code paths.)
+const _prev = {
+  connected: null,
+  engineVersion: null,
+  engineMode: null,
+  dspHealthState: null,
+  persistedMode: null,
+  runtimeMode: null,
+  runtimeOverrideActive: null,
+};
+
+function _hhmmss(){
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function addRuntimeEvent(msg){
+  try{
+    if(!msg) return;
+    const ev = state.runtimeEvents;
+    if(!ev) return;
+
+    // Avoid noisy duplicates: if the last message matches, don't add another.
+    const last = ev.items.length ? ev.items[ev.items.length - 1] : null;
+    if(last && last.msg === msg) return;
+
+    ev.items.push({ t: _hhmmss(), msg: String(msg) });
+    // Keep a strict bound.
+    while(ev.items.length > ev.max) ev.items.shift();
+
+    renderRuntimeEvents();
+  }catch(_){
+    // Never let UI-only diagnostics break the operator UI.
+  }
+}
+
+function renderRuntimeEvents(){
+  const el = document.querySelector("#runtimeEvents");
+  if(!el) return;
+  const items = state.runtimeEvents?.items || [];
+  if(!items.length){
+    el.textContent = "—";
+    return;
+  }
+  el.textContent = items.map(e => `${e.t} – ${e.msg}`).join("\n");
+}
 
 // Engineering page config form state.
 //
@@ -427,6 +498,7 @@ async function postSpeakerMuteIntent(mute){
 async function fetchDSPHealth(){
   try{
     const j = await getJSON("/api/dsp/health");
+    const prevState = _prev.dspHealthState;
     state.dspHealth = {
       state: j.state || "UNKNOWN",
       lastOk: j.lastOk || "",
@@ -436,11 +508,32 @@ async function fetchDSPHealth(){
       lastPollAt: j.lastPollAt || "",
       connected: !!j.connected
     };
+
+    // Runtime event logging (UI v0.3.12): DSP health transitions.
+    // We log only when the top-level state changes to avoid noise.
+    const curState = String(state.dspHealth.state || "UNKNOWN").toUpperCase();
+    if(prevState === null){
+      _prev.dspHealthState = curState;
+      addRuntimeEvent(`DSP health: ${curState}`);
+    }else if(prevState !== curState){
+      addRuntimeEvent(`DSP health changed: ${prevState} → ${curState}`);
+      _prev.dspHealthState = curState;
+    }
     renderDSPHealth();
     setPills();
   }catch(e){
     // Health endpoint should be reliable; if not, show unknown.
     state.dspHealth = { state:"UNKNOWN", connected:false, lastOk:"", lastPollAt:"", failures:0, lastError:String(e), lastTestAt:"" };
+
+    // If the health endpoint fails, log once (or when it changes).
+    const curState = "UNKNOWN";
+    if(_prev.dspHealthState === null){
+      _prev.dspHealthState = curState;
+      addRuntimeEvent("DSP health: UNKNOWN (health endpoint error)");
+    }else if(_prev.dspHealthState !== curState){
+      addRuntimeEvent(`DSP health changed: ${_prev.dspHealthState} → UNKNOWN (health endpoint error)`);
+      _prev.dspHealthState = curState;
+    }
     renderDSPHealth();
     setPills();
   }
@@ -484,8 +577,29 @@ function renderDSPHealth(){
 }
 
 function applyStudioStatus(j){
-  state.version = j.version || "—";
-  state.mode = j.mode || "—";
+  const newVer = j.version || "—";
+  const newMode = j.mode || "—";
+
+  // Runtime event logging (UI v0.3.12)
+  // Detect when the engine identity (version/mode) changes. This often happens
+  // after a watchdog-driven systemctl restart.
+  if(_prev.engineVersion === null){
+    _prev.engineVersion = newVer;
+    _prev.engineMode = newMode;
+    addRuntimeEvent(`Engine status: v${newVer} (${newMode})`);
+  }else{
+    if(_prev.engineVersion !== newVer){
+      addRuntimeEvent(`Engine version changed: v${_prev.engineVersion} → v${newVer}`);
+      _prev.engineVersion = newVer;
+    }
+    if(_prev.engineMode !== newMode){
+      addRuntimeEvent(`Engine mode changed: ${String(_prev.engineMode)} → ${String(newMode)}`);
+      _prev.engineMode = newMode;
+    }
+  }
+
+  state.version = newVer;
+  state.mode = newMode;
 
   // speaker
   state.speaker.level = clamp01(j?.speaker?.level);
@@ -510,12 +624,26 @@ async function pollLoop(){
     // Remote links can add latency; use the default timeout (a few seconds).
     const j = await fetchJSON("/api/studio/status");
     state.connected = true;
+    if(_prev.connected === null){
+      _prev.connected = true;
+      addRuntimeEvent("Connected to engine");
+    }else if(_prev.connected !== true){
+      _prev.connected = true;
+      addRuntimeEvent("Reconnected to engine");
+    }
     state.lastOkAt = Date.now();
     applyStudioStatus(j);
   }catch(e){
     // consider disconnected if we haven't had a good poll in > 2s
     if(Date.now() - state.lastOkAt > 2000){
       state.connected = false;
+      if(_prev.connected === null){
+        _prev.connected = false;
+        addRuntimeEvent("Disconnected from engine");
+      }else if(_prev.connected !== false){
+        _prev.connected = false;
+        addRuntimeEvent("Disconnected from engine");
+      }
     }
   }finally{
     setConn(state.connected);
@@ -963,6 +1091,17 @@ $("#btnDspTest").addEventListener("click", async ()=>{
 
         // Persisted-vs-runtime clarity (UI v0.3.07): record persisted mode.
         state.cfgClarity.persistedMode = String(resp.config.mode || "mock");
+
+        // Runtime event logging (UI v0.3.12): persisted config changes.
+        // This records what the operator intends (applies on restart).
+        const pm = String(state.cfgClarity.persistedMode || "").toLowerCase();
+        if(_prev.persistedMode === null){
+          _prev.persistedMode = pm;
+          if(pm) addRuntimeEvent(`Persisted config: ${pm.toUpperCase()} (loaded from disk)`);
+        }else if(_prev.persistedMode !== pm){
+          addRuntimeEvent(`Persisted mode changed: ${String(_prev.persistedMode||"—").toUpperCase()} → ${pm.toUpperCase()} (loaded from disk)`);
+          _prev.persistedMode = pm;
+        }
         renderConfigClarity();
       }
       const path = resp.path || "~/.StudioB-UI/config.v1";
@@ -1025,6 +1164,17 @@ if(resp && resp.restart_required){
 // Record it immediately so the side-by-side line updates without waiting for
 // another "Load" click.
 state.cfgClarity.persistedMode = String(body.mode || "");
+
+// Runtime event logging (UI v0.3.12): persisted config changes.
+// Saving updates the on-disk intent (takes full effect after restart).
+const pm = String(state.cfgClarity.persistedMode || "").toLowerCase();
+if(_prev.persistedMode === null){
+  _prev.persistedMode = pm;
+  if(pm) addRuntimeEvent(`Persisted config: ${pm.toUpperCase()} (saved)`);
+}else if(_prev.persistedMode !== pm){
+  addRuntimeEvent(`Persisted mode changed: ${String(_prev.persistedMode||"—").toUpperCase()} → ${pm.toUpperCase()} (saved)`);
+  _prev.persistedMode = pm;
+}
 renderConfigClarity();
 
 // Refresh /api/config view (and mode pill) immediately.
@@ -1620,9 +1770,38 @@ async function fetchDSPModeStatus(){
     // Persisted-vs-runtime clarity wiring (UI v0.3.07)
     // Runtime mode is derived from the engine's DSPModeStatus.
     // Persisted mode comes from the config file reader (admin endpoint).
-    state.cfgClarity.runtimeMode = (m && m.mode) ? String(m.mode) : "";
-    state.cfgClarity.runtimeActiveMode = (m && m.activeMode) ? String(m.activeMode) : "";
+    const newRuntimeMode = (m && m.mode) ? String(m.mode) : "";
+    const newActiveMode = (m && m.activeMode) ? String(m.activeMode) : "";
+
+    state.cfgClarity.runtimeMode = newRuntimeMode;
+    state.cfgClarity.runtimeActiveMode = newActiveMode;
     state.cfgClarity.lastUpdatedAt = new Date().toISOString();
+
+    // Runtime event logging (UI v0.3.12)
+    // Record runtime mode transitions and whether an override is active.
+    const rt = String(newRuntimeMode || "").toLowerCase();
+    const pm = String(state.cfgClarity.persistedMode || "").toLowerCase();
+    const overrideActive = !!(pm && rt && pm !== rt);
+
+    if(_prev.runtimeMode === null){
+      _prev.runtimeMode = rt || "";
+      _prev.runtimeOverrideActive = overrideActive;
+      if(rt) addRuntimeEvent(`Runtime mode: ${rt.toUpperCase()}`);
+      if(overrideActive) addRuntimeEvent(`Runtime override active: persisted ${pm.toUpperCase()} → runtime ${rt.toUpperCase()}`);
+    }else{
+      if(_prev.runtimeMode !== rt){
+        addRuntimeEvent(`Runtime mode changed: ${String(_prev.runtimeMode||"—").toUpperCase()} → ${String(rt||"—").toUpperCase()}`);
+        _prev.runtimeMode = rt;
+      }
+      if(_prev.runtimeOverrideActive !== overrideActive){
+        if(overrideActive){
+          addRuntimeEvent(`Runtime override active: persisted ${pm.toUpperCase()} → runtime ${rt.toUpperCase()}`);
+        }else{
+          addRuntimeEvent("Runtime override cleared (persisted matches runtime)");
+        }
+        _prev.runtimeOverrideActive = overrideActive;
+      }
+    }
     renderConfigClarity();
     const banner = $("#dspTransitionBanner");
     renderWatchdogDSP();
@@ -1671,6 +1850,9 @@ async function fetchDSPModeStatus(){
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{
+  // Runtime event timeline (v0.3.12)
+  addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
+
   fetchDSPModeStatus();
   setInterval(fetchDSPModeStatus, 5000);
 

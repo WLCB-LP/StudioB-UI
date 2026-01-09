@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.2.96" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.12" />
 </head>
 <body>
   <header class="topbar">
@@ -295,6 +295,24 @@
         </div>
 
         <div class="card">
+          <h2>Recent Runtime Events</h2>
+          <!--
+            UI-only runtime timeline (v0.3.12)
+
+            This records observed state transitions since page load.
+            It is intentionally:
+              - read-only
+              - in-memory only
+              - bounded (last ~20 items)
+
+            Purpose: give operators temporal context during troubleshooting
+            (watchdog restarts, runtime overrides, connectivity changes, etc.).
+          -->
+          <div class="small muted">Since page load (UI-only). Helps explain restarts/overrides.</div>
+          <pre id="runtimeEvents" class="pre">—</pre>
+        </div>
+
+        <div class="card">
           <h2>Debug Snapshot</h2>
           <pre id="stateDump" class="pre">Loading…</pre>
         </div>
@@ -303,6 +321,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.2.96"></script>
+  <script src="/app.js?v=0.3.12"></script>
 </body>
 </html>
