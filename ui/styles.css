@@ -309,7 +309,7 @@ main{padding:18px}
 .woTxt{font-weight:900; letter-spacing:.3px}
 
 /* =====================================================================
-   Neon Mixer Skin (UI v0.3.15)
+   Neon Mixer Skin (UI v0.3.16)
 
    Goal:
    - Match the "dark blue neon" mock aesthetic WITHOUT changing behavior.
@@ -322,6 +322,15 @@ main{padding:18px}
    ===================================================================== */
 
 .mixerCard{
+  /* v0.3.16: Shared sizing tokens for the mixer skin.
+     Keeping these here makes it easy to re-balance proportions later
+     without hunting for hard-coded widths. */
+  --mixerFaderW: 110px;
+  --mixerMuteH: 44px;
+  --neonBlue: rgba(70,160,255,1);
+  --neonGreen: rgba(55,214,122,1);
+  --neonRed: rgba(255,64,96,1);
+
   /* A slightly richer card background than the default --card. */
   background:
     radial-gradient(1200px 420px at 25% 10%, rgba(60,160,255,.18), rgba(0,0,0,0) 55%),
@@ -380,6 +389,12 @@ main{padding:18px}
 
 /* Strip title bar feels like a lit nameplate */
 .mixerCard .strip__title{
+  /* v0.3.16: Make the nameplate ONLY as wide as the fader lane
+     (hardware-like: label + meter + fader feel like one vertical strip). */
+  width: var(--mixerFaderW);
+  margin-left: auto;
+  margin-right: auto;
+
   background:
     linear-gradient(180deg, rgba(90,185,255,.16), rgba(255,255,255,.02));
   border-color: rgba(90,185,255,.22);
@@ -412,8 +427,8 @@ main{padding:18px}
 /* Meter: make it brighter + more "LED" without being distracting */
 .mixerCard .fader__meter{
   width: 22px;
-  opacity: .55;
-  filter: saturate(1.15) contrast(1.05);
+  opacity: .70;
+  filter: saturate(1.28) contrast(1.10);
   background:
     linear-gradient(to top,
       rgba(20,140,255,.35),
@@ -437,14 +452,25 @@ main{padding:18px}
   color: rgba(190,235,255,.62);
 }
 
+/* v0.3.16: reference marks (0 and -12) slightly brighter
+   so operators can "anchor" quickly at a glance. */
+.mixerCard .fader__mark--zero span,
+.mixerCard .fader__mark--ref span{
+  color: rgba(220,250,255,.86);
+}
+.mixerCard .fader__mark--zero .fader__markLine,
+.mixerCard .fader__mark--ref .fader__markLine{
+  border-top-color: rgba(190,245,255,.44);
+}
+
 /* Fader puck: blue-tinted glass with a crisp highlight edge */
 .mixerCard .fader__puck{
-  background: rgba(120,205,255,.16);
-  border-color: rgba(170,235,255,.30);
+  background: rgba(140,220,255,.20);
+  border-color: rgba(190,245,255,.34);
   box-shadow:
     0 12px 26px rgba(0,0,0,.40),
     0 0 16px rgba(70,160,255,.14),
-    inset 0 1px 0 rgba(255,255,255,.30),
+    inset 0 1px 0 rgba(255,255,255,.36),
     inset 0 -1px 0 rgba(0,0,0,.32);
 }
 .mixerCard .fader__puck::after{
@@ -452,16 +478,73 @@ main{padding:18px}
     inset 0 0 0 1px rgba(170,235,255,.14);
 }
 
-/* MUTE button stays red (operator intent), but with a subtle blue frame so it
-   still "belongs" inside the neon mixer skin. */
-.mixerCard .woBtn--mute{
-  box-shadow: 0 0 0 1px rgba(90,185,255,.10), 0 0 18px rgba(70,160,255,.06);
-}
-.mixerCard .woBtn--mute.on{
+/* v0.3.16: tactile grab feedback (touch-first)
+   - When dragging, give the lane and puck a stronger neon presence.
+   - Use a class on the lane so no inline styles are needed. */
+.mixerCard .fader__lane.isDragging{
   box-shadow:
-    0 0 0 1px rgba(90,185,255,.14),
-    0 0 22px rgba(255,90,122,.12),
-    0 0 18px rgba(70,160,255,.08);
+    inset 0 10px 22px rgba(0,0,0,.44),
+    0 0 18px rgba(70,160,255,.18),
+    0 0 34px rgba(70,160,255,.10);
+  border-color: rgba(160,230,255,.34);
+}
+.mixerCard .fader__lane.isDragging .fader__puck{
+  background: rgba(160,230,255,.22);
+  border-color: rgba(205,250,255,.44);
+  box-shadow:
+    0 14px 30px rgba(0,0,0,.44),
+    0 0 18px rgba(70,160,255,.22),
+    0 0 34px rgba(70,160,255,.12),
+    inset 0 1px 0 rgba(255,255,255,.34),
+    inset 0 -1px 0 rgba(0,0,0,.32);
+}
+.mixerCard .fader__puck:focus-visible{
+  outline: none;
+  box-shadow:
+    0 14px 30px rgba(0,0,0,.44),
+    0 0 0 2px rgba(160,230,255,.30),
+    0 0 22px rgba(70,160,255,.18),
+    inset 0 1px 0 rgba(255,255,255,.34),
+    inset 0 -1px 0 rgba(0,0,0,.32);
+}
+
+/* MUTE button (operator intent)
+
+   v0.3.16 UX change (per operator request):
+   - Button is ONLY as wide as the fader lane
+   - No text, no lamp (pure, unmistakable color)
+   - Neon green when LIVE (not muted)
+   - Neon red when MUTED
+
+   NOTE: The JS toggle logic uses the "on" class to represent MUTE intent
+   (on = muted). */
+.mixerCard .woBtn--mute{
+  width: var(--mixerFaderW);
+  max-width: var(--mixerFaderW);
+  height: var(--mixerMuteH);
+  padding: 0;
+  gap: 0;
+
+  /* Live / not-muted look */
+  background: rgba(55,214,122,.08);
+  border-color: rgba(55,214,122,.40);
+  box-shadow:
+    0 0 0 1px rgba(55,214,122,.18),
+    0 0 16px rgba(55,214,122,.18),
+    0 0 28px rgba(55,214,122,.08),
+    inset 0 1px 0 rgba(255,255,255,.12),
+    inset 0 -1px 0 rgba(0,0,0,.35);
+}
+
+.mixerCard .woBtn--mute.on{
+  background: rgba(255,64,96,.10);
+  border-color: rgba(255,64,96,.55);
+  box-shadow:
+    0 0 0 1px rgba(255,64,96,.22),
+    0 0 18px rgba(255,64,96,.22),
+    0 0 32px rgba(255,64,96,.10),
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 -1px 0 rgba(0,0,0,.40);
 }
 
 

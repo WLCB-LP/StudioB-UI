@@ -1,3 +1,13 @@
+## 0.3.16
+
+- UI: Mixer **tactile polish** pass (Studio page):
+  - Fader lanes now show stronger **grab feedback** while dragging (lane + puck glow).
+  - Fader puck glass is slightly more present (clearer highlight/edge).
+  - VU reference marks **0** and **-12** are slightly brighter for faster at-a-glance anchoring.
+  - Mic MUTE buttons are now **fader-width**, **no text/LED**, and use unmistakable neon state:
+    - **Neon green** = live (not muted)
+    - **Neon red** = muted
+
 ## 0.3.15
 
 - UI: Studio mixer reskinned with a **dark blue neon** look (scoped to the mixer card only) to match the latest "high-tech" mockups — **no behavior changes**.
