@@ -421,7 +421,10 @@ main{padding:18px}
   border: 1px solid rgba(90,185,255,.22);
   box-shadow:
     inset 0 10px 22px rgba(0,0,0,.40),
-    0 0 18px rgba(70,160,255,.10);
+    /* v0.3.17: Make the idle fader lane glow a little more pronounced.
+       (Operators asked for more "presence" around the fader.) */
+    0 0 26px rgba(70,160,255,.16),
+    0 0 46px rgba(70,160,255,.06);
 }
 
 /* Meter: make it brighter + more "LED" without being distracting */
@@ -484,8 +487,11 @@ main{padding:18px}
 .mixerCard .fader__lane.isDragging{
   box-shadow:
     inset 0 10px 22px rgba(0,0,0,.44),
-    0 0 18px rgba(70,160,255,.18),
-    0 0 34px rgba(70,160,255,.10);
+    /* v0.3.17: Stronger touch feedback while dragging
+       (a "halo" that reads on touchscreens at a glance). */
+    0 0 34px rgba(70,160,255,.30),
+    0 0 62px rgba(70,160,255,.18),
+    0 0 92px rgba(70,160,255,.08);
   border-color: rgba(160,230,255,.34);
 }
 .mixerCard .fader__lane.isDragging .fader__puck{
@@ -525,26 +531,43 @@ main{padding:18px}
   padding: 0;
   gap: 0;
 
-  /* Live / not-muted look */
-  background: rgba(55,214,122,.08);
-  border-color: rgba(55,214,122,.40);
+  /* Live / not-muted look:
+     - Dim neon fill
+     - Bright neon border
+     (No text/LED; color alone conveys state.) */
+  background: rgba(55,214,122,.14);
+  border-color: rgba(55,214,122,.95);
+  border-width: 2px;
   box-shadow:
     0 0 0 1px rgba(55,214,122,.18),
-    0 0 16px rgba(55,214,122,.18),
-    0 0 28px rgba(55,214,122,.08),
+    0 0 18px rgba(55,214,122,.22),
+    0 0 34px rgba(55,214,122,.10),
     inset 0 1px 0 rgba(255,255,255,.12),
     inset 0 -1px 0 rgba(0,0,0,.35);
 }
 
 .mixerCard .woBtn--mute.on{
-  background: rgba(255,64,96,.10);
-  border-color: rgba(255,64,96,.55);
+  /* Muted look:
+     - Dim neon fill
+     - Bright neon border */
+  background: rgba(255,64,96,.16);
+  border-color: rgba(255,64,96,.95);
   box-shadow:
     0 0 0 1px rgba(255,64,96,.22),
-    0 0 18px rgba(255,64,96,.22),
-    0 0 32px rgba(255,64,96,.10),
+    0 0 22px rgba(255,64,96,.26),
+    0 0 40px rgba(255,64,96,.12),
     inset 0 1px 0 rgba(255,255,255,.10),
     inset 0 -1px 0 rgba(0,0,0,.40);
+}
+
+/* v0.3.17: Remove the generic "toggle ON" badge text for mixer mute buttons.
+   The mixer uses pure color state (green live / red muted) to avoid ambiguity.
+
+   NOTE: Some browsers are picky about `content:none`, so we explicitly
+   hide the pseudo-element as well. */
+.mixerCard .woBtn--mute.btn.toggle.on::after{
+  content:"";
+  display:none;
 }
 
 

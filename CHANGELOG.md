@@ -1,3 +1,12 @@
+## 0.3.17
+
+- UI: Mixer polish (Studio page):
+  - Fader lane glow is **more pronounced** (idle + drag) for stronger "touch me" presence on studio touchscreens.
+  - MUTE buttons: removed the generic toggle "ON" badge text (mixer uses **color-only state**).
+  - MUTE buttons: **dim neon fill + bright neon border** for both states:
+    - Live (not muted) = neon green
+    - Muted = neon red
+
 ## 0.3.16
 
 - UI: Mixer **tactile polish** pass (Studio page):
