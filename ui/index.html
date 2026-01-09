@@ -88,7 +88,15 @@
           - later: bind additional faders (RC 102–110) when ready.
         -->
         <div class="card mixerCard" id="mixerCard">
-          <div class="mixer">
+          <!--
+            v0.3.26: Mixer hydration + persistence
+            - We intentionally HIDE the mixer until JS has:
+                * restored last-known fader positions (localStorage)
+                * positioned the fader pucks (CSS transform)
+              This prevents "flash" positions (e.g. briefly showing 100%)
+              during a hard refresh (Ctrl+Shift+R).
+          -->
+          <div class="mixer isHydrating" id="mixerRoot">
             <div class="strip" data-strip="host">
               <div class="strip__title strip__title--host">Host</div>
               <div class="fader">

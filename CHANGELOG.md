@@ -1,3 +1,8 @@
+## 0.3.26
+
+- Studio mixer: Persist fader positions in the browser (localStorage) so **Ctrl+R/F5** returns to the last operator position (until authoritative gain readback exists).
+- Studio mixer: Hide mixer during hydration so faders never "flash" an incorrect position during hard reloads (Ctrl+Shift+R).
+
 ## 0.3.23
 
 - Fix: rc_allowlist validation/repair now uses POSIX-compatible awk (mawk-safe). This prevents install failures like `awk: syntax error at or near ,` and avoids breaking YAML parsing.

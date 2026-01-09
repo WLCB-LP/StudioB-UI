@@ -102,6 +102,15 @@ main{padding:18px}
   gap:14px;
 }
 
+/*
+  v0.3.26: Hide mixer until JS has restored/positioned faders.
+  We use visibility (not display:none) so the card doesn't collapse and
+  the layout doesn't jump during hydration.
+*/
+.mixer.isHydrating{
+  visibility: hidden;
+}
+
 .strip{
   background: rgba(255,255,255,.02);
   border: 1px solid rgba(255,255,255,.06);

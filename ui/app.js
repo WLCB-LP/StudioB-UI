@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.25";
+const UI_BUILD_VERSION = "0.3.26";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -208,6 +208,57 @@ const MIXER_FADER_RC = {
   // g3: "104",
 };
 
+// ---------------------------------------------------------------------------
+// v0.3.26: Fader persistence (UI-only)
+// ---------------------------------------------------------------------------
+// Operator expectation (per testing feedback): when the browser reloads (F5,
+// Ctrl+R), the faders should come back where the operator last left them.
+//
+// IMPORTANT TRUTHFULNESS NOTE:
+// - This is *UI persistence*, not DSP truth.
+// - Until the engine exposes authoritative gain readback, localStorage is the
+//   least risky way to improve continuity without writing to disk config.
+// - We keep this strictly bounded (one small JSON blob) and best-effort.
+const MIXER_FADER_STORAGE_KEY = "studiobui.mixer.faders.v1";
+
+function loadMixerFadersFromStorage(){
+  try{
+    const raw = localStorage.getItem(MIXER_FADER_STORAGE_KEY);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(!obj || typeof obj !== 'object') return;
+    for(const id of Object.keys(state.mixer.faders || {})){
+      const v = obj[id];
+      if(typeof v === 'number' && Number.isFinite(v)){
+        state.mixer.faders[id] = clamp01(v);
+      }
+    }
+  }catch(_){
+    // Best-effort only; never block the operator UI.
+  }
+}
+
+function saveMixerFadersToStorage(){
+  try{
+    const payload = {};
+    for(const id of Object.keys(state.mixer.faders || {})){
+      const v = state.mixer.faders[id];
+      if(typeof v === 'number' && Number.isFinite(v)) payload[id] = clamp01(v);
+    }
+    localStorage.setItem(MIXER_FADER_STORAGE_KEY, JSON.stringify(payload));
+  }catch(_){
+    // Best-effort only.
+  }
+}
+
+function showMixerWhenReady(){
+  // v0.3.26: We start the mixer hidden to avoid "flash" positions during a
+  // hard refresh (Ctrl+Shift+R) before JS has applied the transform-based puck
+  // positioning.
+  const root = document.querySelector('#mixerRoot');
+  if(root) root.classList.remove('isHydrating');
+}
+
 // NOTE: A global clamp01() already exists later in this file.
 // We intentionally re-use that helper so we don't end up with subtly
 // different clamping semantics in different parts of the UI.
@@ -242,6 +293,9 @@ function initMixerFaders(){
   for(const id of Object.keys(state.mixer.faders || {})){
     setFaderUI(id, state.mixer.faders[id]);
   }
+
+  // Now that pucks are positioned, reveal the mixer.
+  showMixerWhenReady();
 
   // Bind pointer handlers.
   document.querySelectorAll('.fader__lane').forEach(lane => {
@@ -352,12 +406,20 @@ function initMixerFaders(){
       }catch(_){ }
       const finalVal = state.mixer.faders[id];
       maybePostGain(finalVal, { force: true });
+
+      // v0.3.26: Persist the operator's last-known fader position so a
+      // browser reload returns to where they left it (until DSP truth
+      // readback exists).
+      saveMixerFadersToStorage();
     });
 
     lane.addEventListener('pointercancel', (e) => {
       if(!lane.hasPointerCapture(e.pointerId)) return;
       try{ lane.releasePointerCapture(e.pointerId); }catch(_){ }
       lane.classList.remove('isDragging');
+
+      // Best-effort persistence even on cancel.
+      saveMixerFadersToStorage();
     });
   });
 
@@ -2092,6 +2154,11 @@ async function fetchDSPModeStatus(){
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
+
+  // v0.3.26: Restore last-known mixer fader positions before we initialize
+  // their DOM transforms. This prevents "reset to defaults" on reload and
+  // aligns with operator expectation.
+  loadMixerFadersFromStorage();
 
   // Mixer fader visuals (v0.3.13)
   // Safe to call even if the Studio page is not visible yet.
