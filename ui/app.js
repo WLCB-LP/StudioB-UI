@@ -170,6 +170,40 @@ function renderRuntimeEvents(){
 // - We store a normalized 0..1 value in state.mixer.faders[<id>]
 // - 0 means bottom (off), 1 means top (full)
 
+// ---------------------------------------------------------------------------
+// Mixer gain (fader) RC assignments
+// ---------------------------------------------------------------------------
+// We are phasing in "real" gain control carefully.
+//
+// IMPORTANT SAFETY CONTRACT (operator intent only):
+// - Mute buttons remain direct operator intent.
+// - Fader gains are being enabled ONE channel at a time so we can validate:
+//     * touchscreen ergonomics
+//     * RC semantics/range
+//     * WAN/latency behavior
+//     * DSP safety guards
+//
+// Studio B fader assignments (provided by operator):
+//   Host Mic   -> RC 101
+//   Guest 1    -> RC 102
+//   Guest 2    -> RC 103
+//   Guest 3    -> RC 104
+//   CD1        -> RC 105
+//   CD2        -> RC 106
+//   AUX        -> RC 107
+//   Bluetooth  -> RC 108
+//   PC         -> RC 109
+//   Zoom       -> RC 110
+//
+// v0.3.19 scope:
+//   Only Host Mic gain is LIVE (RC 101). All others remain visual-only.
+const MIXER_FADER_RC = {
+  host: "101",
+  // g1: "102",
+  // g2: "103",
+  // g3: "104",
+};
+
 // NOTE: A global clamp01() already exists later in this file.
 // We intentionally re-use that helper so we don't end up with subtly
 // different clamping semantics in different parts of the UI.
@@ -210,6 +244,65 @@ function initMixerFaders(){
     const id = lane.getAttribute('data-fader');
     if(!id) return;
 
+    // If this fader has an RC mapping, it is "LIVE" (writes gain).
+    // Otherwise it remains visual-only.
+    const rc = MIXER_FADER_RC[id] || null;
+
+    // Rate limit writes so we don't flood the engine/RC system during
+    // a fast finger drag. We also only post when the value meaningfully
+    // changes (avoid micro-jitter).
+    let lastSentAt = 0;
+    let lastSentVal = null;
+    let pendingVal = null;
+    let sendRAF = 0;
+    let dragHadError = false;
+
+    const POST_MIN_MS = 60;      // ~16 posts/sec max (safe for WAN)
+    const EPS = 0.005;          // ignore tiny changes
+
+    async function maybePostGain(v, opts={}){
+      if(!rc) return; // visual-only channel
+
+      const val = clamp01(v);
+      const now = Date.now();
+
+      // If this is a "commit" send (pointerup), always post.
+      const force = !!opts.force;
+
+      if(!force){
+        if(lastSentVal !== null && Math.abs(val - lastSentVal) < EPS) return;
+        if((now - lastSentAt) < POST_MIN_MS) return;
+      }
+
+      lastSentAt = now;
+      lastSentVal = val;
+      try{
+        await postRC(rc, val);
+        if(force){
+          addRuntimeEvent(`Host fader gain set: ${val.toFixed(2)} (RC ${rc})`);
+        }
+      }catch(e){
+        // Don't spam errors during a drag; report once per drag session.
+        if(!dragHadError){
+          dragHadError = true;
+          addRuntimeEvent(`Host fader write failed (RC ${rc}): ${String(e?.message||e)}`);
+        }
+      }
+    }
+
+    function schedulePost(v){
+      // We intentionally schedule to the next animation frame. This keeps the
+      // UI responsive while still delivering frequent enough updates.
+      pendingVal = clamp01(v);
+      if(sendRAF) cancelAnimationFrame(sendRAF);
+      sendRAF = requestAnimationFrame(async ()=>{
+        const pv = pendingVal;
+        pendingVal = null;
+        sendRAF = 0;
+        await maybePostGain(pv);
+      });
+    }
+
     const computeValFromClientY = (clientY) => {
       const r = lane.getBoundingClientRect();
       const y = clientY - r.top; // 0 at top
@@ -224,13 +317,21 @@ function initMixerFaders(){
       lane.setPointerCapture(e.pointerId);
       // v0.3.16: tactile feedback while dragging
       lane.classList.add('isDragging');
-      setFaderUI(id, computeValFromClientY(e.clientY));
+      dragHadError = false;
+      const v = computeValFromClientY(e.clientY);
+      setFaderUI(id, v);
+
+      // First-touch write (if LIVE). We do a scheduled write rather than a
+      // synchronous one to avoid input latency.
+      schedulePost(v);
     });
 
     lane.addEventListener('pointermove', (e) => {
       if(!lane.hasPointerCapture(e.pointerId)) return;
       e.preventDefault();
-      setFaderUI(id, computeValFromClientY(e.clientY));
+      const v = computeValFromClientY(e.clientY);
+      setFaderUI(id, v);
+      schedulePost(v);
     });
 
     lane.addEventListener('pointerup', (e) => {
@@ -238,7 +339,15 @@ function initMixerFaders(){
       e.preventDefault();
       try{ lane.releasePointerCapture(e.pointerId); }catch(_){ }
       lane.classList.remove('isDragging');
-      // Visual-only. When we wire gains, this is where we'd commit.
+
+      // Commit final value on pointer up (if LIVE).
+      // We intentionally force this post even if the last move was recent so
+      // the engine is guaranteed to end up with the last operator position.
+      try{
+        if(sendRAF){ cancelAnimationFrame(sendRAF); sendRAF = 0; }
+      }catch(_){ }
+      const finalVal = state.mixer.faders[id];
+      maybePostGain(finalVal, { force: true });
     });
 
     lane.addEventListener('pointercancel', (e) => {

@@ -1,3 +1,11 @@
+## 0.3.19
+
+- UI: Begin phased "real" fader binding (Studio page):
+  - **Host Mic fader is now LIVE** and writes gain to **RC 101**.
+  - Rate-limited posts during drag + **forced commit on release** (safe on WAN).
+  - DSP safety guard remains enforced (writes blocked if DSP is DISCONNECTED).
+  - Guests remain visual-only for now (future: RC 102–104).
+
 ## 0.3.18
 
 - UI: Mixer visual refinement (Studio page):
