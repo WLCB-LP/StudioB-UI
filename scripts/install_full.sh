@@ -744,12 +744,82 @@ install_watchdog() {
 
 health_check() {
   log "Running health checks…"
-  systemctl is-active --quiet stub-engine
-  if systemctl is-enabled --quiet stub-ui-watchdog 2>/dev/null; then
-    systemctl is-active --quiet stub-ui-watchdog
+
+  ###########################################################################
+  # Health checks must be tolerant of slow boots.
+  #
+  # In the field, systemd can report a service as "activating" for a short
+  # window after a restart, and nginx reloads can briefly lag behind.
+  #
+  # Previous versions performed one-shot checks which could fail spuriously
+  # (exit=3 from `systemctl is-active`) even though the service would become
+  # healthy moments later.
+  #
+  # We now:
+  #   * wait up to ~10s for stub-engine to become active
+  #   * then wait up to ~10s for both the direct and nginx-proxied /api/health
+  #     endpoints to respond
+  #   * if still failing, dump actionable diagnostics to the install log
+  ###########################################################################
+
+  local i
+
+  # 1) Wait for stub-engine to be active.
+  for i in {1..20}; do
+    if systemctl is-active --quiet stub-engine; then
+      break
+    fi
+    sleep 0.5
+  done
+
+  if ! systemctl is-active --quiet stub-engine; then
+    log "ERROR: stub-engine is not active after restart"
+    systemctl status stub-engine --no-pager -l || true
+    journalctl -u stub-engine -n 200 --no-pager -l || true
+    return 3
   fi
-  curl -fsS http://127.0.0.1:8787/api/health >/dev/null
-  curl -fsS http://127.0.0.1/api/health >/dev/null
+
+  # If watchdog is enabled, ensure it's running.
+  if systemctl is-enabled --quiet stub-ui-watchdog 2>/dev/null; then
+    if ! systemctl is-active --quiet stub-ui-watchdog; then
+      log "ERROR: stub-ui-watchdog is enabled but not active"
+      systemctl status stub-ui-watchdog --no-pager -l || true
+      journalctl -u stub-ui-watchdog -n 200 --no-pager -l || true
+      return 1
+    fi
+  fi
+
+  # 2) Wait for /api/health to respond directly on the engine port.
+  for i in {1..20}; do
+    if curl -fsS --max-time 2 http://127.0.0.1:8787/api/health >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+
+  if ! curl -fsS --max-time 2 http://127.0.0.1:8787/api/health >/dev/null; then
+    log "ERROR: direct engine health endpoint did not respond: http://127.0.0.1:8787/api/health"
+    systemctl status stub-engine --no-pager -l || true
+    journalctl -u stub-engine -n 200 --no-pager -l || true
+    return 1
+  fi
+
+  # 3) Wait for nginx proxy health.
+  for i in {1..20}; do
+    if curl -fsS --max-time 2 http://127.0.0.1/api/health >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+
+  if ! curl -fsS --max-time 2 http://127.0.0.1/api/health >/dev/null; then
+    log "ERROR: nginx proxy health endpoint did not respond: http://127.0.0.1/api/health"
+    nginx -t || true
+    systemctl status nginx --no-pager -l || true
+    journalctl -u nginx -n 200 --no-pager -l || true
+    return 1
+  fi
+
   log "OK: engine responds and nginx proxy is healthy"
 }
 

@@ -1,3 +1,10 @@
+## 0.3.21
+
+- Installer: make health checks **tolerant of slow restarts** (avoids false failures where systemd is briefly "activating").
+  - Waits (with retries) for `stub-engine` to become active.
+  - Retries direct + nginx-proxied `/api/health` checks.
+  - On failure, dumps actionable diagnostics (`systemctl status` + `journalctl`) into the install log.
+
 ## 0.3.20
 
 - Installer/update: **self-repair rc_allowlist** to include fader RCs **101–110** (Host/Guests + sources) so gain writes are not blocked by the engine allowlist.
