@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.12
+# STUB Mixer UI (Studio B) — Release 0.3.13
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.13: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **RC-backed MUTE buttons** (operator intent only; faders are visual-only for now).
 - v0.3.12: Engineering now includes a **Recent Runtime Events** UI-only timeline to provide "When did this change?" context (engine connect/disconnect, engine version/mode changes, DSP health transitions, persisted config loads/saves, and runtime override changes).
 
 - v0.3.11: Fix: Header **Update** pill tooltip could still claim "Update available" when the system was up to date. The pill is now always visible as a shortcut to Engineering, and its tooltip/styling are driven only by normalized UI version comparisons (ignoring older engine booleans).

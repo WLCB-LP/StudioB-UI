@@ -82,6 +82,136 @@ main{padding:18px}
   align-items:start;
 }
 
+/*
+  Mixer card spans both columns (UI v0.3.13)
+  We keep this as a simple grid override so we don't have to refactor
+  the existing Studio page layout.
+*/
+.mixerCard{grid-column: 1 / -1; padding:14px}
+
+/*
+  Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.
+
+  DESIGN CONTRACT:
+  - Operator intent only: one button per mic channel (MUTE)
+  - Faders are VISUAL-ONLY in v0.3.13 (draggable for feel testing)
+*/
+.mixer{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:14px;
+}
+
+.strip{
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+
+.strip__title{
+  text-align:center;
+  font-weight:850;
+  letter-spacing:.2px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 10px;
+}
+
+.strip__title--host{
+  background: rgba(70,160,255,.12);
+  border-color: rgba(70,160,255,.22);
+}
+
+.fader{display:flex; justify-content:center; padding: 6px 0 12px 0}
+
+.fader__lane{
+  position: relative;
+  width: 110px;
+  height: 340px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.28);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 10px 20px rgba(0,0,0,.28);
+  touch-action: none; /* critical for pointer dragging on touchscreens */
+}
+
+/* Meter (visual placeholder in v0.3.13)
+   We keep it subtle until we have real per-channel levels. */
+.fader__meter{
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 14px;
+  bottom: 14px;
+  width: 18px;
+  border-radius: 10px;
+  background: linear-gradient(to top, rgba(70,160,255,.25), rgba(55,214,122,.25), rgba(255,176,32,.18));
+  opacity: .35;
+  filter: saturate(.9);
+}
+
+.fader__puck{
+  position:absolute;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 64px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(235,240,248,.92);
+  border: 1px solid rgba(0,0,0,.35);
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.35),
+    inset 0 0 0 1px rgba(255,255,255,.35);
+}
+
+.strip__actions{display:flex; justify-content:center; padding-top: 6px}
+
+/* WideOrbit-style button (large, unmistakable) */
+.woBtn{
+  width: 100%;
+  max-width: 170px;
+  height: 54px;
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  font-size: 16px;
+  padding: 0 14px;
+}
+
+.woBtn--mute{
+  background: rgba(255,90,122,.10);
+  border-color: rgba(255,90,122,.30);
+}
+
+.woBtn--mute.on{
+  background: rgba(255,90,122,.28);
+  border-color: rgba(255,90,122,.55);
+}
+
+.woLamp{
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.18);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+
+.woBtn--mute.on .woLamp{
+  background: rgba(255,90,122,.95);
+  box-shadow:
+    0 0 10px rgba(255,90,122,.55),
+    inset 0 0 0 1px rgba(0,0,0,.25);
+}
+
+.woTxt{font-weight:900; letter-spacing:.3px}
+
+
 .stack{display:flex; flex-direction:column; gap:18px}
 .metersCol{display:flex; flex-direction:column; gap:18px}
 
@@ -296,6 +426,10 @@ main{padding:18px}
 @media (max-width: 1200px){
   .studioLayout{grid-template-columns:1fr}
   .grid{grid-template-columns:1fr}
+
+  /* Mixer: keep it usable on smaller screens (still touch-first). */
+  .mixer{grid-template-columns: repeat(2, 1fr)}
+  .fader__lane{height: 280px; width: 100px}
 }
 
 

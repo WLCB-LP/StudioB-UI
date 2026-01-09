@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.12";
+const UI_BUILD_VERSION = "0.3.13";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -77,6 +77,31 @@ const state = {
     max: 20,
     items: [], // { t: "HH:MM:SS", msg: string }
   },
+
+  // -----------------------------------------------------------------------
+  // Mixer UI (Studio page) – touch-first fader visuals (UI v0.3.13)
+  // -----------------------------------------------------------------------
+  // DESIGN CONTRACT (operator intent only):
+  // - MUTE buttons are the ONLY operator action for mic channels right now.
+  // - Faders are intentionally VISUAL-ONLY in v0.3.13.
+  //   We still make them draggable so we can iterate on the look/feel and
+  //   touchscreen ergonomics without risking any audio changes.
+  //
+  // When we later wire gains, we will:
+  // - add explicit RC mappings (and comments)
+  // - add safety guards (DSP connected, live vs mock, etc.)
+  // - add snap points (e.g., -inf / 0 dB)
+  mixer: {
+    // 0..1 UI-only normalized positions
+    faders: {
+      host: 0.65,
+      g1: 0.65,
+      g2: 0.65,
+      g3: 0.65,
+    },
+    // one-time init guard
+    inited: false,
+  },
 };
 
 // Keep prior observed values here so we can detect transitions cleanly.
@@ -128,6 +153,104 @@ function renderRuntimeEvents(){
     return;
   }
   el.textContent = items.map(e => `${e.t} – ${e.msg}`).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Mixer fader visuals (UI v0.3.13)
+// ---------------------------------------------------------------------------
+// These faders are intentionally VISUAL-ONLY for now.
+//
+// Touch/Mouse behavior goals:
+// - The entire vertical lane is draggable (not just the small puck).
+// - Pointer capture is used so dragging continues even if the pointer/finger
+//   slips outside the lane.
+// - We do not post RC writes in v0.3.13 (operator safety + phased rollout).
+//
+// Values:
+// - We store a normalized 0..1 value in state.mixer.faders[<id>]
+// - 0 means bottom (off), 1 means top (full)
+
+// NOTE: A global clamp01() already exists later in this file.
+// We intentionally re-use that helper so we don't end up with subtly
+// different clamping semantics in different parts of the UI.
+
+function setFaderUI(id, v){
+  const lane = document.querySelector(`.fader__lane[data-fader="${id}"]`);
+  if(!lane) return;
+  const puck = lane.querySelector('.fader__puck');
+  if(!puck) return;
+
+  const val = clamp01(v);
+  state.mixer.faders[id] = val;
+
+  // Position puck: 0 => bottom, 1 => top
+  // We use CSS translateY to avoid layout thrash.
+  const h = lane.clientHeight;
+  const puckH = puck.clientHeight;
+  const usable = Math.max(1, h - puckH);
+  const y = usable - (usable * val);
+  // Keep X centered while moving in Y.
+  puck.style.transform = `translate(-50%, ${y}px)`;
+  puck.setAttribute('aria-valuenow', val.toFixed(2));
+}
+
+function initMixerFaders(){
+  // Guard so we don't attach multiple listeners (e.g., hot reload, future
+  // refactors, or accidental double-calls).
+  if(state.mixer.inited) return;
+  state.mixer.inited = true;
+
+  // Initialize positions from state.
+  for(const id of Object.keys(state.mixer.faders || {})){
+    setFaderUI(id, state.mixer.faders[id]);
+  }
+
+  // Bind pointer handlers.
+  document.querySelectorAll('.fader__lane').forEach(lane => {
+    const id = lane.getAttribute('data-fader');
+    if(!id) return;
+
+    const computeValFromClientY = (clientY) => {
+      const r = lane.getBoundingClientRect();
+      const y = clientY - r.top; // 0 at top
+      const v = 1 - (y / Math.max(1, r.height));
+      return clamp01(v);
+    };
+
+    lane.addEventListener('pointerdown', (e) => {
+      // Only primary button for mouse; touch has no buttons.
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      lane.setPointerCapture(e.pointerId);
+      setFaderUI(id, computeValFromClientY(e.clientY));
+    });
+
+    lane.addEventListener('pointermove', (e) => {
+      if(!lane.hasPointerCapture(e.pointerId)) return;
+      e.preventDefault();
+      setFaderUI(id, computeValFromClientY(e.clientY));
+    });
+
+    lane.addEventListener('pointerup', (e) => {
+      if(!lane.hasPointerCapture(e.pointerId)) return;
+      e.preventDefault();
+      try{ lane.releasePointerCapture(e.pointerId); }catch(_){ }
+      // Visual-only. When we wire gains, this is where we'd commit.
+    });
+
+    lane.addEventListener('pointercancel', (e) => {
+      if(!lane.hasPointerCapture(e.pointerId)) return;
+      try{ lane.releasePointerCapture(e.pointerId); }catch(_){ }
+    });
+  });
+
+  // If the window resizes (touchscreen orientation changes), recompute
+  // puck positions based on the normalized values.
+  window.addEventListener('resize', () => {
+    for(const id of Object.keys(state.mixer.faders || {})){
+      setFaderUI(id, state.mixer.faders[id]);
+    }
+  });
 }
 
 // Engineering page config form state.
@@ -1852,6 +1975,10 @@ async function fetchDSPModeStatus(){
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
+
+  // Mixer fader visuals (v0.3.13)
+  // Safe to call even if the Studio page is not visible yet.
+  initMixerFaders();
 
   fetchDSPModeStatus();
   setInterval(fetchDSPModeStatus, 5000);

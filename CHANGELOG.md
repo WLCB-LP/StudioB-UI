@@ -1,3 +1,10 @@
+## 0.3.13
+
+- UI: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **WideOrbit-style MUTE buttons**.
+  - **Operator intent only**: mic channels expose **only MUTE** (no automation modes).
+  - Faders are **visual-only** (draggable for look/feel evaluation; no RC writes yet).
+  - MUTE buttons are RC-backed: Host (RC 121), Guest 1 (RC 122), Guest 2 (RC 123), Guest 3 (RC 124).
+
 ## 0.3.12
 
 - UI: Engineering now includes a **Recent Runtime Events** timeline (UI-only, in-memory, bounded) to answer "When did this change?" during troubleshooting.

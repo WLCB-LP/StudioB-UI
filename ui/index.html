@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.12" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.13" />
 </head>
 <body>
   <header class="topbar">
@@ -68,20 +68,88 @@
   <main>
     <section id="page-studio" class="page">
       <div class="studioLayout">
-        <div class="stack">
-          <div class="card">
-            <div class="card__head">
-              <h2>Mics</h2>
-              <div class="hint">Auto-mutes speakers when any mic is live.</div>
+        <!--
+          Mixer (UI v0.3.13)
+
+          DESIGN CONTRACT (operator intent only):
+          - No automation modes (no AUTO, no hidden state)
+          - One authoritative button per mic channel: MUTE
+          - Faders are TOUCH-FIRST visuals for now (no RC writes yet)
+            so we can iterate on look/feel without risking audio.
+
+          Phase plan:
+          - v0.3.13: multitouch-style fader lanes + RC-backed MUTE buttons.
+          - later: bind fader position to RC gain when engine semantics are ready.
+        -->
+        <div class="card mixerCard" id="mixerCard">
+          <div class="mixer">
+            <div class="strip" data-strip="host">
+              <div class="strip__title strip__title--host">Host</div>
+              <div class="fader">
+                <div class="fader__lane" data-fader="host" aria-label="Host fader (visual only)">
+                  <div class="fader__meter"></div>
+                  <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                </div>
+              </div>
+              <div class="strip__actions">
+                <button class="woBtn woBtn--mute btn toggle" data-rc="121" title="Host Mic Mute (RC 121)">
+                  <span class="woLamp"></span>
+                  <span class="woTxt">MUTE</span>
+                </button>
+              </div>
             </div>
-            <div class="controls grid4">
-              <button class="btn toggle" data-rc="STUB_MIC_HOST">Host</button>
-              <button class="btn toggle" data-rc="STUB_MIC_GUEST_1">Guest 1</button>
-              <button class="btn toggle" data-rc="STUB_MIC_GUEST_2">Guest 2</button>
-              <button class="btn toggle" data-rc="STUB_MIC_GUEST_3">Guest 3</button>
+
+            <div class="strip" data-strip="g1">
+              <div class="strip__title">Guest 1</div>
+              <div class="fader">
+                <div class="fader__lane" data-fader="g1" aria-label="Guest 1 fader (visual only)">
+                  <div class="fader__meter"></div>
+                  <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                </div>
+              </div>
+              <div class="strip__actions">
+                <button class="woBtn woBtn--mute btn toggle" data-rc="122" title="Guest Mic 1 Mute (RC 122)">
+                  <span class="woLamp"></span>
+                  <span class="woTxt">MUTE</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="strip" data-strip="g2">
+              <div class="strip__title">Guest 2</div>
+              <div class="fader">
+                <div class="fader__lane" data-fader="g2" aria-label="Guest 2 fader (visual only)">
+                  <div class="fader__meter"></div>
+                  <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                </div>
+              </div>
+              <div class="strip__actions">
+                <button class="woBtn woBtn--mute btn toggle" data-rc="123" title="Guest Mic 2 Mute (RC 123)">
+                  <span class="woLamp"></span>
+                  <span class="woTxt">MUTE</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="strip" data-strip="g3">
+              <div class="strip__title">Guest 3</div>
+              <div class="fader">
+                <div class="fader__lane" data-fader="g3" aria-label="Guest 3 fader (visual only)">
+                  <div class="fader__meter"></div>
+                  <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                </div>
+              </div>
+              <div class="strip__actions">
+                <button class="woBtn woBtn--mute btn toggle" data-rc="124" title="Guest Mic 3 Mute (RC 124)">
+                  <span class="woLamp"></span>
+                  <span class="woTxt">MUTE</span>
+                </button>
+              </div>
             </div>
           </div>
+        </div>
 
+        <div class="stack">
           <div class="card">
             <div class="card__head">
               <h2>Speakers</h2>
@@ -321,6 +389,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.12"></script>
+  <script src="/app.js?v=0.3.13"></script>
 </body>
 </html>
