@@ -400,17 +400,22 @@ validate_and_repair_config() {
     # Extract IDs from the existing rc_allowlist block (if present).
     # We only parse lines that look like YAML list items: "- 123".
     existing_ids="$(
+      # NOTE: Debian's default awk is often "mawk", which does NOT support
+      # the gawk-only 3rd argument to match() (capture arrays). Keep this awk
+      # strictly POSIX-compatible.
       awk '
         BEGIN { in_list=0 }
         /^rc_allowlist:[[:space:]]*$/ { in_list=1; next }
         # End of block: next top-level key (no leading whitespace) like "admin:"
         in_list==1 && $0 ~ /^[^[:space:]][A-Za-z0-9_\-]*:/ { in_list=0 }
         in_list==1 {
-          # Strip comments, then match list item IDs
+          # Strip comments.
           line=$0
           sub(/[[:space:]]*#.*/, "", line)
-          if (match(line, /^[[:space:]]*-[[:space:]]*([0-9]+)/, m)) {
-            print m[1]
+          # Keep only YAML list items: "- 123" (with indentation allowed).
+          sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+          if (line ~ /^[0-9]+$/) {
+            print line
           }
         }
       ' "${CONFIG_FILE}" | sort -n | uniq

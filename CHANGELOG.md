@@ -1,3 +1,8 @@
+## 0.3.23
+
+- Fix: rc_allowlist validation/repair now uses POSIX-compatible awk (mawk-safe). This prevents install failures like `awk: syntax error at or near ,` and avoids breaking YAML parsing.
+- Behavior: repair still only touches the `rc_allowlist` block, only adds missing IDs (101–110), and logs what it changes.
+
 ## 0.3.22
 
 - Installer/update: **repair rc_allowlist safely** by rebuilding the YAML block (prevents config corruption / YAML parse failures).
