@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.19" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.20" />
 </head>
 <body>
   <header class="topbar">
@@ -69,7 +69,7 @@
     <section id="page-studio" class="page">
       <div class="studioLayout">
         <!--
-          Mixer (UI v0.3.19)
+          Mixer (UI v0.3.20)
 
           DESIGN CONTRACT (operator intent only):
           - No automation modes (no AUTO, no hidden state)
@@ -83,6 +83,7 @@
           - v0.3.16: tactile polish (grabby faders, neon MUTE states, clearer reference marks).
           - v0.3.17: polish: stronger fader glow + MUTE uses color-only state (no "ON" text) with dim fill + bright border.
           - v0.3.18: polish: brighter muted neon red border + slightly brighter live green fill (visual-only).
+          - v0.3.20: Installer/update self-repairs rc_allowlist to include fader RCs 101–110.
           - v0.3.19: Host fader now writes gain to RC 101 (phased rollout).
           - later: bind additional faders (RC 102–110) when ready.
         -->
@@ -426,6 +427,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.19"></script>
+  <script src="/app.js?v=0.3.20"></script>
 </body>
 </html>

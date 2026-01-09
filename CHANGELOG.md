@@ -1,3 +1,9 @@
+## 0.3.20
+
+- Installer/update: **self-repair rc_allowlist** to include fader RCs **101–110** (Host/Guests + sources) so gain writes are not blocked by the engine allowlist.
+  - Adds missing entries only (never removes user entries).
+  - Logs each repair for post-mortem debugging.
+
 ## 0.3.19
 
 - UI: Begin phased "real" fader binding (Studio page):

@@ -319,6 +319,18 @@ meters:
   publish_hz: 20
   deadband: 0.01
 rc_allowlist:
+  # Mic faders (gain)
+  - 101
+  - 102
+  - 103
+  - 104
+  # Source faders (gain)
+  - 105
+  - 106
+  - 107
+  - 108
+  - 109
+  - 110
   - 121
   - 122
   - 123
@@ -346,6 +358,79 @@ validate_and_repair_config() {
     log "Config missing admin section; repairing."
     printf "\nadmin:\n  pin: \"CHANGE_ME\"\n" >> "${CONFIG_FILE}"
   fi
+
+  ###########################################################################
+  # RC allowlist self-repair
+  #
+  # The StudioB engine intentionally blocks writes to RC endpoints unless the
+  # RC ID is listed in rc_allowlist (defense-in-depth). As we expand the mixer
+  # UI, we want updates to be "drop-in" without manual config edits.
+  #
+  # v0.3.20 enables the Host Mic gain fader (RC 101) and establishes the full
+  # fader assignment range (RC 101–110). If these aren't allowlisted, the UI
+  # will correctly report: "rc <id> not allowlisted" and DSP writes will never
+  # occur.
+  #
+  # This block self-repairs rc_allowlist by ensuring RC 101–110 are present.
+  # It is intentionally conservative:
+  #   * Only adds missing IDs
+  #   * Never removes user entries
+  #   * Logs each change for post-mortem debugging
+  ###########################################################################
+
+  ensure_rc_allowlist_entry() {
+    local id tmp
+    id="$1"
+
+    # Fast path: already present.
+    if grep -Eq "^[[:space:]]*-[[:space:]]*${id}([[:space:]]*#.*)?$" "${CONFIG_FILE}"; then
+      return 0
+    fi
+
+    # If rc_allowlist is missing entirely, append a fresh section.
+    if ! grep -q '^rc_allowlist:' "${CONFIG_FILE}"; then
+      log "Config missing rc_allowlist; adding section."
+      printf "\nrc_allowlist:\n" >> "${CONFIG_FILE}"
+    fi
+
+    log "Repair: adding rc_allowlist entry ${id}"
+
+    # Insert the new entry at the end of the rc_allowlist block.
+    # We detect the end of the block by the next top-level YAML key (no leading
+    # whitespace and ending with ':'). If the allowlist is the last block in
+    # the file, we append at EOF.
+    tmp="${CONFIG_FILE}.tmp.$$"
+    awk -v new_line="  - ${id}" '
+      BEGIN { in_list=0; inserted=0 }
+      {
+        # If we are inside rc_allowlist and we hit the next top-level key,
+        # insert before it.
+        if (in_list==1 && inserted==0 && $0 ~ /^[^[:space:]][A-Za-z0-9_\-]*:/) {
+          print new_line
+          inserted=1
+          in_list=0
+        }
+
+        print $0
+
+        if ($0 ~ /^rc_allowlist:/) {
+          in_list=1
+        }
+      }
+      END {
+        if (in_list==1 && inserted==0) {
+          print new_line
+        }
+      }
+    ' "${CONFIG_FILE}" > "${tmp}"
+    mv -f "${tmp}" "${CONFIG_FILE}"
+  }
+
+  # Ensure the full fader assignment range is allowlisted.
+  # Host Mic: 101, Guest1–3: 102–104, Sources: 105–110.
+  for _id in 101 102 103 104 105 106 107 108 109 110; do
+    ensure_rc_allowlist_entry "${_id}"
+  done
   if grep -q 'pin: "CHANGE_ME"' "${CONFIG_FILE}"; then
     log "WARNING: admin.pin is CHANGE_ME. Set it before exposing Engineering page."
   fi

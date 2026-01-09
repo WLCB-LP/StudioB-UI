@@ -195,7 +195,11 @@ function renderRuntimeEvents(){
 //   PC         -> RC 109
 //   Zoom       -> RC 110
 //
-// v0.3.19 scope:
+// v0.3.20 scope:
+// - Installer/update now self-repairs rc_allowlist (RC 101–110) so fader writes aren't blocked.
+// - Host fader remains the only LIVE gain write in the phased rollout.
+//
+// v0.3.19 scope (kept here for continuity):
 //   Only Host Mic gain is LIVE (RC 101). All others remain visual-only.
 const MIXER_FADER_RC = {
   host: "101",
