@@ -279,14 +279,15 @@ main{padding:18px}
   gap: 10px;
   width: 96px;
   /* Align the buttons with the top of the VU lane (not the strip title pill). */
-  margin-top: 28px;
+  margin-top: 18px;
 }
 .pilButtons .woBtn{
   max-width: none;
   height: 54px;
   font-weight: 800;
   letter-spacing: .6px;
-  color: rgba(245, 250, 255, 0.95);
+  /* Always white text for legibility on both green and yellow backgrounds */
+  color: rgba(255, 255, 255, 0.98) !important;
   text-shadow: 0 1px 0 rgba(0,0,0,0.45);
 }
 
