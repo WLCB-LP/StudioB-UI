@@ -91,7 +91,7 @@ main{padding:18px}
   */
   display:flex;
   flex-direction:column;
-  gap: 14px;
+  gap: 10px;
   min-height: calc(100vh - 120px);
   align-items:stretch;
   overflow:hidden;
@@ -175,7 +175,7 @@ main{padding:18px}
 */
 .mixerCard{
   grid-column: 1 / -1;
-  padding:12px;
+  padding:10px;
   flex: 0 0 auto;
   min-width: 190px;
   max-width: none;
@@ -248,7 +248,7 @@ main{padding:18px}
   background: rgba(255,255,255,.02);
   border: 1px solid rgba(255,255,255,.06);
   border-radius: 16px;
-  padding: 12px;
+  padding: 10px;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
 }
 
@@ -256,11 +256,11 @@ main{padding:18px}
   text-align:center;
   font-weight:850;
   letter-spacing:.2px;
-  padding: 10px 8px;
+  padding: 8px 8px;
   border-radius: 14px;
   background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.06);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .strip__title--host{
@@ -273,7 +273,7 @@ main{padding:18px}
 .fader__lane{
   position: relative;
   width: 110px;
-  height: 340px;
+  height: 300px;
   border-radius: 18px;
   background: rgba(0,0,0,.28);
   border: 1px solid rgba(255,255,255,.08);

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.41
+- UI-only: shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
+- Reduced fader lane height and tightened padding/margins.
+
+
 ## v0.3.40 (UI-only hotfix)
 - Fixed Studio page startup crash when the lower panels are removed.
   - Guarded missing DOM elements (Reconnect / Test DSP controls) so a null dereference cannot stall hydration on "Connecting".
