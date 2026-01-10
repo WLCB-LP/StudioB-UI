@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.26";
+const UI_BUILD_VERSION = "0.3.28";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with

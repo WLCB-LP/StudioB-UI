@@ -76,8 +76,12 @@ main{padding:18px}
 .pageTitle{margin:0 0 14px 0; font-size:22px; letter-spacing:.2px}
 
 .studioLayout{
+  /*
+    Top row: all fader cards flow horizontally and wrap.
+    Bottom row: speakers/DSP on the left, meters on the right.
+  */
   display:grid;
-  grid-template-columns: 560px 1fr;
+  grid-template-columns: 1fr 420px;
   gap:18px;
   align-items:start;
 }
@@ -87,7 +91,14 @@ main{padding:18px}
   We keep this as a simple grid override so we don't have to refactor
   the existing Studio page layout.
 */
-.mixerCard{grid-column: 1 / -1; padding:14px}
+.mixerCard{
+  grid-column: 1 / -1;
+  padding:14px;
+  /* When placed inside .mixerRoot (flex), allow cards to shrink and wrap. */
+  flex: 1 1 300px;
+  min-width: 260px;
+  max-width: 560px;
+}
 
 /*
   Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.
@@ -98,19 +109,17 @@ main{padding:18px}
 */
 .mixerRoot{
   /*
-    Mixer root wrapper (UI v0.3.27)
+    Mixer root wrapper
 
-    We now render multiple mixer cards:
-    - Microphones (4)
-    - CD Players (2)
-    - AUX/Bluetooth/PC/Zoom (1 each)
-
-    The root is a vertical stack so the Studio layout stays simple
-    while we expand channel count.
+    Render all fader cards horizontally across the screen and let them wrap.
+    This keeps the "console" feel while still accommodating more channels.
   */
+  grid-column: 1 / -1;
   display:flex;
-  flex-direction:column;
+  flex-direction:row;
+  flex-wrap:wrap;
   gap:14px;
+  align-items:stretch;
 }
 
 /*
