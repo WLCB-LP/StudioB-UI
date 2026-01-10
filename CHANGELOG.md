@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.37 (UI-only)
+- Mixer layout: Converted inter-group spacing to **uniform fixed gaps** so all gaps match (including PC↔Zoom).
+  - Deterministic spacing; any extra horizontal room is left as unused edge space (no elastic distribution).
+  - Preserves Studio B contract: **no scrolling**, **no wrapping**, **no vertical stacking**.
+
 ## v0.3.36 (UI-only)
 - Narrowed inter-group elastic gaps (capped spacer max-width).
 - Added a small fixed gap between PC and Zoom while keeping no-scroll/no-wrap contract.

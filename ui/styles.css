@@ -147,15 +147,19 @@ main{padding:18px}
   display:flex;
   flex-direction:row;
   flex-wrap: nowrap;
-  gap: 18px; /* slight visual separation between PC and Zoom (requested) */
+  /* v0.3.37: PC↔Zoom separation MUST match all other inter-group gaps.
+     Operators build muscle memory off spacing; uneven gaps feel “broken”. */
+  gap: var(--mixerInterGroupGap);
 }
 
 /* Flex spacers that create "elastic" gaps between groups. */
 .mixerSpacer{
-  flex: 1 1 0;
-  /* v0.3.36: cap gap width so groups stay visually tighter. */
-  min-width: 16px;
-  max-width: 140px;
+  /* v0.3.37: Uniform gaps.
+     We intentionally DO NOT let the browser "distribute" extra width.
+     The Studio B console must be deterministic: every gap is the same
+     pixel width, even if that leaves unused space at the far edges. */
+  flex: 0 0 var(--mixerInterGroupGap);
+  width: var(--mixerInterGroupGap);
   pointer-events:none;
 }
 
@@ -189,9 +193,12 @@ main{padding:18px}
       - no scrolling
       - no wrapping (never stack cards vertically)
 
-    Extra horizontal space is consumed by .mixerSpacer elements that sit
-    BETWEEN groups.
+    v0.3.37: Inter-group spacing is intentionally FIXED.
+    We do NOT let the browser elastically distribute extra width because
+    uneven gaps feel like a broken console.
   */
+  /* Shared token used by both the spacer elements and the PC↔Zoom gap. */
+  --mixerInterGroupGap: 22px;
   grid-column: 1 / -1;
   display:flex;
   flex-direction:row;

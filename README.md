@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.36
+# STUB Mixer UI (Studio B) — Release 0.3.37
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.37: UI-only: Mixer layout — all inter-group gaps are now **uniform fixed width** (including PC↔Zoom). Any extra horizontal room is left as unused edge space.
 - v0.3.36: UI-only: Layout polish — tightened inter-group gaps and added a small PC↔Zoom separation while preserving **no scrolling** and **no vertical stacking**.
 - v0.3.34: UI-only: Mixer fader bank regrouped with **elastic gaps** so cards stay in a single row with **no scrolling** and **no vertical stacking**:
   `Mic×4  | gap | CD×2 | gap | AUX | gap | BT | gap | PC+Zoom`.
