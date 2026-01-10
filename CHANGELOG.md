@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.3.43
+- UI-only: Bottom row PC and Zoom are now separated by a normal inter-group spacer so the **PC↔Zoom gap matches all other gaps** even when bottom-row spacers expand for right-edge alignment.
+
 ## v0.3.42
 - UI-only: Bottom row fader groups now use **expandable inter-group spacers** so the Zoom strip aligns with the page's right padding.
   - Preserves console contract: **no scrolling**, **no wrapping**, **no vertical stacking**.

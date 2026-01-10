@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.42" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.43" />
 </head>
 <body>
   <header class="topbar">
@@ -519,7 +519,20 @@
           </div>
 
           <div class="mixerSpacer" aria-hidden="true"></div>
-          <div class="mixerGroup mixerGroup--pczoom">
+          <!--
+            v0.3.43: PC and Zoom MUST be separated by the same spacing logic
+            as all other bottom-row inter-group gaps.
+
+            In v0.3.42, PC+Zoom lived inside a single flex group that used a
+            fixed `gap:` token. Meanwhile, the *spacer* elements between other
+            groups were allowed to grow on the bottom row to reach the right
+            edge alignment. The visual result was a slightly narrower PC↔Zoom
+            gap compared to the other expanded gaps.
+
+            Fix: treat PC and Zoom as two normal groups with a normal spacer
+            between them so the bottom-row "grow equally" rule applies.
+          -->
+          <div class="mixerGroup mixerGroup--pc">
 
           <div class="card mixerCard">
             <div class="mixerCard__head"><div class="mixerCard__title">PC</div></div>
@@ -552,6 +565,11 @@
             </div>
           </div>
 
+          </div>
+
+          <div class="mixerSpacer" aria-hidden="true"></div>
+          <div class="mixerGroup mixerGroup--zoom">
+
           <div class="card mixerCard">
             <div class="mixerCard__head"><div class="mixerCard__title">Zoom</div></div>
             <div class="mixerRow mixerRow--1">
@@ -581,6 +599,8 @@
               </div>
               </div>
             </div>
+          </div>
+
           </div>
           </div>
         </div>
@@ -724,6 +744,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.42"></script>
+  <script src="/app.js?v=0.3.43"></script>
 </body>
 </html>
