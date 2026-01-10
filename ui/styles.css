@@ -167,6 +167,29 @@ main{padding:18px}
   pointer-events:none;
 }
 
+/*
+  v0.3.42: Bottom-row-only gap widening to align the right edge of the
+  bottom console (Zoom) with the page's right padding.
+
+  Operator request:
+    - Keep the *left* edge where it is.
+    - Widen the gaps between the *bottom row* fader groups so the Zoom
+      strip ends at the same visual boundary as the rest of the UI.
+
+  Implementation:
+    - We keep the spacer's "base" gap (min width) identical to the global
+      inter-group gap token.
+    - Only on the bottom row, we allow spacers to *grow* (equally) to
+      consume any extra horizontal space.
+    - This preserves the no-scroll/no-wrap console contract while giving
+      us a clean right-edge alignment.
+*/
+.mixerRoot--bottom .mixerSpacer{
+  flex: 1 1 var(--mixerInterGroupGap);
+  min-width: var(--mixerInterGroupGap);
+  width: auto;
+}
+
 
 /*
   Mixer card spans both columns (UI v0.3.13)

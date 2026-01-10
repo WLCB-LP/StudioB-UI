@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.40
+# STUB Mixer UI (Studio B) — Release 0.3.42
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,9 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.3.42: UI-only: Bottom row fader groups now use **expandable inter-group spacers** so the Zoom strip aligns with the page's right padding. Top row unchanged.
+- v0.3.41: UI-only: Shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
 
 - v0.3.40: Hotfix: Studio page can omit the lower panels without breaking hydration. Guarded missing DOM elements (Reconnect / Test DSP buttons) so the UI doesn't throw and stall on "Connecting".
 - v0.3.39: UI-only: Studio page becomes a dedicated **two-row fader console**. Added a top fader row with placeholders for **PIL / Headphones / Program** and a LIVE **Speakers** fader+mute (RC **160/161**). Removed the lower Studio-page panels (speakers slider, DSP health, meters) to keep the console uncluttered.

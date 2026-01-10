@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.42
+- UI-only: Bottom row fader groups now use **expandable inter-group spacers** so the Zoom strip aligns with the page's right padding.
+  - Preserves console contract: **no scrolling**, **no wrapping**, **no vertical stacking**.
+  - Top row unchanged.
+
 ## v0.3.41
 - UI-only: shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
 - Reduced fader lane height and tightened padding/margins.
