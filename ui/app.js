@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.37";
+const UI_BUILD_VERSION = "0.3.38";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -107,7 +107,14 @@ const state = {
       aux: 0.65,
       bt: 0.65,
       pc: 0.65,
-      zoom: 0.65
+      zoom: 0.65,
+
+      // Studio monitors (Speakers) (UI v0.3.38)
+      // RC assignment (operator-provided):
+      //   160 = Speaker Level
+      //   161 = Speaker Mute
+      // NOTE: This fader is placed on the *top* row for quick access.
+      spk: 0.65
     },
     // one-time init guard
     inited: false,
@@ -230,6 +237,10 @@ const MIXER_FADER_RC = {
   bt:   "108",
   pc:   "109",
   zoom: "110",
+
+  // Top-row Speakers fader (UI v0.3.38)
+  // Studio monitor speaker level (operator-provided): RC 160
+  spk:  "160",
 };
 
 // Human-friendly labels for runtime event logging (keep short; operators read)
@@ -244,6 +255,9 @@ const MIXER_LABEL = {
   bt:   "Bluetooth",
   pc:   "PC",
   zoom: "Zoom",
+
+  // Speakers (top row)
+  spk:  "Speakers",
 };
 
 // ---------------------------------------------------------------------------
@@ -271,13 +285,21 @@ state.mixerHydrated = false;
 function showMixerWhenReady(){
   // We start the mixer hidden to avoid a misleading "flash" before we have
   // authoritative state.
-  const root = document.querySelector('#mixerRoot');
-  if(root) root.classList.remove('isHydrating');
+  // UI v0.3.38: We now have TWO fader rows on the Studio page:
+  //   - Top row (PIL / Headphones / Speakers / Program)
+  //   - Bottom row (Mic + sources)
+  // Both rows must remain hidden until we have an authoritative RC snapshot.
+  ['#mixerRoot', '#topMixerRoot'].forEach(sel=>{
+    const root = document.querySelector(sel);
+    if(root) root.classList.remove('isHydrating');
+  });
 }
 
 function hideMixerUntilHydrated(){
-  const root = document.querySelector('#mixerRoot');
-  if(root) root.classList.add('isHydrating');
+  ['#mixerRoot', '#topMixerRoot'].forEach(sel=>{
+    const root = document.querySelector(sel);
+    if(root) root.classList.add('isHydrating');
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +322,9 @@ const MIXER_FADER_RC_READ = {
   bt:   "108",
   pc:   "109",
   zoom: "110",
+
+  // Speakers (top row)
+  spk:  "160",
 };
 
 // Studio B: mute RC assignments (authoritative render source)
@@ -314,6 +339,9 @@ const MIXER_MUTE_RC = {
   bt:   "128",
   pc:   "129",
   zoom: "130",
+
+  // Speakers (top row)
+  spk:  "161",
   // Program/Speakers exist but are rendered elsewhere for now:
   // pgm: "131",
   // spk: "161",
@@ -875,10 +903,23 @@ function setMeterFill(id, v){
 
 function setLampAutoMute(on){
   const lamp = $("#lampAutoMute");
+  if(!lamp) return;
   lamp.classList.toggle("on", !!on);
 }
 
 function updateSpeakerUI(){
+  // UI v0.3.38: The Studio page no longer renders the speaker "panel".
+  // Speakers are now controlled via the top-row fader (RC 160/161).
+  // If the panel isn't present, this function becomes a no-op.
+  const hasPanel = !!(
+    document.querySelector('[data-val-for="STUB_SPK_LEVEL"]') ||
+    document.querySelector('input.slider[data-rc="STUB_SPK_LEVEL"]') ||
+    document.getElementById('lampAutoMute') ||
+    document.getElementById('spkMuteNote') ||
+    document.querySelector('.btn.toggle[data-rc="STUB_SPK_MUTE"]')
+  );
+  if(!hasPanel) return;
+
   const v = clamp01(state.speaker.level);
   $all('[data-val-for="STUB_SPK_LEVEL"]').forEach(el=> el.textContent = v.toFixed(2));
 
@@ -894,9 +935,11 @@ function updateSpeakerUI(){
   setLampAutoMute(state.speaker.automute);
 
   const note = $("#spkMuteNote");
-  if(state.speaker.automute) note.textContent = "Auto-mute active";
-  else if(state.speaker.mute) note.textContent = "Muted";
-  else note.textContent = "";
+  if(note){
+    if(state.speaker.automute) note.textContent = "Auto-mute active";
+    else if(state.speaker.mute) note.textContent = "Muted";
+    else note.textContent = "";
+  }
 }
 
 function syncTogglesFromStatus(){

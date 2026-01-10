@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.37" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.38" />
 </head>
 <body>
   <header class="topbar">
@@ -99,7 +99,147 @@
           - Mixer root remains hidden until hydrated (no flash positions).
         -->
 
-        <div class="mixerRoot isHydrating" id="mixerRoot">
+        <!--
+          Studio faders (UI v0.3.38)
+
+          New layout request:
+            1) Remove the lower panels and treat the Studio page as a
+               dedicated "fader console".
+            2) Keep the primary mic/source faders on the *bottom*.
+            3) Add a NEW top fader row for:
+                 PIL | Headphones | Speakers | Program
+
+          IMPORTANT SAFETY/CONTINUITY CONTRACT:
+          - DSP/engine remain the source of truth.
+          - Both fader rows remain hidden until we receive an authoritative
+            RC snapshot.
+        -->
+
+        <!-- Top fader row (visibility + future wiring) -->
+        <div class="studioTopFaders">
+          <div class="mixerRoot mixerRoot--top isHydrating" id="topMixerRoot">
+
+            <!-- PIL (placeholder – no controls yet) -->
+            <div class="card mixerCard mixerCard--placeholder">
+              <div class="mixerCard__head"><div class="mixerCard__title">PIL</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="pil">
+                  <div class="strip__title">PIL</div>
+                  <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Headphones (placeholder – no fader or mute assigned yet) -->
+            <div class="card mixerCard mixerCard--placeholder">
+              <div class="mixerCard__head"><div class="mixerCard__title">Headphones</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="hp">
+                  <div class="strip__title">Headphones</div>
+                  <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Speakers (LIVE RC: 160 level, 161 mute) -->
+            <div class="card mixerCard">
+              <div class="mixerCard__head"><div class="mixerCard__title">Speakers</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip" data-strip="spk">
+                  <div class="strip__title">Speakers</div>
+                  <div class="fader">
+                    <div class="fader__lane" data-fader="spk" aria-label="Speakers fader (RC 160)" title="Speaker Level (RC 160)">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                      <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                    </div>
+                  </div>
+                  <div class="strip__actions">
+                    <button class="woBtn woBtn--mute btn toggle" data-rc="161" title="Speaker Mute (RC 161)" aria-label="Speaker mute"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Program (placeholder – fader/mute to be wired later) -->
+            <div class="card mixerCard mixerCard--placeholder">
+              <div class="mixerCard__head"><div class="mixerCard__title">Program</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="pgm">
+                  <div class="strip__title">Program</div>
+                  <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Bottom fader row (mics + sources) -->
+        <div class="studioBottomFaders">
+          <div class="mixerRoot isHydrating" id="mixerRoot">
           <!--
             Mixer grouping layout (UI v0.3.34)
 
@@ -439,118 +579,17 @@
           </div>
         </div>
 
-        <div class="stack">
-          <div class="card">
-            <div class="card__head">
-              <h2>Speakers</h2>
-              <div class="lamps">
-                <div class="lamp" id="lampAutoMute" title="Automatic mute (logic-controlled)">
-                  <div class="dot"></div>
-                  <div class="txt">AUTO-MUTED</div>
-                </div>
-              </div>
-            </div>
-
-            <label class="row">
-              <span class="row__label">Level</span>
-              <input type="range" min="0" max="1" step="0.01" value="0.70" data-rc="STUB_SPK_LEVEL" class="slider" />
-              <span class="val" data-val-for="STUB_SPK_LEVEL">—</span>
-            </label>
-
-            <div class="row">
-              <span class="row__label">Mute</span>
-              <button class="btn toggle" data-rc="STUB_SPK_MUTE">Speaker Mute</button>
-              <span class="muted small" id="spkMuteNote"></span>
-            </div>
-          </div>
-
-          <div class="card card--thin">
-            <div class="row">
-              <button class="btn" id="btnReconnect">Reconnect DSP</button>
-              <button class="btn" id="btnDspTest">Test DSP Now</button>
-              <span class="muted" id="dspTestMsg"></span>
-              
-<div class="banner warn" id="dspTransitionBanner" style="display:none;">
-  <strong>DSP LIVE MODE WARNING</strong><br/>
-  DSP has entered LIVE mode, but the link has not been validated yet.<br/>
-<span class="muted">Endpoint:</span> <span id="dspBannerEndpoint">—</span><br/>
-<span class="muted">Last validated:</span> <span id="dspBannerValidatedAge">—</span><br/>
-<span class="muted" id="dspBannerConfigChanged" style="display:none;">⚠ DSP config changed since last validation.</span><br/>
-  <button class="btn" id="btnDspBannerTest">Test DSP Now</button>
-  <button class="btn" id="btnDspBannerAck">Acknowledge</button>
-</div>
-<div class="card dspHealth">
-
-                <div class="card__title">DSP Health</div>
-                <div class="kv"><span class="k">State</span><span class="v" id="dspHealthState">—</span></div>
-                <div class="kv"><span class="k">Last OK</span><span class="v" id="dspHealthLastOk">—</span></div>
-                <div class="kv"><span class="k">Failures</span><span class="v" id="dspHealthFails">—</span></div>
-                <div class="kv"><span class="k">Last Error</span><span class="v" id="dspHealthErr">—</span></div>
-                <div class="kv"><span class="k">Last Test</span><span class="v" id="dspHealthLastTest">—</span></div>
-                <div class="kv"><span class="k">Last Poll</span><span class="v" id="dspHealthLastPoll">—</span></div>
-                <div class="warn" id="dspControlWarn" style="display:none;"></div>
-              </div>
-              <div class="card dspTimeline">
-                <div class="card__title">DSP Health Timeline (recent)</div>
-                <pre class="log" id="dspTimeline">—</pre>
-              </div>
-              <span class="small muted" id="reconnectMsg"></span>
-            </div>
-          </div>
+        <!-- Close the bottom fader row wrapper -->
         </div>
 
-        <div class="metersCol">
-          <div class="card">
-            <div class="card__head">
-              <h2>Program</h2>
-              <div class="hint">On-air mix</div>
-            </div>
-            <div class="meters">
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_pgmL"></div></div>
-                <div class="meter__lbl">L</div>
-              </div>
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_pgmR"></div></div>
-                <div class="meter__lbl">R</div>
-              </div>
-            </div>
-          </div>
+        <!--
+          UI v0.3.38:
+          The Studio page is intentionally a dedicated fader console.
+          The previous "panels" (speakers slider, DSP health, meters) were
+          removed from this page to keep the console uncluttered.
 
-          <div class="card">
-            <div class="card__head">
-              <h2>Speakers</h2>
-              <div class="hint">Studio speaker output</div>
-            </div>
-            <div class="meters">
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_spkL"></div></div>
-                <div class="meter__lbl">L</div>
-              </div>
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_spkR"></div></div>
-                <div class="meter__lbl">R</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__head">
-              <h2>Remote Studio Return</h2>
-              <div class="hint">Call / remote return</div>
-            </div>
-            <div class="meters">
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_rsrL"></div></div>
-                <div class="meter__lbl">L</div>
-              </div>
-              <div class="meter">
-                <div class="meter__bar"><div class="fill" id="m_rsrR"></div></div>
-                <div class="meter__lbl">R</div>
-              </div>
-            </div>
-          </div>
-        </div>
+          Those diagnostics remain available on the Engineering tab.
+        -->
       </div>
     </section>
 
@@ -679,6 +718,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.34"></script>
+  <script src="/app.js?v=0.3.38"></script>
 </body>
 </html>

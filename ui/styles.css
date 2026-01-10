@@ -76,21 +76,34 @@ main{padding:18px}
 .pageTitle{margin:0 0 14px 0; font-size:22px; letter-spacing:.2px}
 
 .studioLayout{
-  display:grid;
-  grid-template-columns: minmax(0,1fr) 420px;
-  /* top row = meters/health, bottom row = faders */
-  grid-template-rows: 1fr auto;
+  /*
+    Studio page layout (UI v0.3.38)
+
+    The Studio page is now a dedicated two-row "fader console":
+      - Top row: PIL | Headphones | Speakers | Program
+      - Bottom row: Microphones + sources
+
+    Requirements:
+      - No scrolling
+      - DSP/engine authoritative state (hydration-first)
+
+    We keep this layout *pure CSS* (no JS measurement).
+  */
+  display:flex;
+  flex-direction:column;
   gap: 14px;
-  align-items:start;
-  /* keep room above the faders for future elements */
   min-height: calc(100vh - 120px);
+  align-items:stretch;
+  overflow:hidden;
 }
 
-/* Place the fader bank on the bottom row */
-.page-studio .mixerRoot{
-  grid-column: 1 / -1;
-  grid-row: 2;
-  align-self:end;
+/* Keep the bottom fader row pinned toward the bottom of the Studio page */
+.page-studio .studioBottomFaders{margin-top:auto;}
+
+/* Fader row styling (applies to BOTH rows) */
+.page-studio .mixerRoot,
+.page-studio #topMixerRoot{
+  align-self:stretch;
 
   /* v0.3.35: Studio B contract = NO scrolling. The mixerRoot itself is a
      single, fixed horizontal "console" row. Any overflow is clipped. */
@@ -102,17 +115,8 @@ main{padding:18px}
   padding-bottom: 2px;
 }
 
-.page-studio .stack{
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.page-studio .metersCol{
-  grid-column: 2;
-  grid-row: 1;
-}
-
-}
+/* Top row is slightly tighter so it doesn't crowd the main (bottom) row */
+.page-studio .mixerRoot--top{padding-bottom: 0;}
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:

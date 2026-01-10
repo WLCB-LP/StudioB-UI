@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.38 (UI-only)
+- Studio page: converted to a dedicated **two-row fader console**.
+  - Added a new *top* fader row: **PIL | Headphones | Speakers | Program**.
+    - PIL/Headphones/Program are placeholders (visual only; no controls yet).
+    - Speakers is LIVE: fader writes RC **160** and mute toggles RC **161** (DSP/engine authoritative).
+  - Removed lower Studio-page panels (Speakers slider, DSP health, meters) to keep the console uncluttered.
+  - Hydration-first behavior preserved: both fader rows stay hidden until the first RC snapshot arrives.
+
 ## v0.3.37 (UI-only)
 - Mixer layout: Converted inter-group spacing to **uniform fixed gaps** so all gaps match (including PC↔Zoom).
   - Deterministic spacing; any extra horizontal room is left as unused edge space (no elastic distribution).
