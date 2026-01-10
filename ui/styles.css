@@ -76,14 +76,33 @@ main{padding:18px}
 .pageTitle{margin:0 0 14px 0; font-size:22px; letter-spacing:.2px}
 
 .studioLayout{
-  /*
-    Top row: all fader cards flow horizontally and wrap.
-    Bottom row: speakers/DSP on the left, meters on the right.
-  */
   display:grid;
-  grid-template-columns: 1fr 420px;
-  gap:18px;
+  grid-template-columns: minmax(0,1fr) 420px;
+  /* top row = meters/health, bottom row = faders */
+  grid-template-rows: 1fr auto;
+  gap: 14px;
   align-items:start;
+  /* keep room above the faders for future elements */
+  min-height: calc(100vh - 120px);
+}
+
+/* Place the fader bank on the bottom row */
+.page-studio .mixerRoot{
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self:end;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.page-studio .stack{
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.page-studio .metersCol{
+  grid-column: 2;
+  grid-row: 1;
 }
 
 /*
@@ -93,11 +112,10 @@ main{padding:18px}
 */
 .mixerCard{
   grid-column: 1 / -1;
-  padding:14px;
-  /* When placed inside .mixerRoot (flex), allow cards to shrink and wrap. */
-  flex: 1 1 300px;
-  min-width: 260px;
-  max-width: 560px;
+  padding:12px;
+  flex: 0 0 auto;
+  min-width: 190px;
+  max-width: none;
 }
 
 /*
@@ -117,8 +135,8 @@ main{padding:18px}
   grid-column: 1 / -1;
   display:flex;
   flex-direction:row;
-  flex-wrap:wrap;
-  gap:14px;
+  flex-wrap: nowrap;
+  gap: 12px;
   align-items:stretch;
 }
 
@@ -376,7 +394,12 @@ main{padding:18px}
   /* v0.3.16: Shared sizing tokens for the mixer skin.
      Keeping these here makes it easy to re-balance proportions later
      without hunting for hard-coded widths. */
-  --mixerFaderW: 110px;
+  --mixerFaderW: 92px;
+  --mixerFaderH: 300px;
+  --mixerStripPad: 10px;
+  --mixerRowGap: 8px;
+  --mixerTitlePad: 8px;
+  --mixerCardPad: 12px;
   --mixerMuteH: 44px;
   --neonBlue: rgba(70,160,255,1);
   --neonGreen: rgba(55,214,122,1);
@@ -635,7 +658,7 @@ main{padding:18px}
   background:var(--card);
   border:1px solid rgba(255,255,255,.06);
   border-radius:var(--r);
-  padding:16px;
+  padding: 12px;
   box-shadow: var(--shadow);
 }
 .card--thin{padding:12px}
