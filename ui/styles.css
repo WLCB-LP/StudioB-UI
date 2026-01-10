@@ -128,7 +128,7 @@ main{padding:18px}
 */
 .page-studio .mixerRoot--top{
   display: grid;
-  grid-template-columns: 320px 1fr 1fr auto;
+  grid-template-columns: 360px 1fr 1fr auto;
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
@@ -147,6 +147,13 @@ main{padding:18px}
 
 /* Ensure the top-row grid can shrink its middle columns without overflowing */
 .page-studio #topMixerRoot{width: 100%;}
+
+/* Explicit grid placement to prevent accidental wrapping/stacking */
+.page-studio #topMixerRoot.mixerRoot--top{display:grid !important;}
+.page-studio #pilCard{grid-column: 1; grid-row: 1;}
+.page-studio #cardLatestDonations{grid-column: 2; grid-row: 1;}
+.page-studio #cardPlaceholder{grid-column: 3; grid-row: 1;}
+.page-studio #topRightDock{grid-column: 4; grid-row: 1; justify-self: end;}
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
@@ -272,9 +279,16 @@ main{padding:18px}
   gap: 10px;
   width: 96px;
   /* Align the buttons with the top of the VU lane (not the strip title pill). */
-  margin-top: 34px;
+  margin-top: 28px;
 }
-.pilButtons .woBtn{ max-width: none; height: 54px; font-weight: 800; letter-spacing: .6px; }
+.pilButtons .woBtn{
+  max-width: none;
+  height: 54px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  color: rgba(245, 250, 255, 0.95);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+}
 
 /* PIL mode button colors: green=Auto (automation on), yellow=Live (automation off) */
 .woBtn--pilMode{ background: rgba(60,255,170,.10); border-color: rgba(60,255,170,.30); }
@@ -283,8 +297,7 @@ main{padding:18px}
   /* Brighter yellow for LIVE (automation OFF). */
   background: rgba(255, 235, 90, .26);
   border-color: rgba(255, 235, 90, .88);
-  color: rgba(255, 250, 210, .98);
-  text-shadow: 0 1px 0 rgba(0,0,0,.45);
+  /* Keep text white for readability (set in .pilButtons .woBtn) */
   box-shadow: 0 0 0 1px rgba(255, 235, 90, .18) inset, 0 0 16px rgba(255, 235, 90, .10);
 }
 
