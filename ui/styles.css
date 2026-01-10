@@ -211,6 +211,26 @@ main{padding:18px}
      a constant gap between all top-row cards. */
 .mixerCard--pilWide{ min-width: 260px; }
 .mixerCard--flexFill{ flex: 1 1 0; min-width: 260px; }
+
+/*
+  Wide "panel" cards in the TOP row (UI v0.3.45)
+
+  The operator requested two wide cards between PIL and the right-side
+  (Headphones/Speakers/Program) cluster:
+    - "LATEST DONATIONS" (labeled)
+    - one unlabeled placeholder
+
+  IMPORTANT:
+  These cards must be visually present but *empty* for now (no meters, no
+  faders, no placeholder VU). We still show a small title pill so the
+  operator can identify the card.
+*/
+.mixerCard--panelEmpty .mixerCard__head{ display:flex; justify-content:center; padding-top: 8px; }
+.mixerCard--panelEmpty .mixerCard__title{ pointer-events:none; }
+.mixerCard--panelEmpty .mixerCard__emptyBody{ height: 100%; }
+
+/* Unlabeled placeholder: keep the pill height but render no visible text */
+.mixerCard--panelEmpty.mixerCard--untitled .mixerCard__title{ opacity: 0; }
 .mixerCard--untitled .mixerCard__title{ opacity: 0; }
 
 /* PIL button stack (UI v0.3.44)

@@ -1,6 +1,11 @@
 # Changelog
 
 
+## v0.3.45
+- Fix: Studio top row HTML nesting bug (extra closing `</div>`) that caused the top row to break into full-width stacked panels and reintroduced page scrolling.
+- Studio: "LATEST DONATIONS" + unlabeled placeholder cards are now intentionally **empty** (no fader/VU placeholders) until donation wiring is implemented.
+
+
 ## v0.3.44
 - Studio: Top row layout update: PIL widened with PlayIt Live controls; added Latest Donations + placeholder card; moved Headphones/Speakers/Program to the right with even gaps.
 - PlayIt Live: Polls playoutMode (automationOn) and allows toggling AUTO/LIVE plus START command (best-effort; graceful failure).
