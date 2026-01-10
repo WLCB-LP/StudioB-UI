@@ -116,7 +116,7 @@ main{padding:18px}
 }
 
 /* Top row is slightly tighter so it doesn't crowd the main (bottom) row */
-.page-studio .mixerRoot--top{padding-bottom: 0;}
+.page-studio .mixerRoot--top{padding-bottom: 0; gap: var(--mixerInterGroupGap);}
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
@@ -204,6 +204,29 @@ main{padding:18px}
   max-width: none;
 }
 
+
+/* Top-row sizing helpers (UI v0.3.44)
+   - PIL is intentionally wider to accommodate the PIL control buttons.
+   - Two middle cards are flex-fill to consume the leftover width while keeping
+     a constant gap between all top-row cards. */
+.mixerCard--pilWide{ min-width: 260px; }
+.mixerCard--flexFill{ flex: 1 1 0; min-width: 260px; }
+.mixerCard--untitled .mixerCard__title{ opacity: 0; }
+
+/* PIL button stack (UI v0.3.44)
+   We place two momentary WideOrbit-style buttons to the LEFT of the VU lane. */
+.pilStripBody{ display:flex; flex-direction:row; align-items:stretch; gap: 10px; }
+.pilButtons{ display:flex; flex-direction:column; gap: 10px; width: 96px; }
+.pilButtons .woBtn{ max-width: none; height: 54px; font-weight: 800; letter-spacing: .6px; }
+
+/* PIL mode button colors: green=Auto (automation on), yellow=Live (automation off) */
+.woBtn--pilMode{ background: rgba(60,255,170,.10); border-color: rgba(60,255,170,.30); }
+.woBtn--pilMode.woBtn--pilAuto{ background: rgba(60,255,170,.22); border-color: rgba(60,255,170,.55); }
+.woBtn--pilMode.woBtn--pilLive{ background: rgba(255,210,80,.20); border-color: rgba(255,210,80,.55); }
+
+/* PIL START momentary button (green) */
+.woBtn--pilStart{ background: rgba(60,255,170,.14); border-color: rgba(60,255,170,.40); }
+.woBtn--pilStart:disabled{ opacity: .55; }
 /*
   Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.
 

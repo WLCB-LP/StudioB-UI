@@ -1,5 +1,10 @@
 # Changelog
 
+
+## v0.3.44
+- Studio: Top row layout update: PIL widened with PlayIt Live controls; added Latest Donations + placeholder card; moved Headphones/Speakers/Program to the right with even gaps.
+- PlayIt Live: Polls playoutMode (automationOn) and allows toggling AUTO/LIVE plus START command (best-effort; graceful failure).
+
 ## v0.3.43
 - UI-only: Bottom row PC and Zoom are now separated by a normal inter-group spacer so the **PC↔Zoom gap matches all other gaps** even when bottom-row spacers expand for right-edge alignment.
 

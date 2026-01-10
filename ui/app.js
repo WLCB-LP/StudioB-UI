@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.43";
+const UI_BUILD_VERSION = "0.3.44";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -2407,6 +2407,109 @@ async function fetchDSPModeStatus(){
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// PlayIt Live (PIL) integration (UI v0.3.44)
+// ---------------------------------------------------------------------------
+// Contract:
+// - DSP remains authoritative for DSP controls. PIL is a separate app.
+// - We poll PIL for its current mode (automationOn) and reflect that on the UI.
+// - We attempt to change mode when the operator presses the AUTO/LIVE button.
+//   (We use a best-effort PUT/POST with JSON. If the endpoint differs, we fail
+//    gracefully and keep showing the polled truth.)
+// - START is a momentary command that triggers playout.
+//
+// IMPORTANT: Because PIL is on a different origin (10.101.0.101), the browser
+// may block requests if PIL does not allow CORS or if HTTPS certs are untrusted.
+// We fail CLOSED: controls show "?" and do not crash the Studio UI.
+const PIL_API_BASE = "https://10.101.0.101:25433";
+const PIL_API_KEY  = "d304db66a0e54826834259273c36e57a";
+let pilState = { automationOn: null, lastOkMs: 0 };
+
+function pilUrl(path){
+  // Ensure exactly one leading slash.
+  const p = path.startsWith("/") ? path : ("/"+path);
+  return `${PIL_API_BASE}${p}?apiKey=${encodeURIComponent(PIL_API_KEY)}`;
+}
+
+function setPILModeButtonVisual(btn, automationOn){
+  if(!btn) return;
+  // Green = AUTO (automation ON). Yellow = LIVE (automation OFF).
+  btn.classList.toggle("woBtn--pilAuto", automationOn === true);
+  btn.classList.toggle("woBtn--pilLive", automationOn === false);
+  btn.disabled = (automationOn !== true && automationOn !== false);
+  btn.textContent = (automationOn === true) ? "AUTO" : (automationOn === false) ? "LIVE" : "?";
+  btn.title = "PlayIt Live mode (AUTO=automation on, LIVE=automation off)";
+}
+
+async function pollPILMode(){
+  try{
+    const res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), { method:"GET", cache:"no-store" });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if(typeof j.automationOn !== "boolean") throw new Error("Unexpected JSON");
+    pilState.automationOn = j.automationOn;
+    pilState.lastOkMs = Date.now();
+    const btn = document.querySelector("#pilModeBtn");
+    setPILModeButtonVisual(btn, pilState.automationOn);
+  }catch(e){
+    // Do not spam the runtime log; this can fail due to CORS/certs.
+    const btn = document.querySelector("#pilModeBtn");
+    setPILModeButtonVisual(btn, null);
+  }
+}
+
+async function setPILAutomationOn(nextOn){
+  // Best-effort write. We try a JSON PUT/POST to the same endpoint.
+  // If PIL uses a different method/path, the poller will immediately reflect truth.
+  const payload = JSON.stringify({ automationOn: !!nextOn });
+  const opts = (method)=>({
+    method,
+    headers:{ "Content-Type":"application/json" },
+    body: payload,
+  });
+
+  // Try PUT then POST.
+  try{
+    let res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), opts("PUT"));
+    if(!res.ok) res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), opts("POST"));
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  }catch(e){
+    // ignore; poll will show truth
+  }finally{
+    // Refresh quickly after a write attempt.
+    setTimeout(pollPILMode, 250);
+  }
+}
+
+async function pilStartPlayout(){
+  const btn = document.querySelector("#pilStartBtn");
+  if(btn){ btn.disabled = true; setTimeout(()=>{ btn.disabled=false; }, 600); }
+  try{
+    await fetch(pilUrl("/api/control/liveAssist/masterControl/play"), { method:"GET" });
+  }catch(e){
+    // ignore; best-effort momentary command
+  }
+}
+
+function initPlayItLiveControls(){
+  const modeBtn  = document.querySelector("#pilModeBtn");
+  const startBtn = document.querySelector("#pilStartBtn");
+  if(modeBtn){
+    modeBtn.addEventListener("click", ()=>{
+      // Toggle based on our last known state; if unknown, force AUTO.
+      const nextOn = (pilState.automationOn === false) ? true : false;
+      setPILAutomationOn(nextOn);
+    });
+  }
+  if(startBtn){
+    startBtn.addEventListener("click", pilStartPlayout);
+  }
+  // Start polling immediately, then every 2 seconds.
+  pollPILMode();
+  setInterval(pollPILMode, 2000);
+}
+
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
@@ -2416,6 +2519,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // authoritative snapshot before revealing controls.
   connectRCWebSocket();
   setTimeout(hydrateMixerViaHTTPFallback, 900);
+
+  // PlayIt Live integration (UI v0.3.44)
+  initPlayItLiveControls();
 
 
   // Mixer fader visuals (v0.3.13)

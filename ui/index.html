@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.43" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.44" />
 </head>
 <body>
   <header class="topbar">
@@ -120,11 +120,74 @@
           <div class="mixerRoot mixerRoot--top isHydrating" id="topMixerRoot">
 
             <!-- PIL (placeholder – no controls yet) -->
-            <div class="card mixerCard mixerCard--placeholder">
+            <div class="card mixerCard mixerCard--placeholder mixerCard--pilWide">
               <div class="mixerCard__head"><div class="mixerCard__title">PIL</div></div>
               <div class="mixerRow mixerRow--1">
                 <div class="strip strip--placeholder" data-strip="pil">
                   <div class="strip__title">PIL</div>
+                  <div class="pilStripBody">
+                    <div class="pilButtons">
+                      <button class="woBtn woBtn--pilMode" id="pilModeBtn" type="button">?</button>
+                      <button class="woBtn woBtn--pilStart" id="pilStartBtn" type="button">START</button>
+                    </div>
+                    <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Headphones (placeholder – no fader or mute assigned yet) -->
+            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill">
+              <div class="mixerCard__head"><div class="mixerCard__title">LATEST DONATIONS</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="don">
+                  <div class="strip__title">LATEST DONATIONS</div>
+                  <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Headphones (placeholder – no fader or mute assigned yet) -->
+            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--untitled">
+              <div class="mixerCard__head"><div class="mixerCard__title">&#8203;</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="x1">
+                  <div class="strip__title">&#8203;</div>
                   <div class="fader fader--placeholder">
                     <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
                       <div class="fader__meterPair" aria-hidden="true">
@@ -744,6 +807,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.43"></script>
+  <script src="/app.js?v=0.3.44"></script>
 </body>
 </html>
