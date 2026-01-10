@@ -159,6 +159,10 @@
 
 # Changelog
 
+## v0.3.27
+
+- Studio mixer: group CD1 + CD2 together, and add individual cards for AUX, Bluetooth, PC, Zoom (visual-only faders; Host remains the only live gain write).
+
 ## v0.2.95
 
 ### Fixed

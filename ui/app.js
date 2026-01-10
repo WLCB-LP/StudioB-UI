@@ -94,10 +94,19 @@ const state = {
   mixer: {
     // 0..1 UI-only normalized positions
     faders: {
+
       host: 0.65,
       g1: 0.65,
       g2: 0.65,
       g3: 0.65,
+
+      // Sources (UI v0.3.27)
+      cd1: 0.65,
+      cd2: 0.65,
+      aux: 0.65,
+      bt: 0.65,
+      pc: 0.65,
+      zoom: 0.65
     },
     // one-time init guard
     inited: false,

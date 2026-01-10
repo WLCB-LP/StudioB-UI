@@ -20,6 +20,7 @@ Run:
 - v0.3.22: Installer health checks are **retry-based** (tolerant of slow restarts) and print `systemctl/journalctl` diagnostics on failure.
 - v0.3.23: rc_allowlist repair is **mawk-safe** (POSIX awk) to avoid install-time awk syntax errors.
 - v0.3.26: Studio mixer: fader positions are **persisted in the browser** (localStorage) so reloads return to the last operator position; mixer is briefly hidden during hydration to avoid "flash" positions.
+- v0.3.27: Studio mixer: add source channel faders (CD1/CD2 grouped, AUX/Bluetooth/PC/Zoom individual cards).
 - v0.3.20: Installer/update **self-repairs rc_allowlist** to include fader RCs **101–110** so gain writes are not blocked.
 - v0.3.19: Studio mixer: **Host fader now writes gain** to **RC 101** (phased rollout; others remain visual-only).
 - v0.3.18: Studio mixer polish: stronger **muted neon red border** + slightly brighter **live green fill** (visual-only).

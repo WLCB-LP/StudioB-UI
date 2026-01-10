@@ -87,16 +87,24 @@
           - v0.3.19: Host fader now writes gain to RC 101 (phased rollout).
           - later: bind additional faders (RC 102–110) when ready.
         -->
-        <div class="card mixerCard" id="mixerCard">
-          <!--
-            v0.3.26: Mixer hydration + persistence
-            - We intentionally HIDE the mixer until JS has:
-                * restored last-known fader positions (localStorage)
-                * positioned the fader pucks (CSS transform)
-              This prevents "flash" positions (e.g. briefly showing 100%)
-              during a hard refresh (Ctrl+Shift+R).
-          -->
-          <div class="mixer isHydrating" id="mixerRoot">
+        <!-- Mixer (UI v0.3.27)
+
+          Expansion: add source faders as requested.
+          - CD1 + CD2 grouped together (like microphones)
+          - AUX, Bluetooth, PC, Zoom each get their own card
+
+          Operator intent contract unchanged:
+          - MUTE buttons are still the only live operator action for mic channels.
+          - Faders remain visual-only except Host (phased rollout).
+          - Mixer root remains hidden until hydrated (no flash positions).
+        -->
+
+        <div class="mixerRoot isHydrating" id="mixerRoot">
+          <!-- Microphones (grouped) -->
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">Microphones</div></div>
+            <div class="mixerRow mixerRow--4">
+
             <div class="strip" data-strip="host">
               <div class="strip__title strip__title--host">Host</div>
               <div class="fader">
@@ -190,6 +198,153 @@
                 <button class="woBtn woBtn--mute btn toggle" data-rc="124" title="Guest Mic 3 Mute (RC 124)" aria-label="Guest 3 mic mute">
                   
                 </button>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <!-- CD Players (grouped) -->
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">CD Players</div></div>
+            <div class="mixerRow mixerRow--2">
+
+              <div class="strip" data-strip="cd1">
+                <div class="strip__title">CD1</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="cd1" aria-label="CD1 fader (visual only)" title="CD1 Level (RC 105) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="strip" data-strip="cd2">
+                <div class="strip__title">CD2</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="cd2" aria-label="CD2 fader (visual only)" title="CD2 Level (RC 106) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Single-source cards -->
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">AUX</div></div>
+            <div class="mixerRow mixerRow--1">
+
+              <div class="strip" data-strip="aux">
+                <div class="strip__title">AUX</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="aux" aria-label="AUX fader (visual only)" title="AUX Level (RC 107) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">Bluetooth</div></div>
+            <div class="mixerRow mixerRow--1">
+
+              <div class="strip" data-strip="bt">
+                <div class="strip__title">BT</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="bt" aria-label="BT fader (visual only)" title="BT Level (RC 108) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">PC</div></div>
+            <div class="mixerRow mixerRow--1">
+
+              <div class="strip" data-strip="pc">
+                <div class="strip__title">PC</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="pc" aria-label="PC fader (visual only)" title="PC Level (RC 109) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mixerCard">
+            <div class="mixerCard__head"><div class="mixerCard__title">Zoom</div></div>
+            <div class="mixerRow mixerRow--1">
+
+              <div class="strip" data-strip="zoom">
+                <div class="strip__title">Zoom</div>
+                <div class="fader">
+                  <div class="fader__lane" data-fader="zoom" aria-label="Zoom fader (visual only)" title="Zoom Level (RC 110) – visual only">
+                    <div class="fader__meter"></div>
+                    <div class="fader__marks" aria-hidden="true">
+                    <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                    <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                  </div>
+                    <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
