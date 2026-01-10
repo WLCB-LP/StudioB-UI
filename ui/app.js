@@ -2441,7 +2441,7 @@ function setPILModeButtonVisual(btn, automationOn){
 
 async function pollPILMode(){
   try{
-    const res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), { method:"GET", cache:"no-store" });
+    const res = await fetch(pilUrl("/playoutMode"), { method:"GET", cache:"no-store" });
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
     if(typeof j.automationOn !== "boolean") throw new Error("Unexpected JSON");
@@ -2468,8 +2468,8 @@ async function setPILAutomationOn(nextOn){
 
   // Try PUT then POST.
   try{
-    let res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), opts("PUT"));
-    if(!res.ok) res = await fetch(pilUrl("/api/control/liveAssist/playoutMode"), opts("POST"));
+    let res = await fetch(pilUrl("/playoutMode"), opts("PUT"));
+    if(!res.ok) res = await fetch(pilUrl("/playoutMode"), opts("POST"));
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
   }catch(e){
     // ignore; poll will show truth
@@ -2483,7 +2483,7 @@ async function pilStartPlayout(){
   const btn = document.querySelector("#pilStartBtn");
   if(btn){ btn.disabled = true; setTimeout(()=>{ btn.disabled=false; }, 600); }
   try{
-    await fetch(pilUrl("/api/control/liveAssist/masterControl/play"), { method:"GET" });
+    await fetch(pilUrl("/play"), { method:"GET" });
   }catch(e){
     // ignore; best-effort momentary command
   }

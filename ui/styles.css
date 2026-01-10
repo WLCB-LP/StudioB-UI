@@ -123,14 +123,9 @@ main{padding:18px}
   Columns: PIL | (flex) Latest Donations | (flex) Spare | Headphones | Speakers | Program
 */
 .page-studio #topMixerRoot{
-  display:grid;
-  grid-template-columns:
-    var(--topPILW, 260px)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    var(--topSmallW, 240px)
-    var(--topSmallW, 240px)
-    var(--topSmallW, 240px);
+  display:flex;
+  flex-direction:row;
+  flex-wrap:nowrap;
   gap: var(--mixerInterGroupGap);
   align-items:stretch;
   overflow:hidden;
@@ -233,7 +228,6 @@ main{padding:18px}
   the existing Studio page layout.
 */
 .mixerCard{
-  grid-column: 1 / -1;
   padding:10px;
   flex: 0 0 auto;
   min-width: 190px;
@@ -247,6 +241,7 @@ main{padding:18px}
      a constant gap between all top-row cards. */
 .mixerCard--pilWide{ min-width: 260px; }
 .mixerCard--flexFill{ flex: 1 1 0; min-width: 260px; }
+.mixerCard--dockRight{ margin-left:auto; }
 
 /*
   Wide "panel" cards in the TOP row (UI v0.3.45)
