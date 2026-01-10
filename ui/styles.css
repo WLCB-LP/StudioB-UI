@@ -118,6 +118,29 @@ main{padding:18px}
 /* Top row is slightly tighter so it doesn't crowd the main (bottom) row */
 .page-studio .mixerRoot--top{padding-bottom: 0; gap: var(--mixerInterGroupGap);}
 
+/* Top fader row wrapper (UI v0.3.46)
+   The screenshots from v0.3.45 showed the top row collapsing into a vertical
+   stack (cards rendered as block flow). This should never happen.
+
+   We harden the layout here:
+   - studioTopFaders always stretches full width
+   - #topMixerRoot is always a single, non-wrapping flex row
+   - top row uses a constant gap between *every* card (no spacer elements) */
+.page-studio .studioTopFaders{
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.page-studio #topMixerRoot{
+  width: 100%;
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap: nowrap !important;
+  gap: var(--mixerInterGroupGap);
+}
+
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
      - NO horizontal scrolling

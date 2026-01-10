@@ -1,6 +1,11 @@
 # Changelog
 
 
+
+## v0.3.46
+- Fix: Hardened top-row layout so PIL + placeholder panels + Headphones/Speakers/Program always render as a single horizontal row (no vertical stacking).
+- Fix: Force top row to stretch full width and never wrap (defensive CSS for Firefox cache/override edge cases).
+
 ## v0.3.45
 - Fix: Studio top row HTML nesting bug (extra closing `</div>`) that caused the top row to break into full-width stacked panels and reintroduced page scrolling.
 - Studio: "LATEST DONATIONS" + unlabeled placeholder cards are now intentionally **empty** (no fader/VU placeholders) until donation wiring is implemented.
