@@ -224,6 +224,45 @@ main{padding:18px}
 }
 
 /*
+  Stereo dual-VU enhancement (UI v0.3.32)
+
+  Stereo sources (CD1/CD2/AUX/BT/PC/ZOOM) now show TWO subtle meter bars
+  behind the fader lane.
+
+  IMPORTANT:
+  - These are still visual placeholders until we wire real per-channel meters.
+  - We keep the exact same "glass" style and gradient so the overall
+    look remains locked.
+*/
+.fader__meterPair{
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 14px;
+  bottom: 14px;
+  width: 46px; /* enough for two slim meters + gap */
+  display:flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  pointer-events:none;
+}
+
+/*
+  Inside the pair, meters are normal flow elements (not absolute).
+  We reuse the same gradient and opacity.
+*/
+.fader__meterPair .fader__meter{
+  position: relative;
+  left: auto;
+  transform: none;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+}
+
+/*
   VU level markers (UI v0.3.14)
 
   Purpose:

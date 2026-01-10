@@ -212,7 +212,25 @@
                 <div class="strip__title">CD1</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="cd1" aria-label="CD1 fader (visual only)" title="CD1 Level (RC 105) – visual only">
-                    <div class="fader__meter"></div>
+                    <!--
+                      Stereo dual-VU enhancement (UI v0.3.32)
+
+                      Stereo sources in Studio B have separate L/R meters in the DSP
+                      (e.g. CD1 uses RC 405/406).
+
+                      The UI does not yet have real per-channel level readback
+                      behind these lanes (the meter is a visual placeholder), but
+                      operators still benefit from the correct *shape*:
+                      - Mono inputs (mics) show one meter bar.
+                      - Stereo inputs show two meter bars (L + R).
+
+                      When we later wire per-channel meter values, these two bars
+                      will be driven independently.
+                    -->
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
@@ -234,7 +252,10 @@
                 <div class="strip__title">CD2</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="cd2" aria-label="CD2 fader (visual only)" title="CD2 Level (RC 106) – visual only">
-                    <div class="fader__meter"></div>
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
@@ -263,7 +284,10 @@
                 <div class="strip__title">AUX</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="aux" aria-label="AUX fader (visual only)" title="AUX Level (RC 107) – visual only">
-                    <div class="fader__meter"></div>
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
@@ -291,7 +315,10 @@
                 <div class="strip__title">BT</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="bt" aria-label="BT fader (visual only)" title="BT Level (RC 108) – visual only">
-                    <div class="fader__meter"></div>
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
@@ -319,7 +346,10 @@
                 <div class="strip__title">PC</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="pc" aria-label="PC fader (visual only)" title="PC Level (RC 109) – visual only">
-                    <div class="fader__meter"></div>
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
@@ -347,7 +377,10 @@
                 <div class="strip__title">Zoom</div>
                 <div class="fader">
                   <div class="fader__lane" data-fader="zoom" aria-label="Zoom fader (visual only)" title="Zoom Level (RC 110) – visual only">
-                    <div class="fader__meter"></div>
+                    <div class="fader__meterPair" aria-hidden="true">
+                      <div class="fader__meter fader__meter--L"></div>
+                      <div class="fader__meter fader__meter--R"></div>
+                    </div>
                     <div class="fader__marks" aria-hidden="true">
                     <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
                     <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>

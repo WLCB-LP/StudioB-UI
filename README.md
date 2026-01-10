@@ -15,7 +15,7 @@ Run:
 
 ## Notes
 
-- v0.3.31: Studio mixer: all input faders are LIVE RC controls (101–110), mute RCs (121–131) are allowlisted for persistence, and the UI remains **DSP/engine authoritative**.
+- v0.3.32: UI-only: stereo sources now show **dual VU placeholders** (L+R) behind the fader lane; UI build version is kept in sync with `VERSION`.
 
 - v0.3.14: Studio mixer faders updated with a **glass handle** (meters visible through) and added **level markers** on the per-channel VU lanes.
 - v0.3.15: Studio mixer visual **blue neon skin** pass (dark, flashy, high-tech) — scoped to mixer only; no behavior changes.

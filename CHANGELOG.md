@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.32
+
+- Mixer UI: Stereo sources (CD1/CD2/AUX/Bluetooth/PC/Zoom) now display **dual VU placeholders** (L+R) behind the fader lane.
+  - UI-only visual change (no DSP/engine changes).
+  - Mics remain single-meter (mono).
+- Fix: `UI_BUILD_VERSION` in `ui/app.js` is now kept in sync with `VERSION`.
+
 ## 0.3.31
 
 - Mixer: Enable RC writes for **all** Studio B input faders (RC 101–110) so non-host faders no longer snap back to 0.
