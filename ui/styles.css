@@ -10,6 +10,9 @@
   --bad:#ff5a7a;
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --r:14px;
+
+  /* Layout sizing */
+  --topRightColWidth:190px; /* matches single-strip cards (AUX/BT/PC/Zoom) */
 }
 
 *{box-sizing:border-box}
@@ -128,7 +131,8 @@ main{padding:18px}
 */
 #page-studio .mixerRoot--top{
   display: grid;
-  grid-template-columns: 360px 1fr 1fr auto;
+  /* Let PIL size to its contents; keep the center flexible; right dock is auto */
+  grid-template-columns: auto 1fr 1fr auto;
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
@@ -136,10 +140,16 @@ main{padding:18px}
 
 #page-studio .topRightDock{
   display:flex;
-  flex-direction:row;
+  flex-direction:column;
   align-items:stretch;
-  justify-content:flex-end;
-  gap: var(--mixerInterGroupGap);
+  justify-content:flex-start;
+  gap: var(--mixerInterCardGap);
+}
+
+/* Keep top-right cards consistent with single-strip sources (AUX/BT/PC/Zoom) */
+#page-studio .topRightDock .mixerCard--tall{
+  width: var(--topRightColWidth);
+  max-width: var(--topRightColWidth);
 }
 
 /* Ensure flex rules on base .mixerRoot don't conflict with grid */
@@ -154,6 +164,18 @@ main{padding:18px}
 #page-studio #cardLatestDonations{grid-column: 2; grid-row: 1;}
 #page-studio #cardPlaceholder{grid-column: 3; grid-row: 1;}
 #page-studio #topRightDock{grid-column: 4; grid-row: 1; justify-self: end;}
+
+/* PIL card should hug its content so the VU has the same edge gap as the buttons side */
+#page-studio #pilCard{
+  justify-self: start;
+  width: max-content;
+}
+
+/* Top-right cards should match single-strip card width (AUX/BT/PC/Zoom) */
+#page-studio .topRightDock .mixerCard--tall{
+  width: var(--topRightColWidth);
+  max-width: var(--topRightColWidth);
+}
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
