@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.38 (UI-only)
+## v0.3.39 (UI-only)
 - Studio page: converted to a dedicated **two-row fader console**.
   - Added a new *top* fader row: **PIL | Headphones | Speakers | Program**.
     - PIL/Headphones/Program are placeholders (visual only; no controls yet).

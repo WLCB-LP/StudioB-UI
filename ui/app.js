@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.38";
+const UI_BUILD_VERSION = "0.3.39";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1082,19 +1082,30 @@ async function fetchDSPTimeline(){
 }
 
 function renderDSPHealth(){
-  $("#dspHealthState").textContent = state.dspHealth.state || "—";
-  $("#dspHealthLastOk").textContent = state.dspHealth.lastOk || "—";
-  $("#dspHealthFails").textContent = String(state.dspHealth.failures ?? "—");
-  $("#dspHealthErr").textContent = state.dspHealth.lastError || "—";
-  $("#dspHealthLastTest").textContent = state.dspHealth.lastTestAt || "—";
-  const lp = $("#dspHealthLastPoll");
+  // UI v0.3.39: The Studio page may omit the DSP Health panel entirely
+  // (operator requested a clean "fader console"). The engineering page may
+  // still render it. Therefore ALL DOM writes here must be null-safe.
+  function _setText(id, txt){
+    const el = document.getElementById(id);
+    if(el) el.textContent = (txt ?? "—");
+  }
+
+  _setText("dspHealthState", state.dspHealth.state || "—");
+  _setText("dspHealthLastOk", state.dspHealth.lastOk || "—");
+  _setText("dspHealthFails", String(state.dspHealth.failures ?? "—"));
+  _setText("dspHealthErr", state.dspHealth.lastError || "—");
+  _setText("dspHealthLastTest", state.dspHealth.lastTestAt || "—");
+
+  const lp = document.getElementById("dspHealthLastPoll");
   if(lp) lp.textContent = state.dspHealth.lastPollAt || "—";
 
   // Operator safety message shown when DISCONNECTED.
-  const warn = $("#dspControlWarn");
+  const warn = document.getElementById("dspControlWarn");
+  if(!warn) return;
+
   if((state.dspHealth.state||"").toUpperCase() === "DISCONNECTED"){
     warn.style.display = "block";
-    warn.textContent = "DSP is DISCONNECTED. Control writes are blocked to prevent silent failure. Click 'Test DSP Now' to verify link.";
+    warn.textContent = "DSP is DISCONNECTED. Control writes are disabled to prevent silent failure. Click 'Test DSP Now' to verify link.";
   }else{
     warn.style.display = "none";
     warn.textContent = "";

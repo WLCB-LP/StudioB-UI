@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.38
+# STUB Mixer UI (Studio B) — Release 0.3.39
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,7 +15,7 @@ Run:
 
 ## Notes
 
-- v0.3.38: UI-only: Studio page becomes a dedicated **two-row fader console**. Added a top fader row with placeholders for **PIL / Headphones / Program** and a LIVE **Speakers** fader+mute (RC **160/161**). Removed the lower Studio-page panels (speakers slider, DSP health, meters) to keep the console uncluttered.
+- v0.3.39: UI-only: Studio page becomes a dedicated **two-row fader console**. Added a top fader row with placeholders for **PIL / Headphones / Program** and a LIVE **Speakers** fader+mute (RC **160/161**). Removed the lower Studio-page panels (speakers slider, DSP health, meters) to keep the console uncluttered.
 - v0.3.37: UI-only: Mixer layout — all inter-group gaps are now **uniform fixed width** (including PC↔Zoom). Any extra horizontal room is left as unused edge space.
 - v0.3.36: UI-only: Layout polish — tightened inter-group gaps and added a small PC↔Zoom separation while preserving **no scrolling** and **no vertical stacking**.
 - v0.3.34: UI-only: Mixer fader bank regrouped with **elastic gaps** so cards stay in a single row with **no scrolling** and **no vertical stacking**:
