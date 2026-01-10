@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.40 (UI-only hotfix)
+- Fixed Studio page startup crash when the lower panels are removed.
+  - Guarded missing DOM elements (Reconnect / Test DSP controls) so a null dereference cannot stall hydration on "Connecting".
+
 ## v0.3.39 (UI-only)
 - Studio page: converted to a dedicated **two-row fader console**.
   - Added a new *top* fader row: **PIL | Headphones | Speakers | Program**.

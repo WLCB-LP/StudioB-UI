@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.39";
+const UI_BUILD_VERSION = "0.3.40";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -1082,7 +1082,7 @@ async function fetchDSPTimeline(){
 }
 
 function renderDSPHealth(){
-  // UI v0.3.39: The Studio page may omit the DSP Health panel entirely
+  // UI v0.3.40: The Studio page may omit the DSP Health panel entirely
   // (operator requested a clean "fader console"). The engineering page may
   // still render it. Therefore ALL DOM writes here must be null-safe.
   function _setText(id, txt){
@@ -1460,42 +1460,53 @@ function wireUI(){
   });
 
   // Reconnect DSP (operator-safe)
-  $("#btnReconnect").addEventListener("click", async ()=>{
-    $("#reconnectMsg").textContent = "Sending…";
-    try{
-      await fetch("/api/reconnect", { method:"POST" });
-      $("#reconnectMsg").textContent = "OK";
-      setTimeout(()=>$("#reconnectMsg").textContent="", 1200);
-    }catch(e){
-      $("#reconnectMsg").textContent = "Failed";
-    }
-  });
+  // NOTE: The Studio page can be configured to omit the "DSP Health" / reconnect panel.
+  // In that case, the button won't exist, and we MUST NOT throw at startup.
+  // (A single null dereference here prevents hydration from ever completing.)
+  const btnReconnect = $("#btnReconnect");
+  if(btnReconnect){
+    btnReconnect.addEventListener("click", async ()=>{
+      const msg = $("#reconnectMsg");
+      if(msg) msg.textContent = "Sending…";
+      try{
+        await fetch("/api/reconnect", { method:"POST" });
+        if(msg) msg.textContent = "OK";
+        if(msg) setTimeout(()=>msg.textContent="", 1200);
+      }catch(e){
+        if(msg) msg.textContent = "Failed";
+      }
+    });
+  }
 
 // Manual "Test DSP Now" (single-shot). This is the ONLY place the UI triggers
 // DSP network activity, and only on explicit operator request.
-$("#btnDspTest").addEventListener("click", async ()=>{
-  const b = $("#btnDspTest");
-  const msg = $("#dspTestMsg");
-  b.disabled = true;
-  msg.textContent = "Testing…";
-  try{
-    const res = await fetch("/api/dsp/test", { method:"POST" });
-    const txt = await res.text();
-    if(!res.ok) throw new Error(txt);
-    // Update snapshot + timeline after test.
-    await fetchDSPHealth();
-    await fetchDSPTimeline();
-    msg.textContent = "OK";
-    setTimeout(()=>msg.textContent="", 1200);
-  }catch(e){
-    msg.textContent = "Failed";
-    // Also refresh health/timeline so operator can see the error.
-    await fetchDSPHealth();
-    await fetchDSPTimeline();
-  }finally{
-    b.disabled = false;
-  }
-});
+// The entire DSP Health panel can be removed from the Studio page; guard accordingly.
+const btnDspTest = $("#btnDspTest");
+if(btnDspTest){
+	  btnDspTest.addEventListener("click", async ()=>{
+	    const b = btnDspTest;
+	    const msg = $("#dspTestMsg");
+	    b.disabled = true;
+	    if(msg) msg.textContent = "Testing…";
+	    try{
+	      const res = await fetch("/api/dsp/test", { method:"POST" });
+	      const txt = await res.text();
+	      if(!res.ok) throw new Error(txt);
+	      // Update snapshot + timeline after test.
+	      await fetchDSPHealth();
+	      await fetchDSPTimeline();
+	      if(msg) msg.textContent = "OK";
+	      if(msg) setTimeout(()=>msg.textContent="", 1200);
+	    }catch(e){
+	      if(msg) msg.textContent = "Failed";
+	      // Also refresh health/timeline so operator can see the error.
+	      await fetchDSPHealth();
+	      await fetchDSPTimeline();
+	    }finally{
+	      b.disabled = false;
+	    }
+	  });
+}
 
 
   // RC controls: sliders
