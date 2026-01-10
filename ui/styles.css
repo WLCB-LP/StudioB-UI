@@ -122,28 +122,27 @@ main{padding:18px}
 
 /*
   Top-row layout:
-  Use a grid so the row never wraps into multiple rows (even if the center cards are wide).
+  Use a grid so the row never wraps into multiple rows.
   Columns:
     1) PIL (fixed)
     2) LATEST DONATIONS (fluid)
-    3) Unlabeled (fluid)
-    4) Right dock group (auto)
+    3) Unlabeled / spare (fluid)
+    4) Headphones (fixed)
+    5) Speakers (fixed)
+    6) Program (fixed)
 */
 #page-studio .mixerRoot--top{
   display: grid;
-  /* Let PIL size to its contents; keep the center flexible; right dock is auto */
-  grid-template-columns: auto 1fr 1fr auto;
+  /* PIL sizes to its contents; center cards are flexible; right-side cards are fixed */
+  grid-template-columns: auto 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
 }
 
 #page-studio .topRightDock{
-  display:flex;
-  flex-direction:column;
-  align-items:stretch;
-  justify-content:flex-start;
-  gap: var(--mixerInterCardGap);
+  /* Make the dock children participate directly in the top-row grid (no vertical stacking) */
+  display: contents;
 }
 
 /* Keep top-right cards consistent with single-strip sources (AUX/BT/PC/Zoom) */
@@ -163,7 +162,9 @@ main{padding:18px}
 #page-studio #pilCard{grid-column: 1; grid-row: 1;}
 #page-studio #cardLatestDonations{grid-column: 2; grid-row: 1;}
 #page-studio #cardPlaceholder{grid-column: 3; grid-row: 1;}
-#page-studio #topRightDock{grid-column: 4; grid-row: 1; justify-self: end;}
+#page-studio #headphonesCard{grid-column: 4; grid-row: 1;}
+#page-studio #speakersCard{grid-column: 5; grid-row: 1;}
+#page-studio #programCard{grid-column: 6; grid-row: 1;}
 
 /* PIL card should hug its content so the VU has the same edge gap as the buttons side */
 #page-studio #pilCard{
