@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.35
+
+- Mixer layout: Enforced **PC + Zoom** as a strict inline pair (no vertical stacking).
+- Mixer layout: Studio page fader bank now explicitly **clips overflow** (no horizontal scrolling) per operator contract.
+- Pure UI/layout change (no DSP/engine changes).
+
+
 ## 0.3.34
 
 - Mixer layout: Regrouped the fader bank into fixed blocks with **elastic gaps** (flex spacers) to match the operator layout contract:

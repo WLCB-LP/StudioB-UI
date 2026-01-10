@@ -91,7 +91,14 @@ main{padding:18px}
   grid-column: 1 / -1;
   grid-row: 2;
   align-self:end;
-  overflow-x: auto;
+
+  /* v0.3.35: Studio B contract = NO scrolling. The mixerRoot itself is a
+     single, fixed horizontal "console" row. Any overflow is clipped. */
+  display:flex;
+  flex-direction:row;
+  flex-wrap: nowrap;
+
+  overflow-x: hidden;
   padding-bottom: 2px;
 }
 
@@ -131,6 +138,15 @@ main{padding:18px}
   gap: 12px;
   align-items:stretch;
   flex: 0 0 auto;
+}
+
+
+/* v0.3.35: Reinforce the last group (PC + Zoom) as a HARD no-wrap row.
+   This *must* stay inline: | PC Zoom |  (never stack vertically). */
+.mixerGroup--pczoom{
+  display:flex;
+  flex-direction:row;
+  flex-wrap: nowrap;
 }
 
 /* Flex spacers that create "elastic" gaps between groups. */
