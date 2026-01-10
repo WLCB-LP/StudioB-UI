@@ -15,7 +15,7 @@ Run:
 
 ## Notes
 
-- v0.3.47: Fix: Studio top row is now an explicit **single-row grid**; PlayIt Live API calls are proxied via the engine (no browser CORS, self-signed TLS OK).
+- v0.3.48: Fix: Engine build regression in PlayIt Live proxy handler (compile/tests pass again).
 - v0.3.41: UI-only: Shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
 
 - v0.3.40: Hotfix: Studio page can omit the lower panels without breaking hydration. Guarded missing DOM elements (Reconnect / Test DSP buttons) so the UI doesn't throw and stall on "Connecting".

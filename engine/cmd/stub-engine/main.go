@@ -716,7 +716,16 @@ func writeAPIError(w http.ResponseWriter, status int, msg string) {
 
 // pilProxy forwards a small set of PlayIt Live REST calls.
 // We intentionally keep the surface area tiny and explicit.
-func pilProxy(w http.ResponseWriter, r *http.Request, path string) {
+// pilProxy is used by our /api/pil/* endpoints to forward a request to PlayIt Live.
+//
+// Why we proxy:
+// - Browser -> PIL would be blocked by CORS.
+// - PIL uses a self-signed certificate; the engine can safely ignore TLS
+//   validation on this *specific* upstream without weakening the browser.
+//
+// `method` allows our API to expose a clean contract while still matching PIL's
+// expected verbs (e.g. we may accept POST but forward PUT).
+func pilProxy(w http.ResponseWriter, r *http.Request, method string, path string) {
 	// Build target URL
 	u := pilBaseURL + path
 	if strings.Contains(u, "?") {
@@ -734,7 +743,7 @@ func pilProxy(w http.ResponseWriter, r *http.Request, path string) {
 		// Reset body for potential reuse isn't necessary (we don't reuse).
 	}
 
-	req, err := http.NewRequest(r.Method, u, body)
+	req, err := http.NewRequest(method, u, body)
 	if err != nil {
 		writeAPIError(w, http.StatusBadGateway, "PIL request build failed")
 		return
