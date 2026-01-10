@@ -147,14 +147,18 @@ main{padding:18px}
   display:flex;
   flex-direction:row;
   flex-wrap: nowrap;
+  gap: 18px; /* slight visual separation between PC and Zoom (requested) */
 }
 
 /* Flex spacers that create "elastic" gaps between groups. */
 .mixerSpacer{
   flex: 1 1 0;
-  min-width: 24px; /* keeps gaps visible on 1920×1080 */
+  /* v0.3.36: cap gap width so groups stay visually tighter. */
+  min-width: 16px;
+  max-width: 140px;
   pointer-events:none;
 }
+
 
 /*
   Mixer card spans both columns (UI v0.3.13)

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.36 (UI-only)
+- Narrowed inter-group elastic gaps (capped spacer max-width).
+- Added a small fixed gap between PC and Zoom while keeping no-scroll/no-wrap contract.
+
 ## 0.3.35
 
 - Mixer layout: Enforced **PC + Zoom** as a strict inline pair (no vertical stacking).
