@@ -100,8 +100,8 @@ main{padding:18px}
 /* Keep the bottom fader row pinned toward the bottom of the Studio page */
 #page-studio .studioBottomFaders{margin-top:auto;}
 
-/* Fader row styling (applies to BOTH rows) */
-#page-studio .mixerRoot{
+/* Bottom fader row styling */
+#page-studio .mixerRoot--bottom{
   align-self:stretch;
 
   /* v0.3.35: Studio B contract = NO scrolling. The mixerRoot itself is a
