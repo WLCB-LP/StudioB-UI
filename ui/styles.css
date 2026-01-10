@@ -107,21 +107,37 @@ main{padding:18px}
 
 }
 
-/* Mixer groups (UI v0.3.33)
-   We treat "Microphones" as the left group and "Stereo sources" as the right group.
-   The root can then place *all* extra horizontal space BETWEEN groups, which keeps
-   the rightmost strip (Zoom) hugging the right edge on 1920×1080. */
+/* Mixer groups (UI v0.3.34)
+   Operator requirement:
+     - NO horizontal scrolling
+     - NO vertical wrapping/stacking of fader cards
+
+   Desired grouping shape:
+     | Mic Mic Mic Mic | (flex gap) | CD1 CD2 | (flex gap) | AUX | (flex gap) | BT |
+     (flex gap) | PC Zoom |
+
+   Implementation:
+     - Each .mixerGroup is a "solid" block (flex:0 0 auto; flex-wrap:nowrap).
+     - Between groups we insert .mixerSpacer elements.
+       Spacers expand to consume EXTRA width, and shrink toward 0 if needed.
+     - We do NOT use scrolling as a layout escape hatch.
+       If the viewport becomes too narrow, cards will clip rather than wrap.
+       (This is intentional for the Studio B console.)
+*/
 .mixerGroup{
   display:flex;
   flex-direction:row;
   flex-wrap: nowrap;
   gap: 12px;
   align-items:stretch;
+  flex: 0 0 auto;
 }
 
-/* When the mixer content fits without scrolling, spread the groups apart. */
-.mixerRoot.mixerRoot--spread{
-  justify-content: space-between;
+/* Flex spacers that create "elastic" gaps between groups. */
+.mixerSpacer{
+  flex: 1 1 0;
+  min-width: 24px; /* keeps gaps visible on 1920×1080 */
+  pointer-events:none;
 }
 
 /*
@@ -148,15 +164,22 @@ main{padding:18px}
   /*
     Mixer root wrapper
 
-    Render all fader cards horizontally across the screen and let them wrap.
-    This keeps the "console" feel while still accommodating more channels.
+    Studio B contract:
+      - single fixed row of fader cards
+      - no scrolling
+      - no wrapping (never stack cards vertically)
+
+    Extra horizontal space is consumed by .mixerSpacer elements that sit
+    BETWEEN groups.
   */
   grid-column: 1 / -1;
   display:flex;
   flex-direction:row;
   flex-wrap: nowrap;
-  gap: 0px; /* gap moved to .mixerGroup so we can space groups separately */
+  gap: 0px; /* groups own their internal gap; inter-group gaps are spacers */
   align-items:stretch;
+  width: 100%;
+  overflow-x: hidden; /* explicit: never show a horizontal scrollbar */
 }
 
 /*

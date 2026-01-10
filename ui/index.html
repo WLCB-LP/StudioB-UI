@@ -100,6 +100,21 @@
         -->
 
         <div class="mixerRoot isHydrating" id="mixerRoot">
+          <!--
+            Mixer grouping layout (UI v0.3.34)
+
+            Operator requirement (no scrolling / no vertical stacking):
+
+              | Mic Mic Mic Mic |     (flex gap)     | CD1 CD2 |     (flex gap)     | AUX |
+              |     (flex gap)     | BT |     (flex gap)     | PC Zoom |
+
+            Implementation notes:
+            - Each group is a "solid" block (flex:0 0 auto; flex-wrap:nowrap).
+            - Between groups we insert .mixerSpacer elements that expand to
+              consume extra horizontal space.
+            - Spacers are allowed to shrink toward 0 if needed, but we do NOT
+              scroll and we do NOT wrap strips vertically.
+          -->
           <div class="mixerGroup mixerGroup--mics">
           <!-- Microphones (grouped) -->
           <div class="card mixerCard">
@@ -205,7 +220,8 @@
           </div>
           </div>
 
-          <div class="mixerGroup mixerGroup--stereo">
+          <div class="mixerSpacer" aria-hidden="true"></div>
+          <div class="mixerGroup mixerGroup--cd">
 
           
 
@@ -281,6 +297,11 @@
             </div>
           </div>
 
+          </div>
+
+          <div class="mixerSpacer" aria-hidden="true"></div>
+          <div class="mixerGroup mixerGroup--aux">
+
           <!-- Single-source cards -->
           <div class="card mixerCard">
             <div class="mixerCard__head"><div class="mixerCard__title">AUX</div></div>
@@ -313,6 +334,11 @@
             </div>
           </div>
 
+          </div>
+
+          <div class="mixerSpacer" aria-hidden="true"></div>
+          <div class="mixerGroup mixerGroup--bt">
+
           <div class="card mixerCard">
             <div class="mixerCard__head"><div class="mixerCard__title">Bluetooth</div></div>
             <div class="mixerRow mixerRow--1">
@@ -343,6 +369,11 @@
               </div>
             </div>
           </div>
+
+          </div>
+
+          <div class="mixerSpacer" aria-hidden="true"></div>
+          <div class="mixerGroup mixerGroup--pczoom">
 
           <div class="card mixerCard">
             <div class="mixerCard__head"><div class="mixerCard__title">PC</div></div>
@@ -648,6 +679,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.30"></script>
+  <script src="/app.js?v=0.3.34"></script>
 </body>
 </html>

@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.33";
+const UI_BUILD_VERSION = "0.3.34";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -273,49 +273,21 @@ function showMixerWhenReady(){
   // authoritative state.
   const root = document.querySelector('#mixerRoot');
   if(root) root.classList.remove('isHydrating');
-  updateMixerRootLayout();
 }
 
 function hideMixerUntilHydrated(){
   const root = document.querySelector('#mixerRoot');
   if(root) root.classList.add('isHydrating');
-  if(root) root.classList.remove('mixerRoot--spread');
 }
 
-
 // ---------------------------------------------------------------------------
-// Mixer layout polish (UI v0.3.33)
+// Mixer layout (UI v0.3.34)
 // ---------------------------------------------------------------------------
-// Goal: when the fader bank fits within the viewport (no horizontal scroll),
-// place the "extra" space BETWEEN the two groups (Mics on the left, Stereo on
-// the right). This makes the rightmost strip (Zoom) hug the right edge on
-// 1920×1080, while preserving horizontal scrolling when more strips exist.
-//
-// We do this with a simple measurement-based toggle:
-// - If scrollWidth <= clientWidth => add .mixerRoot--spread (CSS uses space-between)
-// - Else => remove it (normal left-to-right scroll layout)
-let _mixerLayoutTimer = null;
-
-function updateMixerRootLayout(){
-  const root = document.querySelector('#mixerRoot');
-  if(!root) return;
-
-  // If we're still hydrating, measurements are misleading. Keep "spread" off.
-  if(root.classList.contains('isHydrating')){
-    root.classList.remove('mixerRoot--spread');
-    return;
-  }
-
-  // Small tolerance avoids flip-flopping due to sub-pixel rounding.
-  const fits = root.scrollWidth <= (root.clientWidth + 2);
-  root.classList.toggle('mixerRoot--spread', fits);
-}
-
-// Re-evaluate on resize/orientation changes.
-window.addEventListener('resize', ()=>{
-  if(_mixerLayoutTimer) clearTimeout(_mixerLayoutTimer);
-  _mixerLayoutTimer = setTimeout(updateMixerRootLayout, 120);
-});
+// Operator requirement: NO scrolling and NO vertical stacking of fader cards.
+// We achieve this with *pure markup + CSS*:
+//   - .mixerGroup blocks for each logical group (Mic, CD1/CD2, AUX, BT, PC+Zoom)
+//   - .mixerSpacer flex elements between groups to consume extra horizontal space
+// No JS measurements or resize handlers are used for the layout.
 // Studio B: fader readback RC assignments (authoritative render source)
 const MIXER_FADER_RC_READ = {
   host: "101",

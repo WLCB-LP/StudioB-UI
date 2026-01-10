@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.34
+
+- Mixer layout: Regrouped the fader bank into fixed blocks with **elastic gaps** (flex spacers) to match the operator layout contract:
+  - `Mic×4 | gap | CD×2 | gap | AUX | gap | BT | gap | PC+Zoom`
+  - **No scrolling** and **no vertical stacking** of fader cards.
+  - Pure UI/layout change (no DSP/engine changes).
+
 ## 0.3.33
 
 - Mixer layout: When the fader bank fits within the viewport, the UI now **spreads the Mic group and Stereo group apart** so the rightmost strip (Zoom) hugs the right edge on 1920×1080.
