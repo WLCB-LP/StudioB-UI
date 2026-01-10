@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.46";
+const UI_BUILD_VERSION = "0.3.47";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -2419,17 +2419,14 @@ async function fetchDSPModeStatus(){
 //    gracefully and keep showing the polled truth.)
 // - START is a momentary command that triggers playout.
 //
-// IMPORTANT: Because PIL is on a different origin (10.101.0.101), the browser
-// may block requests if PIL does not allow CORS or if HTTPS certs are untrusted.
-// We fail CLOSED: controls show "?" and do not crash the Studio UI.
-const PIL_API_BASE = "https://10.101.0.101:25433";
-const PIL_API_KEY  = "d304db66a0e54826834259273c36e57a";
+// IMPORTANT: PIL is on a different origin and uses a self-signed TLS cert.
+// To avoid browser CORS/TLS issues, the **engine** exposes a small same-origin
+// proxy under /api/pil/*.
 let pilState = { automationOn: null, lastOkMs: 0 };
 
 function pilUrl(path){
-  // Ensure exactly one leading slash.
   const p = path.startsWith("/") ? path : ("/"+path);
-  return `${PIL_API_BASE}${p}?apiKey=${encodeURIComponent(PIL_API_KEY)}`;
+  return `/api/pil${p}`;
 }
 
 function setPILModeButtonVisual(btn, automationOn){

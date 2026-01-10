@@ -2,6 +2,11 @@
 
 
 
+
+## v0.3.47
+- Fix: Studio top row is now an explicit single-row grid (no stacking; even gaps).
+- Add: Engine proxies PlayIt Live API (avoids browser CORS; accepts self-signed TLS).
+
 ## v0.3.46
 - Fix: Hardened top-row layout so PIL + placeholder panels + Headphones/Speakers/Program always render as a single horizontal row (no vertical stacking).
 - Fix: Force top row to stretch full width and never wrap (defensive CSS for Firefox cache/override edge cases).

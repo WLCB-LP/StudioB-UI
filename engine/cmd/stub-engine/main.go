@@ -1,10 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
 	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,22 @@ import (
 
 	app "stub-mixer/internal"
 )
+
+// ---------------------------------------------------------------------
+// PlayIt Live (PIL) proxy
+// ---------------------------------------------------------------------
+
+// NOTE: We proxy PIL from the engine to avoid browser CORS + self-signed TLS issues.
+// This is intended for trusted LAN use.
+var pilHTTP = &http.Client{
+	Timeout: 4 * time.Second,
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+	},
+}
+
+const pilBaseURL = "https://10.101.0.101:25433"
+const pilAPIKey = "d304db66a0e54826834259273c36e57a"
 
 // defaultConfigPath returns the canonical location for the operator configuration.
 //
@@ -405,6 +423,30 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	// ------------------------------------------------------------
+	// PlayIt Live (PIL) proxy endpoints
+	// - Avoids browser CORS
+	// - Allows self-signed TLS by terminating/validating at the engine
+	// ------------------------------------------------------------
+	mux.HandleFunc("/api/pil/playoutMode", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			pilProxy(w, r, http.MethodGet, "/api/control/liveAssist/playoutMode")
+		case http.MethodPost, http.MethodPut:
+			// Attempt to write the mode. We pass through the JSON payload.
+			pilProxy(w, r, http.MethodPut, "/api/control/liveAssist/playoutMode")
+		default:
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET/POST required")
+		}
+	})
+	mux.HandleFunc("/api/pil/play", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+			return
+		}
+		pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/masterControl/play")
+	})
+
 	// -----------------------------------------------------------------------
 	// Operator intents (v0.2.75)
 	//
@@ -670,4 +712,47 @@ func writeAPIError(w http.ResponseWriter, status int, msg string) {
 		"ok":    false,
 		"error": msg,
 	})
+}
+
+// pilProxy forwards a small set of PlayIt Live REST calls.
+// We intentionally keep the surface area tiny and explicit.
+func pilProxy(w http.ResponseWriter, r *http.Request, path string) {
+	// Build target URL
+	u := pilBaseURL + path
+	if strings.Contains(u, "?") {
+		u = u + "&apiKey=" + pilAPIKey
+	} else {
+		u = u + "?apiKey=" + pilAPIKey
+	}
+
+	// Copy body (if any)
+	var body io.Reader
+	if r.Body != nil {
+		defer r.Body.Close()
+		b, _ := io.ReadAll(r.Body)
+		body = strings.NewReader(string(b))
+		// Reset body for potential reuse isn't necessary (we don't reuse).
+	}
+
+	req, err := http.NewRequest(r.Method, u, body)
+	if err != nil {
+		writeAPIError(w, http.StatusBadGateway, "PIL request build failed")
+		return
+	}
+	// Preserve content type for JSON PUT/POST.
+	if ct := r.Header.Get("Content-Type"); ct != "" {
+		req.Header.Set("Content-Type", ct)
+	}
+
+	resp, err := pilHTTP.Do(req)
+	if err != nil {
+		writeAPIError(w, http.StatusBadGateway, "PIL request failed")
+		return
+	}
+	defer resp.Body.Close()
+
+	// Pass through response body (JSON) for the UI to consume.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }
