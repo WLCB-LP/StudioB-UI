@@ -105,6 +105,25 @@ main{padding:18px}
   grid-row: 1;
 }
 
+}
+
+/* Mixer groups (UI v0.3.33)
+   We treat "Microphones" as the left group and "Stereo sources" as the right group.
+   The root can then place *all* extra horizontal space BETWEEN groups, which keeps
+   the rightmost strip (Zoom) hugging the right edge on 1920×1080. */
+.mixerGroup{
+  display:flex;
+  flex-direction:row;
+  flex-wrap: nowrap;
+  gap: 12px;
+  align-items:stretch;
+}
+
+/* When the mixer content fits without scrolling, spread the groups apart. */
+.mixerRoot.mixerRoot--spread{
+  justify-content: space-between;
+}
+
 /*
   Mixer card spans both columns (UI v0.3.13)
   We keep this as a simple grid override so we don't have to refactor
@@ -136,7 +155,7 @@ main{padding:18px}
   display:flex;
   flex-direction:row;
   flex-wrap: nowrap;
-  gap: 12px;
+  gap: 0px; /* gap moved to .mixerGroup so we can space groups separately */
   align-items:stretch;
 }
 

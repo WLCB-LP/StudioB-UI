@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.30
+# STUB Mixer UI (Studio B) — Release 0.3.33
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -14,6 +14,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.3.33: UI-only: Mixer layout now spreads Mic and Stereo groups apart when they fit, so Zoom hugs the right edge on 1920×1080.
 
 - v0.3.32: UI-only: stereo sources now show **dual VU placeholders** (L+R) behind the fader lane; UI build version is kept in sync with `VERSION`.
 

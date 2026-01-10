@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.33
+
+- Mixer layout: When the fader bank fits within the viewport, the UI now **spreads the Mic group and Stereo group apart** so the rightmost strip (Zoom) hugs the right edge on 1920×1080.
+  - Pure UI/layout change (no DSP/engine changes).
+  - Preserves horizontal scrolling behavior when more strips exist.
+
 ## 0.3.32
 
 - Mixer UI: Stereo sources (CD1/CD2/AUX/Bluetooth/PC/Zoom) now display **dual VU placeholders** (L+R) behind the fader lane.
