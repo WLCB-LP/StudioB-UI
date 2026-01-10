@@ -101,8 +101,7 @@ main{padding:18px}
 .page-studio .studioBottomFaders{margin-top:auto;}
 
 /* Fader row styling (applies to BOTH rows) */
-.page-studio .mixerRoot,
-.page-studio #topMixerRoot{
+.page-studio .mixerRoot{
   align-self:stretch;
 
   /* v0.3.35: Studio B contract = NO scrolling. The mixerRoot itself is a
@@ -119,34 +118,34 @@ main{padding:18px}
 .page-studio .mixerRoot--top{padding-bottom: 0; gap: var(--mixerInterGroupGap);}
 
 /*
-  Top row: explicit grid columns to guarantee a single row.
-  Columns: PIL | (flex) Latest Donations | (flex) Spare | Headphones | Speakers | Program
+  Top-row layout:
+  Use a grid so the row never wraps into multiple rows (even if the center cards are wide).
+  Columns:
+    1) PIL (fixed)
+    2) LATEST DONATIONS (fluid)
+    3) Unlabeled (fluid)
+    4) Right dock group (auto)
 */
-.page-studio #topMixerRoot{
-  display:flex;
-  flex-direction:row;
-  flex-wrap:nowrap;
-  gap: var(--mixerInterGroupGap);
-  align-items:stretch;
-  overflow:hidden;
-}
-.page-studio #topMixerRoot > *{min-width:0;}
-
-/* Top fader row wrapper (UI v0.3.47)
-   The screenshots from v0.3.45 showed the top row collapsing into a vertical
-   stack (cards rendered as block flow). This should never happen.
-
-   We harden the layout here:
-   - studioTopFaders always stretches full width
-   - #topMixerRoot is always a single, non-wrapping flex row
-   - top row uses a constant gap between *every* card (no spacer elements) */
-.page-studio .studioTopFaders{
-  width: 100%;
-  display: flex;
-  flex-direction: row;
+.page-studio .mixerRoot--top{
+  display: grid;
+  grid-template-columns: 320px 1fr 1fr auto;
+  column-gap: var(--mixerInterGroupGap);
+  row-gap: 0;
   align-items: stretch;
 }
 
+.page-studio .topRightDock{
+  display:flex;
+  flex-direction:row;
+  align-items:stretch;
+  justify-content:flex-end;
+  gap: var(--mixerInterGroupGap);
+}
+
+/* Ensure flex rules on base .mixerRoot don't conflict with grid */
+.page-studio .mixerRoot--top > *{min-width: 0;}
+
+/* Ensure the top-row grid can shrink its middle columns without overflowing */
 .page-studio #topMixerRoot{width: 100%;}
 
 /* Mixer groups (UI v0.3.34)
@@ -267,13 +266,27 @@ main{padding:18px}
 /* PIL button stack (UI v0.3.44)
    We place two momentary WideOrbit-style buttons to the LEFT of the VU lane. */
 .pilStripBody{ display:flex; flex-direction:row; align-items:stretch; gap: 10px; }
-.pilButtons{ display:flex; flex-direction:column; gap: 10px; width: 96px; }
+.pilButtons{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  width: 96px;
+  /* Align the buttons with the top of the VU lane (not the strip title pill). */
+  margin-top: 34px;
+}
 .pilButtons .woBtn{ max-width: none; height: 54px; font-weight: 800; letter-spacing: .6px; }
 
 /* PIL mode button colors: green=Auto (automation on), yellow=Live (automation off) */
 .woBtn--pilMode{ background: rgba(60,255,170,.10); border-color: rgba(60,255,170,.30); }
 .woBtn--pilMode.woBtn--pilAuto{ background: rgba(60,255,170,.22); border-color: rgba(60,255,170,.55); }
-.woBtn--pilMode.woBtn--pilLive{ background: rgba(255,210,80,.20); border-color: rgba(255,210,80,.55); }
+.woBtn--pilMode.woBtn--pilLive{
+  /* Brighter yellow for LIVE (automation OFF). */
+  background: rgba(255, 235, 90, .26);
+  border-color: rgba(255, 235, 90, .88);
+  color: rgba(255, 250, 210, .98);
+  text-shadow: 0 1px 0 rgba(0,0,0,.45);
+  box-shadow: 0 0 0 1px rgba(255, 235, 90, .18) inset, 0 0 16px rgba(255, 235, 90, .10);
+}
 
 /* PIL START momentary button (green) */
 .woBtn--pilStart{ background: rgba(60,255,170,.14); border-color: rgba(60,255,170,.40); }
