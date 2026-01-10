@@ -366,12 +366,18 @@ validate_and_repair_config() {
   # RC ID is listed in rc_allowlist (defense-in-depth). As we expand the mixer
   # UI, we want updates to be "drop-in" without manual config edits.
   #
-  # v0.3.20 enables the Host Mic gain fader (RC 101) and establishes the full
-  # fader assignment range (RC 101–110). If these aren't allowlisted, the UI
-  # will correctly report: "rc <id> not allowlisted" and DSP writes will never
-  # occur.
+  # As of the Studio mixer rollout, the UI will attempt to control the full
+  # operator surface:
+  #   - Input faders: 101–110
+  #   - Input mutes:  121–131 (mics + sources + program)
+  #   - Speaker mute: 161
   #
-  # This block self-repairs rc_allowlist by ensuring RC 101–110 are present.
+  # If these aren't allowlisted, the UI will correctly report:
+  #   "rc <id> not allowlisted"
+  # and the write will be blocked by the engine (defense-in-depth).
+  #
+  # This block self-repairs rc_allowlist by ensuring the required IDs above
+  # are present.
   # It is intentionally conservative:
   #   * Only adds missing IDs
   #   * Never removes user entries
@@ -389,7 +395,7 @@ validate_and_repair_config() {
     #
     # This function is intentionally conservative and deterministic:
     #   - Extracts any numeric IDs found inside the existing rc_allowlist block
-    #   - Ensures required fader IDs 101–110 are present
+    #   - Ensures required operator control IDs are present
     #   - Rewrites *only* the rc_allowlist block with correct YAML indentation
     #   - Never removes other config keys/values
     #
@@ -425,7 +431,12 @@ validate_and_repair_config() {
     final_ids="$(
       {
         echo "${existing_ids}"
+        # Faders (gain): 101–110
         echo "101 102 103 104 105 106 107 108 109 110" | tr ' ' '\n'
+        # Mutes (inputs + program): 121–131
+        echo "121 122 123 124 125 126 127 128 129 130 131" | tr ' ' '\n'
+        # Speakers
+        echo "161" | tr ' ' '\n'
       } | sed '/^[[:space:]]*$/d' | sort -n | uniq
     )"
 
@@ -450,12 +461,28 @@ validate_and_repair_config() {
         print "  - 108"
         print "  - 109"
         print "  - 110"
+        print "  # Input mutes (operator intent)"
+        print "  - 121"
+        print "  - 122"
+        print "  - 123"
+        print "  - 124"
+        print "  - 125"
+        print "  - 126"
+        print "  - 127"
+        print "  - 128"
+        print "  - 129"
+        print "  - 130"
+        print "  # Program + speakers"
+        print "  - 131"
+        print "  - 161"
         # Also include any other IDs that were already allowlisted (e.g. mutes/meters).
         for (i=1; i<=n; i++) {
           id=a[i]
           if (id=="") continue
           # Skip the required IDs (already printed above)
           if (id>=101 && id<=110) continue
+          if (id>=121 && id<=131) continue
+          if (id==161) continue
           print "  - " id
         }
       }
@@ -482,8 +509,8 @@ validate_and_repair_config() {
     mv -f "${tmp}" "${CONFIG_FILE}"
   }
 
-  # Ensure the full fader assignment range is allowlisted and that YAML remains valid.
-  # Host Mic: 101, Guest1–3: 102–104, Sources: 105–110.
+  # Ensure the full operator control set is allowlisted and that YAML remains valid.
+  # Faders: 101–110. Mutes: 121–131. Speaker mute: 161.
   #
   # NOTE: We rebuild the block (rather than inserting lines) to avoid YAML corruption.
   log "Validating rc_allowlist…"

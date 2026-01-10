@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.31
+
+- Mixer: Enable RC writes for **all** Studio B input faders (RC 101–110) so non-host faders no longer snap back to 0.
+- Installer/update: rc_allowlist self-repair now ensures **mutes (121–131)** and **speaker mute (161)** are allowlisted so mute states persist across refresh.
+- UI: Runtime Events now log the correct channel label for fader commits.
+
 ## 0.3.30
 
 - Mixer: DSP/engine is source-of-truth for fader + mute UI state (removed localStorage "defaults").

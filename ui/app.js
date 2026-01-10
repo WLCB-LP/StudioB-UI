@@ -208,13 +208,41 @@ function renderRuntimeEvents(){
 // - Installer/update now self-repairs rc_allowlist (RC 101–110) so fader writes aren't blocked.
 // - Host fader remains the only LIVE gain write in the phased rollout.
 //
-// v0.3.19 scope (kept here for continuity):
-//   Only Host Mic gain is LIVE (RC 101). All others remain visual-only.
+// v0.3.31 scope:
+//   All Studio B input faders are now LIVE RC controls (101–110).
+//   NOTE: Engine v0.2.97 will accept and cache these RC values; DSP gain
+//   write-through will be added later (engine v0.2.98).
+//
+// Why enable all faders now?
+// - The UI must not allow the operator to "move" a fader that immediately
+//   snaps back because the engine RC cache never changed.
+// - The installer now self-repairs the rc_allowlist for 101–110 so these
+//   writes are defense-in-depth protected.
 const MIXER_FADER_RC = {
   host: "101",
-  // g1: "102",
-  // g2: "103",
-  // g3: "104",
+  g1:   "102",
+  g2:   "103",
+  g3:   "104",
+  cd1:  "105",
+  cd2:  "106",
+  aux:  "107",
+  bt:   "108",
+  pc:   "109",
+  zoom: "110",
+};
+
+// Human-friendly labels for runtime event logging (keep short; operators read)
+const MIXER_LABEL = {
+  host: "Host",
+  g1:   "Guest 1",
+  g2:   "Guest 2",
+  g3:   "Guest 3",
+  cd1:  "CD1",
+  cd2:  "CD2",
+  aux:  "AUX",
+  bt:   "Bluetooth",
+  pc:   "PC",
+  zoom: "Zoom",
 };
 
 // ---------------------------------------------------------------------------
@@ -480,13 +508,15 @@ function initMixerFaders(){
       try{
         await postRC(rc, val);
         if(force){
-          addRuntimeEvent(`Host fader gain set: ${val.toFixed(2)} (RC ${rc})`);
+          const nm = MIXER_LABEL[id] || id;
+          addRuntimeEvent(`${nm} fader set: ${val.toFixed(2)} (RC ${rc})`);
         }
       }catch(e){
         // Don't spam errors during a drag; report once per drag session.
         if(!dragHadError){
           dragHadError = true;
-          addRuntimeEvent(`Host fader write failed (RC ${rc}): ${String(e?.message||e)}`);
+          const nm = MIXER_LABEL[id] || id;
+          addRuntimeEvent(`${nm} fader write failed (RC ${rc}): ${String(e?.message||e)}`);
         }
       }
     }
