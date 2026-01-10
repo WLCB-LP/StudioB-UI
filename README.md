@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.26
+# STUB Mixer UI (Studio B) — Release 0.3.30
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,11 +15,13 @@ Run:
 
 ## Notes
 
+- v0.3.30: Studio mixer: **DSP/engine is source of truth** for fader + mute UI state (no localStorage defaults), and all source channels have MUTE buttons.
+
 - v0.3.14: Studio mixer faders updated with a **glass handle** (meters visible through) and added **level markers** on the per-channel VU lanes.
 - v0.3.15: Studio mixer visual **blue neon skin** pass (dark, flashy, high-tech) — scoped to mixer only; no behavior changes.
 - v0.3.22: Installer health checks are **retry-based** (tolerant of slow restarts) and print `systemctl/journalctl` diagnostics on failure.
 - v0.3.23: rc_allowlist repair is **mawk-safe** (POSIX awk) to avoid install-time awk syntax errors.
-- v0.3.26: Studio mixer: fader positions are **persisted in the browser** (localStorage) so reloads return to the last operator position; mixer is briefly hidden during hydration to avoid "flash" positions.
+- v0.3.26: Studio mixer (historical): fader positions were **persisted in the browser** (localStorage) to survive reloads. (Superseded by v0.3.30 DSP/engine-authoritative hydration.)
 - v0.3.27: Studio mixer: add source channel faders (CD1/CD2 grouped, AUX/Bluetooth/PC/Zoom individual cards).
 - v0.3.20: Installer/update **self-repairs rc_allowlist** to include fader RCs **101–110** so gain writes are not blocked.
 - v0.3.19: Studio mixer: **Host fader now writes gain** to **RC 101** (phased rollout; others remain visual-only).

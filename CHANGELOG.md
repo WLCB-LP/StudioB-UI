@@ -1,7 +1,11 @@
-## 0.3.26
+# Changelog
 
-- Studio mixer: Persist fader positions in the browser (localStorage) so **Ctrl+R/F5** returns to the last operator position (until authoritative gain readback exists).
-- Studio mixer: Hide mixer during hydration so faders never "flash" an incorrect position during hard reloads (Ctrl+Shift+R).
+## 0.3.30
+
+- Mixer: DSP/engine is source-of-truth for fader + mute UI state (removed localStorage "defaults").
+- Mixer: Added mute buttons for all studio sources (CD1/CD2/AUX/Bluetooth/PC/Zoom).
+- Mixer: Hide/lock controls until engine RC snapshot is received (WebSocket with HTTP fallback).
+- UI: Mixer card headings hidden (strip labels are sufficient).
 
 ## 0.3.23
 

@@ -156,7 +156,8 @@ main{padding:18px}
 .mixerRow--1{ grid-template-columns: repeat(1, 1fr); }
 
 /* Small title strip at the top of each mixer card */
-.mixerCard__head{ display:flex; justify-content:center; margin-bottom:10px; }
+/* v0.3.30: Card titles removed; strip labels above faders are sufficient. */
+.mixerCard__head{ display:none; }
 .mixerCard__title{
   font-weight:900;
   letter-spacing:.3px;

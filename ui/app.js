@@ -9,7 +9,7 @@ const POLL_MS = 250;
 //
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
-const UI_BUILD_VERSION = "0.3.29";
+const UI_BUILD_VERSION = "0.3.30";
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -218,54 +218,188 @@ const MIXER_FADER_RC = {
 };
 
 // ---------------------------------------------------------------------------
-// v0.3.26: Fader persistence (UI-only)
+// Mixer hydration (DSP/engine-authoritative) (UI v0.3.30)
 // ---------------------------------------------------------------------------
-// Operator expectation (per testing feedback): when the browser reloads (F5,
-// Ctrl+R), the faders should come back where the operator last left them.
+// IMPORTANT OPERATOR CONTRACT:
+// - The DSP (via the engine) is the source-of-truth for control states.
+// - The UI must NEVER invent initial positions, must NEVER apply "defaults",
+//   and must NEVER write anything on load.
+// - Controls stay hidden/locked until we receive an authoritative RC snapshot.
 //
-// IMPORTANT TRUTHFULNESS NOTE:
-// - This is *UI persistence*, not DSP truth.
-// - Until the engine exposes authoritative gain readback, localStorage is the
-//   least risky way to improve continuity without writing to disk config.
-// - We keep this strictly bounded (one small JSON blob) and best-effort.
-const MIXER_FADER_STORAGE_KEY = "studiobui.mixer.faders.v1";
+// Data path:
+// - Primary: WebSocket /ws
+//     * { type: "snapshot", data: { rc: {"101":0.5, ...} } }
+//     * { type: "delta", rc: {"101":0.55, ...} }
+// - Fallback: one-shot GET /api/state (same rc map)
+//
+// We keep a local copy of the last known RC map strictly for rendering.
+// NOTE: Keys arrive as STRINGS in JSON.
+state.rc = state.rc || {};
 
-function loadMixerFadersFromStorage(){
-  try{
-    const raw = localStorage.getItem(MIXER_FADER_STORAGE_KEY);
-    if(!raw) return;
-    const obj = JSON.parse(raw);
-    if(!obj || typeof obj !== 'object') return;
-    for(const id of Object.keys(state.mixer.faders || {})){
-      const v = obj[id];
-      if(typeof v === 'number' && Number.isFinite(v)){
-        state.mixer.faders[id] = clamp01(v);
-      }
-    }
-  }catch(_){
-    // Best-effort only; never block the operator UI.
-  }
-}
-
-function saveMixerFadersToStorage(){
-  try{
-    const payload = {};
-    for(const id of Object.keys(state.mixer.faders || {})){
-      const v = state.mixer.faders[id];
-      if(typeof v === 'number' && Number.isFinite(v)) payload[id] = clamp01(v);
-    }
-    localStorage.setItem(MIXER_FADER_STORAGE_KEY, JSON.stringify(payload));
-  }catch(_){
-    // Best-effort only.
-  }
-}
+// Mixer is considered "hydrated" once we have received at least one snapshot.
+state.mixerHydrated = false;
 
 function showMixerWhenReady(){
-  // v0.3.26: We start the mixer hidden to avoid "flash" positions during a
-  // hard refresh (Ctrl+Shift+R) before JS has applied the transform-based puck
-  // positioning.
+  // We start the mixer hidden to avoid a misleading "flash" before we have
+  // authoritative state.
   const root = document.querySelector('#mixerRoot');
   if(root) root.classList.remove('isHydrating');
+}
+
+function hideMixerUntilHydrated(){
+  const root = document.querySelector('#mixerRoot');
+  if(root) root.classList.add('isHydrating');
+}
+
+// Studio B: fader readback RC assignments (authoritative render source)
+const MIXER_FADER_RC_READ = {
+  host: "101",
+  g1:   "102",
+  g2:   "103",
+  g3:   "104",
+  cd1:  "105",
+  cd2:  "106",
+  aux:  "107",
+  bt:   "108",
+  pc:   "109",
+  zoom: "110",
+};
+
+// Studio B: mute RC assignments (authoritative render source)
+const MIXER_MUTE_RC = {
+  host: "121",
+  g1:   "122",
+  g2:   "123",
+  g3:   "124",
+  cd1:  "125",
+  cd2:  "126",
+  aux:  "127",
+  bt:   "128",
+  pc:   "129",
+  zoom: "130",
+  // Program/Speakers exist but are rendered elsewhere for now:
+  // pgm: "131",
+  // spk: "161",
+};
+
+function rcGet(id){
+  try{
+    const k = String(id);
+    const v = state.rc ? state.rc[k] : undefined;
+    return (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+  }catch(_){
+    return 0;
+  }
+}
+
+function applyMixerFadersFromRC(){
+  for(const id of Object.keys(state.mixer.faders || {})){
+    const rc = MIXER_FADER_RC_READ[id];
+    if(!rc) continue;
+    setFaderUI(id, rcGet(rc));
+  }
+}
+
+function applyMixerMutesFromRC(){
+  // Any toggle button with a numeric RC is treated as a real control.
+  // (Speaker mute uses STUB_SPK_MUTE and remains driven by /api/studio/status.)
+  document.querySelectorAll('.btn.toggle[data-rc]').forEach(btn=>{
+    const rc = btn.getAttribute('data-rc');
+    if(!rc) return;
+    if(rc === 'STUB_SPK_MUTE' || rc === 'STUB_SPK_AUTOMUTE') return;
+    const on = rcGet(rc) >= 0.5;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+
+// Connect to the engine RC WebSocket and keep our local RC cache current.
+//
+// Why WebSocket?
+// - It avoids extra HTTP polling.
+// - It gives us an immediate authoritative snapshot on connect.
+// - It streams deltas so faders/mutes stay correct if something else changes
+//   state (watchdog restart, other UI, CLI, DSP, etc.).
+let _rcWS = null;
+let _rcWSBackoffMs = 500;
+
+function connectRCWebSocket(){
+  // Avoid duplicate sockets.
+  if(_rcWS && (_rcWS.readyState === WebSocket.OPEN || _rcWS.readyState === WebSocket.CONNECTING)){
+    return;
+  }
+
+  try{
+    const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+    const url = `${proto}//${location.host}/ws`;
+    const ws = new WebSocket(url);
+    _rcWS = ws;
+
+    ws.onopen = ()=>{
+      _rcWSBackoffMs = 500; // reset backoff on success
+      // Keep mixer hidden until we receive the first snapshot.
+      hideMixerUntilHydrated();
+    };
+
+    ws.onmessage = (ev)=>{
+      let msg = null;
+      try{ msg = JSON.parse(ev.data); }catch(_e){ return; }
+
+      if(msg && msg.type === 'snapshot' && msg.data && msg.data.rc){
+        state.rc = msg.data.rc || {};
+        state.mixerHydrated = true;
+        applyMixerFadersFromRC();
+        applyMixerMutesFromRC();
+        showMixerWhenReady();
+        return;
+      }
+
+      if(msg && msg.type === 'delta' && msg.rc){
+        // Merge delta into cache.
+        state.rc = state.rc || {};
+        for(const k of Object.keys(msg.rc)){
+          state.rc[String(k)] = msg.rc[k];
+        }
+        // Apply only what we render on the studio mixer.
+        applyMixerFadersFromRC();
+        applyMixerMutesFromRC();
+      }
+    };
+
+    ws.onclose = ()=>{
+      // Reconnect with bounded backoff.
+      _rcWS = null;
+      state.mixerHydrated = state.mixerHydrated || false;
+      setTimeout(connectRCWebSocket, _rcWSBackoffMs);
+      _rcWSBackoffMs = Math.min(8000, Math.floor(_rcWSBackoffMs * 1.6));
+    };
+
+    ws.onerror = ()=>{
+      // Close will trigger reconnect.
+      try{ ws.close(); }catch(_){ }
+    };
+
+  }catch(_e){
+    // If WS construction fails (older browser / blocked), fallback fetch will kick in.
+  }
+}
+
+// Fallback: if we haven't hydrated within a short window, do a one-shot HTTP snapshot.
+async function hydrateMixerViaHTTPFallback(){
+  if(state.mixerHydrated) return;
+  try{
+    const j = await fetchJSON('/api/state', { cache: 'no-store' }, 2500);
+    if(j && j.rc){
+      state.rc = j.rc || {};
+      state.mixerHydrated = true;
+      applyMixerFadersFromRC();
+      applyMixerMutesFromRC();
+      showMixerWhenReady();
+    }
+  }catch(_e){
+    // Best-effort only.
+  }
 }
 
 // NOTE: A global clamp01() already exists later in this file.
@@ -303,8 +437,8 @@ function initMixerFaders(){
     setFaderUI(id, state.mixer.faders[id]);
   }
 
-  // Now that pucks are positioned, reveal the mixer.
-  showMixerWhenReady();
+  // Keep mixer hidden until we receive an authoritative snapshot.
+  hideMixerUntilHydrated();
 
   // Bind pointer handlers.
   document.querySelectorAll('.fader__lane').forEach(lane => {
@@ -419,7 +553,6 @@ function initMixerFaders(){
       // v0.3.26: Persist the operator's last-known fader position so a
       // browser reload returns to where they left it (until DSP truth
       // readback exists).
-      saveMixerFadersToStorage();
     });
 
     lane.addEventListener('pointercancel', (e) => {
@@ -428,7 +561,6 @@ function initMixerFaders(){
       lane.classList.remove('isDragging');
 
       // Best-effort persistence even on cancel.
-      saveMixerFadersToStorage();
     });
   });
 
@@ -1304,11 +1436,22 @@ $("#btnDspTest").addEventListener("click", async ()=>{
         }catch(e){}
         return;
       }
-      // mic toggles: UI-visible, logic-stubbed (store local visual state)
-      const next = !(btn.dataset.on === "1");
-      btn.dataset.on = next ? "1" : "0";
-      btn.classList.toggle("on", next);
-      try{ await postRC(rc, next ? 1 : 0); }catch(e){}
+      // Mixer mutes (v0.3.30): DSP/engine is source-of-truth.
+      // We derive current state from the latest RC cache and then POST the next state.
+      const curOn = (rcGet(rc) >= 0.5);
+      const nextOn = !curOn;
+
+      // Optimistic visual update (WS delta will confirm/override).
+      state.rc = state.rc || {};
+      state.rc[String(rc)] = nextOn ? 1 : 0;
+      applyMixerMutesFromRC();
+
+      try{
+        await postRC(rc, nextOn ? 1 : 0);
+      }catch(e){
+        // If the write fails, immediately refresh from the authoritative snapshot.
+        await hydrateMixerViaHTTPFallback();
+      }
     });
   });
 
@@ -2164,10 +2307,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
 
-  // v0.3.26: Restore last-known mixer fader positions before we initialize
-  // their DOM transforms. This prevents "reset to defaults" on reload and
-  // aligns with operator expectation.
-  loadMixerFadersFromStorage();
+
+  // Mixer hydration (v0.3.30): connect to RC WebSocket and wait for an
+  // authoritative snapshot before revealing controls.
+  connectRCWebSocket();
+  setTimeout(hydrateMixerViaHTTPFallback, 900);
+
 
   // Mixer fader visuals (v0.3.13)
   // Safe to call even if the Studio page is not visible yet.
