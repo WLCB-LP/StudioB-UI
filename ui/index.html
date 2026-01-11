@@ -14,7 +14,7 @@
   -->
   <meta http-equiv="Cache-Control" content="no-store" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.59" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.60" />
 </head>
 <body>
   <header class="topbar">
@@ -119,19 +119,61 @@
         <div class="studioTopFaders">
           <div class="mixerRoot mixerRoot--top isHydrating" id="topMixerRoot">
 
-            <!-- PIL (placeholder – no controls yet) -->
+            <!-- PlayIt Live (placeholder – control wiring later) -->
             <div class="card mixerCard mixerCard--placeholder mixerCard--pilWide pilCard" id="pilCard">
-              <div class="mixerCard__head"><div class="mixerCard__title">PIL</div></div>
+              <div class="mixerCard__head"><div class="mixerCard__title">PlayIt Live</div></div>
               <div class="mixerRow mixerRow--1">
                 <div class="strip strip--placeholder" data-strip="pil">
-                  <div class="strip__title">PIL</div>
+                  <div class="strip__title">PlayIt Live</div>
                   <div class="pilStripBody">
                     <div class="pilButtons">
+                      <!--
+                        NOTE:
+                        This button is labelled by app.js as AUTO / LIVE once we know the PIL mode.
+                        (It starts as '?' while hydrating.)
+                      -->
                       <button class="woBtn woBtn--pilMode" id="pilModeBtn" type="button">?</button>
                       <button class="woBtn woBtn--pilStart" id="pilStartBtn" type="button">START</button>
                     </div>
+
+                    <!-- Placeholder lane (visual only until wired) -->
                     <div class="fader fader--placeholder">
                       <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                        <div class="fader__meterPair" aria-hidden="true">
+                          <div class="fader__meter fader__meter--L"></div>
+                          <div class="fader__meter fader__meter--R"></div>
+                        </div>
+                        <div class="fader__marks" aria-hidden="true">
+                          <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                          <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!--
+                    Cosmetic contract:
+                    - No MUTE button for PlayIt Live.
+                    - Operator controls are the PIL mode (AUTO/LIVE) + START.
+                  -->
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Speakers (LIVE RC: 160 level, 161 mute) -->
+            <div class="card mixerCard mixerCard--tall mixerCard--narrow speakersCard" id="speakersCard">
+              <div class="mixerCard__head"><div class="mixerCard__title">Speakers</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip" data-strip="spk">
+                  <div class="strip__title">Speakers</div>
+                  <div class="fader">
+                    <div class="fader__lane" data-fader="spk" aria-label="Speakers fader (RC 160)" title="Speaker Level (RC 160)">
                       <div class="fader__meterPair" aria-hidden="true">
                         <div class="fader__meter fader__meter--L"></div>
                         <div class="fader__meter fader__meter--R"></div>
@@ -145,10 +187,12 @@
                         <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
                         <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
                       </div>
-                      </div>
+                      <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
                     </div>
                   </div>
-                  <div class="strip__actions strip__actions--empty"></div>
+                  <div class="strip__actions">
+                    <button class="woBtn woBtn--mute btn toggle" data-rc="161" title="Speaker Mute (RC 161)" aria-label="Speaker mute"></button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -158,111 +202,41 @@
               <div class="mixerCard__head"><div class="mixerCard__title">LATEST DONATIONS</div></div>
               <!--
                 IMPORTANT (UI v0.3.47):
-                The operator asked that these two wide cards contain *nothing* for now.
+                The operator asked that this wide card contain *nothing* for now.
                 Do NOT place a fader/VU placeholder here.
               -->
               <div class="mixerCard__emptyBody" aria-hidden="true"></div>
             </div>
 
-            <!-- Unlabeled placeholder panel – intentionally empty for now -->
-            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--untitled mixerCard--panelEmpty cardTopPlaceholder" id="topPlaceholderCard">
-              <div class="mixerCard__head"><div class="mixerCard__title">&#8203;</div></div>
-              <div class="mixerCard__emptyBody" aria-hidden="true"></div>
+            <!-- Program (placeholder – fader/mute to be wired later) -->
+            <div class="card mixerCard mixerCard--placeholder mixerCard--tall mixerCard--narrow programCard" id="programCard">
+              <div class="mixerCard__head"><div class="mixerCard__title">Program</div></div>
+              <div class="mixerRow mixerRow--1">
+                <div class="strip strip--placeholder" data-strip="pgm">
+                  <div class="strip__title">Program</div>
+                  <div class="fader fader--placeholder">
+                    <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
+                      <div class="fader__meterPair" aria-hidden="true">
+                        <div class="fader__meter fader__meter--L"></div>
+                        <div class="fader__meter fader__meter--R"></div>
+                      </div>
+                      <div class="fader__marks" aria-hidden="true">
+                        <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
+                        <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="strip__actions strip__actions--empty"></div>
+                </div>
+              </div>
             </div>
 
-            <!-- Right-side cards (stacked in a dock) -->
-            <div class="topRightDock" id="topRightDock">
-
-              <!-- Headphones (placeholder – no fader or mute assigned yet) -->
-              <div class="card mixerCard mixerCard--placeholder mixerCard--tall mixerCard--narrow headphonesCard" id="headphonesCard">
-                <div class="mixerCard__head"><div class="mixerCard__title">Headphones</div></div>
-                <div class="mixerRow mixerRow--1">
-                  <div class="strip strip--placeholder" data-strip="hp">
-                    <div class="strip__title">Headphones</div>
-                    <div class="fader fader--placeholder">
-                      <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
-                        <div class="fader__meterPair" aria-hidden="true">
-                          <div class="fader__meter fader__meter--L"></div>
-                          <div class="fader__meter fader__meter--R"></div>
-                        </div>
-                        <div class="fader__marks" aria-hidden="true">
-                          <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="strip__actions strip__actions--empty"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Speakers (LIVE RC: 160 level, 161 mute) -->
-              <div class="card mixerCard mixerCard--tall mixerCard--narrow speakersCard" id="speakersCard">
-                <div class="mixerCard__head"><div class="mixerCard__title">Speakers</div></div>
-                <div class="mixerRow mixerRow--1">
-                  <div class="strip" data-strip="spk">
-                    <div class="strip__title">Speakers</div>
-                    <div class="fader">
-                      <div class="fader__lane" data-fader="spk" aria-label="Speakers fader (RC 160)" title="Speaker Level (RC 160)">
-                        <div class="fader__meterPair" aria-hidden="true">
-                          <div class="fader__meter fader__meter--L"></div>
-                          <div class="fader__meter fader__meter--R"></div>
-                        </div>
-                        <div class="fader__marks" aria-hidden="true">
-                          <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                        </div>
-                        <div class="fader__puck" role="slider" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.65" tabindex="0"></div>
-                      </div>
-                    </div>
-                    <div class="strip__actions">
-                      <button class="woBtn woBtn--mute btn toggle" data-rc="161" title="Speaker Mute (RC 161)" aria-label="Speaker mute"></button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Program (placeholder – fader/mute to be wired later) -->
-              <div class="card mixerCard mixerCard--placeholder mixerCard--tall mixerCard--narrow programCard" id="programCard">
-                <div class="mixerCard__head"><div class="mixerCard__title">Program</div></div>
-                <div class="mixerRow mixerRow--1">
-                  <div class="strip strip--placeholder" data-strip="pgm">
-                    <div class="strip__title">Program</div>
-                    <div class="fader fader--placeholder">
-                      <div class="fader__lane fader__lane--placeholder" aria-hidden="true">
-                        <div class="fader__meterPair" aria-hidden="true">
-                          <div class="fader__meter fader__meter--L"></div>
-                          <div class="fader__meter fader__meter--R"></div>
-                        </div>
-                        <div class="fader__marks" aria-hidden="true">
-                          <div class="fader__mark fader__mark--major fader__mark--zero" style="top:0%"><span>0</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:10%"><span>-3</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:20%"><span>-6</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major fader__mark--ref" style="top:40%"><span>-12</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:65%"><span>-20</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark" style="top:80%"><span>-30</span><div class="fader__markLine"></div></div>
-                          <div class="fader__mark fader__mark--major" style="top:100%"><span>-∞</span><div class="fader__markLine"></div></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="strip__actions strip__actions--empty"></div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- /Right-side cards -->
+            <!-- /Top fader row cards -->
 
           </div>
         </div>
@@ -677,7 +651,6 @@
 
         </div>
 
-
         <div class="card">
           <h2>Configuration</h2>
           <!--
@@ -774,6 +747,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.59"></script>
+  <script src="/app.js?v=0.3.60"></script>
 </body>
 </html>

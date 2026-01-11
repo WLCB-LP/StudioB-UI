@@ -125,45 +125,40 @@ main{padding:18px}
 /*
   Top-row layout:
   Use a grid so the row never wraps into multiple rows.
-  Columns:
-    1) PIL (fixed)
-    2) LATEST DONATIONS (fluid)
-    3) Unlabeled / spare (fluid)
-    4) Headphones (fixed)
-    5) Speakers (fixed)
-    6) Program (fixed)
+  Columns (UI v0.3.60):
+    1) PlayIt Live (fixed)
+    2) Speakers (fixed)
+    3) Latest Donations (fluid; fills remaining space)
+    4) Program (fixed)
 */
 #page-studio .mixerRoot--top{
   display: grid;
   /* PIL sizes to its contents; center cards are flexible; right-side cards are fixed */
-  grid-template-columns: var(--pilColWidth) 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth);
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
 }
 
-/* In the top row, keep PIL at a fixed width so the 6-column grid is stable. */
+/* In the top row, keep PIL at a fixed width so the 4-column grid is stable. */
 #page-studio #pilCard{ width: var(--pilColWidth); }
 
-#page-studio .topRightDock{
-  /* Make the dock children participate directly in the top-row grid (no vertical stacking) */
-  display: contents;
-}
-
-/* Keep top-right cards consistent with single-strip sources (AUX/BT/PC/Zoom) */
-#page-studio .topRightDock .mixerCard--tall{
+/* v0.3.60: Speakers + Program are first-class grid citizens (no dock wrapper). */
+#page-studio #speakersCard,
+#page-studio #programCard{
   width: var(--topRightColWidth);
   max-width: var(--topRightColWidth);
 }
+
 
 /* Ensure flex rules on base .mixerRoot don't conflict with grid */
 #page-studio .mixerRoot--top > *{min-width: 0;}
 
 /* --- Studio top row layout -------------------------------------------------
    Goals:
-     - Top section renders as a ROW: [PIL] [middle empty panels] [HP/SPK/PGM]
+     - Top section renders as a ROW: [PlayIt Live] [Speakers] [Latest Donations] [Program]
      - PIL card is narrower and visually balanced left/right.
-     - Headphones/Speakers/Program match AUX (single-strip) width.
+     - Speakers/Program match AUX (single-strip) width.
 */
 #page-studio #topMixerRoot{
   width: 100%;
@@ -173,7 +168,7 @@ main{padding:18px}
   IMPORTANT:
   Older builds had an overriding 3-column / 2-row grid on #topMixerRoot (with !important)
   that forced the top-right cards into a vertical stack.
-  The Studio page now uses the 6-column grid above.
+  The Studio page now uses the 4-column grid above.
 */
 
 /* Mixer groups (UI v0.3.34)
@@ -300,7 +295,7 @@ main{padding:18px}
   gap: 10px;
   width: 96px;
   /* Align the buttons with the top of the VU lane (not the strip title pill). */
-  margin-top: 12px;
+  margin-top: 14px;
 }
 .pilButtons .woBtn{
   max-width: none;
@@ -364,8 +359,8 @@ main{padding:18px}
 */
 #page-studio #topMixerRoot.mixerRoot--top{
   display: grid !important;
-  /* PIL | Donations | (blank) | Headphones | Speakers | Program */
-  grid-template-columns: var(--pilColWidth) 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
+  /* PlayIt Live | Speakers | Latest Donations | Program */
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth);
   grid-template-rows: auto;
   gap: 24px;
   align-items: start;

@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.43
+# STUB Mixer UI (Studio B) — Release 0.3.60
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -15,6 +15,7 @@ Run:
 
 ## Notes
 
+- v0.3.60: Studio (cosmetic): removed Headphones card; moved Speakers next to PlayIt Live; donations panel expands; PIL label updated; AUTO/LIVE button aligned.
 - v0.3.48: Fix: Engine build regression in PlayIt Live proxy handler (compile/tests pass again).
 - v0.3.41: UI-only: Shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
 

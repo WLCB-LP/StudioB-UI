@@ -2,6 +2,14 @@
 
 
 
+## v0.3.60 (2026-01-11)
+- Studio (cosmetic): Removed Headphones card from Studio top row.
+- Studio (cosmetic): Moved Speakers card to immediately right of PlayIt Live.
+- Studio (cosmetic): Relabeled “PIL” to “PlayIt Live” and ensured the strip has no mute button.
+- Studio (cosmetic): Latest Donations card now expands to fill the freed space.
+- Studio (cosmetic): Nudged PlayIt Live AUTO/LIVE button stack up 2px so its top edge aligns with the VU lane top.
+
+
 
 ## v0.3.47
 - Fix: Studio top row is now an explicit single-row grid (no stacking; even gaps).
