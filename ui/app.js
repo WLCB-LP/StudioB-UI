@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.67";
+const UI_BUILD_VERSION = "0.3.68";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -468,6 +468,7 @@ function applyPILMetersFromRC(){
 //   state (watchdog restart, other UI, CLI, DSP, etc.).
 let _rcWS = null;
 let _rcWSBackoffMs = 500;
+let _rcWSMsgSeen = 0;
 
 function connectRCWebSocket(){
   // Avoid duplicate sockets.
@@ -486,13 +487,48 @@ function connectRCWebSocket(){
 
     ws.onopen = ()=>{
       _rcWSBackoffMs = 500; // reset backoff on success
+      _rcWSMsgSeen = 0;
       // Keep mixer hidden until we receive the first snapshot.
       hideMixerUntilHydrated();
+
+      // -------------------------------------------------------------------
+      // /ws subscription handshake (UI v0.3.68)
+      //
+      // The engine uses a single /ws endpoint for ALL realtime updates.
+      // In some deployments, the engine will not begin publishing RC/meter
+      // messages until the client explicitly subscribes.
+      //
+      // We send a conservative, future-friendly subscribe message here.
+      // If the engine ignores it (push-only model), this is harmless.
+      // If the engine requires it (subscribe model), this unblocks meters.
+      //
+      // Expected (suggested) engine payloads after subscribe:
+      //   {type:"rc_state", rc:{"462":0.1,...}}
+      //   {type:"meter", rc:462, value:0.1}
+      //   {type:"rc_delta", rc:{"462":0.2}}
+      // -------------------------------------------------------------------
+      try{
+        const sub = { type: 'subscribe', topics: ['rc', 'meters'] };
+        ws.send(JSON.stringify(sub));
+        addRuntimeEvent('WS connected; subscribe sent (rc, meters)');
+      }catch(_e){
+        addRuntimeEvent('WS connected; subscribe send FAILED');
+      }
     };
 
     ws.onmessage = (ev)=>{
       let msg = null;
       try{ msg = JSON.parse(ev.data); }catch(_e){ return; }
+
+      // Lightweight field diagnostics: record the first few message types.
+      // This helps distinguish "socket connected but no publishes" from
+      // "publishes exist but we don't understand the shape".
+      try{
+        _rcWSMsgSeen++;
+        if(_rcWSMsgSeen <= 5){
+          addRuntimeEvent(`WS msg #${_rcWSMsgSeen}: type=${String(msg.type || 'unknown')}`);
+        }
+      }catch(_e){ /* ignore */ }
 
       // -------------------------------------------------------------------
       // RC payload compatibility layer (UI v0.3.67)
@@ -568,6 +604,7 @@ function connectRCWebSocket(){
       // Reconnect with bounded backoff.
       _rcWS = null;
       state.mixerHydrated = state.mixerHydrated || false;
+      try{ addRuntimeEvent('WS closed; scheduling reconnect'); }catch(_e){ }
       setTimeout(connectRCWebSocket, _rcWSBackoffMs);
       _rcWSBackoffMs = Math.min(8000, Math.floor(_rcWSBackoffMs * 1.6));
     };

@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.67
+# STUB Mixer UI (Studio B) — Release 0.3.68
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)

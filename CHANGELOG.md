@@ -4,6 +4,12 @@
 
 
 
+
+## v0.3.68 (2026-01-11)
+- WS: Added a conservative subscribe handshake on `/ws` connect: `{type:"subscribe", topics:["rc","meters"]}`.
+  - This is harmless if the engine is push-only, and required if the engine expects client subscriptions.
+- Debuggability: Added lightweight runtime-event logging for the first few `/ws` message types and reconnects.
+
 ## v0.3.67 (2026-01-11)
 - FIX: Implemented RC WebSocket client compatibility for the single `/ws` endpoint and began accepting multiple payload shapes:
   - Snapshot: `{type:"snapshot", data:{rc:{...}}}` or `{type:"rc_state", rc:{...}}`
