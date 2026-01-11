@@ -1,19 +1,24 @@
-# STUB Mixer UI (Studio B) — Release 0.3.73
+# STUB Mixer UI (Studio B) — Release 0.3.79
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
 - A Go "engine" scaffold with:
   - health endpoint
   - websocket state stream (meters are truthful in dsp.mode=="live")
-    - /ws message types (v0.3.72 minimal contract):
+    - /ws message types (minimal contract):
       - Snapshot on connect: {type:"rc_state", rc:{"462":<0..1>,"463":<0..1>}, ts:<ms>}
-      - Meter updates (~20Hz): {type:"meters", data:{"462":<0..1>,"463":<0..1>}, ts:<ms>}
+      - Meter updates (~20Hz): {type:"meters", data:{"462":<0..1>,"463":<0..1>, ...}, ts:<ms>}
       - In live mode, the engine polls the DSP at meters.dsp_poll_hz (default 10Hz) and pushes the latest values at meters.publish_hz (default 20Hz).
       - If the DSP reports meter values in dBFS (negative), the engine normalizes them using meters.db_floor (default -60): [db_floor..0] -> [0..1].
       - (Legacy compatibility) {type:"snapshot"} + {type:"delta"} are still sent for older UIs.
   - admin endpoints for update/rollback (script-backed)
 - Install + service setup scripts
 - Git publish helper script
+
+### Studio B bottom row RCs (wired end-to-end)
+- Faders: 101–110
+- Mutes: 121–130
+- VU meters: 401–410
 
 ## Quick install (one-line)
 Run:

@@ -343,8 +343,7 @@ func (e *Engine) SetRC(idStr string, value float64) error {
 
 	if isLive && isControl {
 		// Symetrix Controller Set expects a 16-bit position (0..65535).
-		// ecpSendCSV performs clamp01() + scaling and writes "CS <id> <pos>
-".
+			// ecpSendCSV performs clamp01() + scaling and writes "CS <id> <pos>\r\n".
 		if _, werr := e.ecpSendCSV(strconv.Itoa(id), value, 1200*time.Millisecond); werr != nil {
 			return fmt.Errorf("dsp write failed (rc %d): %w", id, werr)
 		}
