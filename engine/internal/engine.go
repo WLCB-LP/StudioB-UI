@@ -249,6 +249,19 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 		e.meterLastSent[id] = math.NaN()
 	}
 
+	// IMPORTANT (v0.3.71): The WebSocket meters stream is required even if
+	// rc_allowlist is conservative.
+	//
+	// We have seen real deployments where rc_allowlist includes control outputs
+	// (faders/mutes) but *does not* include meter RCs yet. When that happens,
+	// meterLastSent for 462/463 would default to 0, which can suppress meter
+	// publishing if the current meter value is also near 0.
+	//
+	// To make the meters stream robust, we explicitly initialize the tracked
+	// meter IDs to NaN (meaning: "unknown / never sent").
+	e.meterLastSent[462] = math.NaN()
+	e.meterLastSent[463] = math.NaN()
+
 	// Friendly defaults for v1 UI
 	if e.allowed(160) {
 		e.rc[rcNameToID["STUB_SPK_LEVEL"]] = 0.75
@@ -260,8 +273,12 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 		e.rc[560] = 0
 	}
 
-	// Start mock meter generator and publisher
-	go e.mockLoop()
+	// Start mock meter generator ONLY in mock mode.
+	// In live mode, meters must reflect DSP truth and should go dead when the
+	// DSP meters go dead.
+	if strings.ToLower(strings.TrimSpace(cfg.DSP.Mode)) == "mock" {
+		go e.mockLoop()
+	}
 	go e.publishLoop()
 	go e.dspMonitorLoop()
 	return e
@@ -635,19 +652,16 @@ func (e *Engine) publishLoop() {
 		// ------------------------------------------------------------------
 		// 2) Dedicated meters stream (minimal MVP)
 		// ------------------------------------------------------------------
+		// IMPORTANT (v0.3.71): Meters are different from control state.
+		//
+		// For operator UX, we want *continuous* meter motion at the configured
+		// publish_hz rate. Deadband-based suppression (useful for faders/mutes)
+		// can make meters appear "stuck" even when DSP values are changing.
+		//
+		// Therefore we broadcast meters every tick.
 		meters462 = e.rc[462]
 		meters463 = e.rc[463]
-
-		last462 := e.meterLastSent[462]
-		last463 := e.meterLastSent[463]
-		if math.IsNaN(last462) || math.Abs(meters462-last462) >= e.cfg.Meters.Deadband {
-			metersDirty = true
-			e.meterLastSent[462] = meters462
-		}
-		if math.IsNaN(last463) || math.Abs(meters463-last463) >= e.cfg.Meters.Deadband {
-			metersDirty = true
-			e.meterLastSent[463] = meters463
-		}
+		metersDirty = true
 		e.mu.Unlock()
 
 		if len(delta) > 0 {

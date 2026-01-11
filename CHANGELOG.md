@@ -5,6 +5,12 @@
 
 
 
+## v0.3.71 (2026-01-11)
+- Engine WS meters reliability:
+  - Do **not** run the mock meter generator when `dsp.mode` is `live` (meters must go dead when DSP goes dead).
+  - Broadcast `{type:"meters"}` every publish tick (default 20 Hz) so meters cannot appear "stuck" due to deadband suppression.
+  - Initialize meter tracking for RC 462/463 even if `rc_allowlist` does not include meter RCs yet.
+
 ## v0.3.70 (2026-01-11)
 - Hotfix: Fix engine build/test failure caused by an accidental duplicate `wsClient` type definition.
   - No runtime behavior changes (RC/meter publishing over `/ws` remains the same as v0.3.69).
