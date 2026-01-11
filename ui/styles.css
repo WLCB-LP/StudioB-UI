@@ -136,11 +136,14 @@ main{padding:18px}
 #page-studio .mixerRoot--top{
   display: grid;
   /* PIL sizes to its contents; center cards are flexible; right-side cards are fixed */
-  grid-template-columns: auto 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
+  grid-template-columns: var(--pilColWidth) 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
 }
+
+/* In the top row, keep PIL at a fixed width so the 6-column grid is stable. */
+#page-studio #pilCard{ width: var(--pilColWidth); }
 
 #page-studio .topRightDock{
   /* Make the dock children participate directly in the top-row grid (no vertical stacking) */
@@ -166,21 +169,12 @@ main{padding:18px}
   width: 100%;
 }
 
-#page-studio #topMixerRoot.mixerRoot--top{
-  display:grid !important;
-  grid-template-columns: var(--pilColWidth) 1fr var(--topRightColWidth);
-  grid-template-rows: auto auto;
-  gap: 24px;
-  align-items: start;
-}
-
-#page-studio #pilCard{grid-column: 1; grid-row: 1 / span 2; width: var(--pilColWidth);}
-#page-studio #donationsCard{grid-column: 2; grid-row: 1; min-width: 0;}
-#page-studio #topPlaceholderCard{grid-column: 2; grid-row: 2; min-width: 0;}
-#page-studio #topRightDock{grid-column: 3; grid-row: 1 / span 2; width: var(--topRightColWidth);}
-
-/* Constrain the three top-right cards */
-#page-studio #topRightDock .mixerCard{width: var(--topRightColWidth); max-width: var(--topRightColWidth);}
+/*
+  IMPORTANT:
+  Older builds had an overriding 3-column / 2-row grid on #topMixerRoot (with !important)
+  that forced the top-right cards into a vertical stack.
+  The Studio page now uses the 6-column grid above.
+*/
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
@@ -362,6 +356,19 @@ main{padding:18px}
   align-items:stretch;
   width: 100%;
   overflow-x: hidden; /* explicit: never show a horizontal scrollbar */
+}
+
+/*
+  Studio top row uses GRID (not the base mixerRoot flex row).
+  Needs higher specificity than `.mixerRoot { display:flex; }` above.
+*/
+#page-studio #topMixerRoot.mixerRoot--top{
+  display: grid !important;
+  /* PIL | Donations | (blank) | Headphones | Speakers | Program */
+  grid-template-columns: var(--pilColWidth) 1fr 1fr var(--topRightColWidth) var(--topRightColWidth) var(--topRightColWidth);
+  grid-template-rows: auto;
+  gap: 24px;
+  align-items: start;
 }
 
 /*
