@@ -45,7 +45,12 @@ func (e *Engine) dspMetersPollLoop() {
 
 	// We read by controller ID. Passing numeric strings lets the shared helper
 	// resolve them without needing name mappings.
-	controls := []string{"462", "463"}
+	controls := []string{
+		// Bottom-row channel VU meters
+		"401","402","403","404","405","406","407","408","409","410",
+		// Program / speakers / remote return
+		"411","412","460","461","462","463",
+	}
 
 	cfg2 := e.GetConfigCopy()
 	dbFloor := cfg2.Meters.DbFloor

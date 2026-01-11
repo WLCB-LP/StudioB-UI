@@ -70,7 +70,76 @@ const state = {
   // meter smoothing
   meters: {
     // PlayIt Live meters (UI v0.3.66)
-    // Operator-provided RC assignments:
+    /
+// ---------------------------------------------------------------------------
+// Bottom-row VU meters (Studio B) — authoritative RC render source
+//
+// Operator-provided RC assignments (DSP truth):
+//   Host Mic VU     -> 401
+//   Guest 1 VU      -> 402
+//   Guest 2 VU      -> 403
+//   Guest 3 VU      -> 404
+//   CD1 VU          -> 405
+//   CD2 VU          -> 406
+//   AUX VU          -> 407
+//   Bluetooth VU    -> 408
+//   PC VU           -> 409
+//   Zoom VU         -> 410
+//
+// These are published by the engine over /ws as normalized 0.0–1.0 values.
+// The UI never synthesizes meter motion; if the DSP goes dead, meters go dead.
+// ---------------------------------------------------------------------------
+const STRIP_VU_RC = {
+  host: "401",
+  g1:   "402",
+  g2:   "403",
+  g3:   "404",
+  cd1:  "405",
+  cd2:  "406",
+  aux:  "407",
+  bt:   "408",
+  pc:   "409",
+  zoom: "410",
+};
+
+// Ensure each bottom-row strip has real meter fill DOM nodes we can drive.
+// (PIL uses hard-coded ids m_pilL/m_pilR; the bottom row uses per-strip ids.)
+function ensureBottomRowVUMeterFills(){
+  document.querySelectorAll(".studioBottomFaders .strip[data-strip]").forEach(stripEl=>{
+    const id = stripEl.getAttribute("data-strip");
+    if(!id) return;
+    const meters = stripEl.querySelectorAll(".fader__meter");
+    if(!meters || meters.length < 1) return;
+
+    // We render mono VU values into both lanes (L/R) for now because Composer
+    // exposes one VU controller per source in this design.
+    meters.forEach((mEl, idx)=>{
+      // idx 0 -> L, idx 1 -> R (if present)
+      const side = (idx === 0) ? "L" : "R";
+      const fillId = `m_vu_${id}_${side}`;
+      if(mEl.querySelector(".fader__meterFill")) return;
+
+      const fill = document.createElement("div");
+      fill.className = "fader__meterFill";
+      fill.id = fillId;
+      mEl.appendChild(fill);
+    });
+  });
+}
+
+function applyBottomRowVUMetersFromRC(){
+  // Drive meter fill heights directly from the RC cache.
+  // We intentionally DO NOT smooth here; smoothing (if desired) is purely visual
+  // and can be added later without touching DSP truth.
+  Object.keys(STRIP_VU_RC).forEach(strip=>{
+    const rc = STRIP_VU_RC[strip];
+    const v = clamp01(rcGet(rc));
+    setMeterFillV(`m_vu_${strip}_L`, v);
+    setMeterFillV(`m_vu_${strip}_R`, v);
+  });
+}
+
+/ Operator-provided RC assignments:
     //   462 = Remote Studio Return VU (Left)
     //   463 = Remote Studio Return VU (Right)
     //
@@ -565,6 +634,7 @@ function connectRCWebSocket(){
 
         // Update any UI surfaces that depend on RC.
         applyPILMetersFromRC();
+        applyBottomRowVUMetersFromRC();
         applyMixerFadersFromRC();
         applyMixerMutesFromRC();
         showMixerWhenReady();
@@ -596,6 +666,7 @@ function connectRCWebSocket(){
         state.rc[String(msg.rc)] = msg.value;
         state.mixerHydrated = true;
         applyPILMetersFromRC();
+        applyBottomRowVUMetersFromRC();
         return;
       }
     };
@@ -2730,6 +2801,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Mixer fader visuals (v0.3.13)
   // Safe to call even if the Studio page is not visible yet.
   initMixerFaders();
+  ensureBottomRowVUMeterFills();
 
   fetchDSPModeStatus();
   setInterval(fetchDSPModeStatus, 5000);

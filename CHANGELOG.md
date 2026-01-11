@@ -2,6 +2,11 @@
 - HOTFIX (build): Fix Go build failure caused by a duplicate `ecpGetCGUDP` method definition.
   - No behavior changes from v0.3.76.
 
+## v0.3.78
+- Engine: Symetrix LIVE write-through for bottom-row faders (RC 101–110) and mutes (RC 121–130) via CS.
+- Engine: Poll bottom-row VU meters (RC 401–410) via UDP GS2 and publish over /ws.
+- UI: Render bottom-row VU meters from RC cache (401–410).
+
 ## v0.3.76
 - FIX (meters / Symetrix): Use **UDP** for Symetrix meter polling to avoid TCP resets from the DSP ("connection reset by peer").
   - Adds a dedicated UDP polling helper and switches the meter poll loop to use it.

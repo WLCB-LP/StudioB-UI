@@ -436,7 +436,7 @@ validate_and_repair_config() {
         # Mutes (inputs + program): 121–131
         echo "121 122 123 124 125 126 127 128 129 130 131" | tr ' ' '\n'
         # Speakers
-        echo "161" | tr ' ' '\n'
+        echo "160 161" | tr ' ' '\n'
       } | sed '/^[[:space:]]*$/d' | sort -n | uniq
     )"
 
@@ -474,6 +474,7 @@ validate_and_repair_config() {
         print "  - 130"
         print "  # Program + speakers"
         print "  - 131"
+        print "  - 160"
         print "  - 161"
         # Also include any other IDs that were already allowlisted (e.g. mutes/meters).
         for (i=1; i<=n; i++) {
@@ -482,7 +483,8 @@ validate_and_repair_config() {
           # Skip the required IDs (already printed above)
           if (id>=101 && id<=110) continue
           if (id>=121 && id<=131) continue
-          if (id==161) continue
+          if (id==160) continue
+           if (id==161) continue
           print "  - " id
         }
       }

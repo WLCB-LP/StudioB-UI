@@ -310,11 +310,52 @@ func (e *Engine) SetRC(idStr string, value float64) error {
 		return fmt.Errorf("rc %d not allowlisted", id)
 	}
 
+	// -----------------------------------------------------------------------
+	// DSP truth: write-through for bottom-row faders + mutes (Studio B)
+	//
+	// The UI posts normalized 0.0–1.0 values to /api/rc/<id>.
+	//
+	// In MOCK mode:
+	//   - We only update the engine RC cache (non-destructive).
+	//
+	// In LIVE mode:
+	//   - For *controls* (faders + mutes), we attempt a real Symetrix CS write.
+	//   - Only if the write succeeds do we update the RC cache.
+	//   - If the write fails, we return an error so the UI immediately refreshes
+	//     from the authoritative snapshot (no invented state).
+	//
+	// IMPORTANT:
+	// - We DO NOT attempt to write meter RCs (401+), only controls.
+	// - Speaker mute/level also flow through this same path (RC 160/161).
+	// -----------------------------------------------------------------------
+
+	mode := strings.ToLower(strings.TrimSpace(e.cfg.DSP.Mode))
+	isLive := (mode == "live")
+
+	// Controls we are willing to write through to the DSP.
+	// Bottom row faders: 101–110
+	// Bottom row mutes:  121–130
+	// Speakers:          160/161
+	isControl := false
+	if (id >= 101 && id <= 110) || (id >= 121 && id <= 130) || id == 160 || id == 161 {
+		isControl = true
+	}
+
+	if isLive && isControl {
+		// Symetrix Controller Set expects a 16-bit position (0..65535).
+		// ecpSendCSV performs clamp01() + scaling and writes "CS <id> <pos>
+".
+		if _, werr := e.ecpSendCSV(strconv.Itoa(id), value, 1200*time.Millisecond); werr != nil {
+			return fmt.Errorf("dsp write failed (rc %d): %w", id, werr)
+		}
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.rc[id] = value
 	return nil
 }
+
 
 // ---------------------------------------------------------------------------
 // Operator Intent Logging (v0.2.75)
@@ -697,7 +738,7 @@ func (e *Engine) mockLoop() {
 	for {
 		e.mu.Lock()
 		// meters: 411/412 program, 460/461 speakers, 462/463 rs return
-		meterIDs := []int{411, 412, 460, 461, 462, 463}
+		meterIDs := []int{401,402,403,404,405,406,407,408,409,410,411,412,460,461,462,463}
 		for _, id := range meterIDs {
 			// random walk
 			cur := e.rc[id]
