@@ -1,3 +1,8 @@
+## v0.3.76
+- FIX (meters / Symetrix): Use **UDP** for Symetrix meter polling to avoid TCP resets from the DSP ("connection reset by peer").
+  - Adds a dedicated UDP polling helper and switches the meter poll loop to use it.
+  - Keeps TCP for control writes (ACK/NAK semantics) but meters are now resilient.
+
 ## v0.3.75
 - Fix: Symetrix meter polling now accepts float or dB-style values and normalizes robustly.
 - Debug: periodic log of raw+normalized meter values in LIVE mode.

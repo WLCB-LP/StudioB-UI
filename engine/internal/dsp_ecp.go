@@ -52,7 +52,15 @@ func (e *Engine) resolveControllerID(nameOrID string) (int, error) {
 	return 0, fmt.Errorf("unknown controller: %q", s)
 }
 
-// symOpenConn opens a bounded TCP connection to the DSP control port.
+// symOpenConn opens a bounded connection to the DSP control port.
+//
+// Symetrix installs vary: some reliably accept the SymNet ASCII control protocol
+// over TCP, others (especially when already connected to Composer) will accept
+// UDP but aggressively reset/close TCP sessions.
+//
+// For writes we still prefer TCP (ACK/NAK semantics are clearer).
+// For meter polling we deliberately use UDP (see ecpGetCGUDP) to avoid the
+// “connection reset by peer” failure mode you observed.
 func (e *Engine) symOpenConn(timeout time.Duration) (net.Conn, error) {
 	cfg := e.GetConfigCopy()
 	host := strings.TrimSpace(cfg.DSP.Host)
@@ -65,16 +73,33 @@ func (e *Engine) symOpenConn(timeout time.Duration) (net.Conn, error) {
 	}
 	addr := net.JoinHostPort(host, itoa(port))
 
-	// Symetrix control protocol is commonly used over TCP on 48631.
-	// Some installations also accept UDP. We try TCP first (preferred), then
-	// fall back to UDP if TCP cannot connect.
+	// Prefer TCP for control writes.
 	c, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-		uc, uerr := net.DialTimeout("udp", addr, timeout)
-		if uerr != nil {
-			return nil, err
-		}
-		c = uc
+		return nil, err
+	}
+	_ = c.SetDeadline(time.Now().Add(timeout))
+	return c, nil
+}
+
+// symOpenUDP opens a bounded UDP "connection" to the DSP control port.
+//
+// UDP is used for meter polling to avoid TCP session churn and remote resets.
+func (e *Engine) symOpenUDP(timeout time.Duration) (net.Conn, error) {
+	cfg := e.GetConfigCopy()
+	host := strings.TrimSpace(cfg.DSP.Host)
+	port := cfg.DSP.Port
+	if host == "" || port == 0 {
+		return nil, fmt.Errorf("DSP host/port not configured")
+	}
+	if timeout <= 0 {
+		timeout = 1200 * time.Millisecond
+	}
+	addr := net.JoinHostPort(host, itoa(port))
+
+	c, err := net.DialTimeout("udp", addr, timeout)
+	if err != nil {
+		return nil, err
 	}
 	_ = c.SetDeadline(time.Now().Add(timeout))
 	return c, nil
@@ -233,6 +258,139 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 		}
 		// fields[0] may include leading zeros; ignore and trust the order.
 		pos, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
+		}
+		out[strings.TrimSpace(controlNames[i])] = pos
+	}
+	return out, nil
+}
+
+// ecpGetCGUDP is a meter-oriented reader that uses UDP instead of TCP.
+//
+// Why this exists:
+//   - In the field, we observed: "read: connection reset by peer" when polling
+//     meters over short-lived TCP sessions. Many Symetrix deployments will
+//     accept the control protocol over UDP while actively resetting TCP when
+//     Composer (or another client) is also connected.
+//
+// Semantics:
+//   - Same as ecpGetCG, but uses UDP and expects one response line per request.
+//   - Returned values are raw controller positions as float64.
+func (e *Engine) ecpGetCGUDP(controlNames []string, timeout time.Duration) (map[string]float64, error) {
+    if len(controlNames) == 0 {
+        return nil, fmt.Errorf("no controls provided")
+    }
+    if timeout <= 0 {
+        timeout = 1200 * time.Millisecond
+    }
+
+    c, err := e.symOpenUDP(timeout)
+    if err != nil {
+        return nil, err
+    }
+    defer c.Close()
+
+    rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
+
+    ids := make([]int, 0, len(controlNames))
+    for _, s := range controlNames {
+        id, err := e.resolveControllerID(s)
+        if err != nil {
+            return nil, err
+        }
+        ids = append(ids, id)
+        if _, err := rw.WriteString(fmt.Sprintf("GS2 %d\r", id)); err != nil {
+            return nil, err
+        }
+    }
+    if err := rw.Flush(); err != nil {
+        return nil, err
+    }
+
+    out := make(map[string]float64, len(controlNames))
+    for i, id := range ids {
+        line, err := symReadLine(rw.Reader)
+        if err != nil {
+            return nil, err
+        }
+        line = strings.TrimSpace(line)
+        if line == "NAK" {
+            return nil, fmt.Errorf("dsp returned NAK for controller %d", id)
+        }
+        fields := strings.Fields(line)
+        if len(fields) == 1 {
+            pos, err := strconv.ParseFloat(fields[0], 64)
+            if err != nil {
+                return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
+            }
+            out[strings.TrimSpace(controlNames[i])] = pos
+            continue
+        }
+        if len(fields) < 2 {
+            return nil, fmt.Errorf("malformed GS2 response: %q", line)
+        }
+        pos, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+        if err != nil {
+            return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
+        }
+        out[strings.TrimSpace(controlNames[i])] = pos
+    }
+    return out, nil
+}
+
+// ecpGetCGUDP reads controller positions using Symetrix GS2 over UDP.
+//
+// Why this exists:
+//   - Studio B’s Symetrix host actively resets TCP sessions when polled rapidly.
+//   - UDP avoids that failure mode while remaining standards-compliant for the
+//     SymNet ASCII protocol.
+//
+// Returned values are raw controller positions as float64.
+func (e *Engine) ecpGetCGUDP(controlNames []string, timeout time.Duration) (map[string]float64, error) {
+	if len(controlNames) == 0 {
+		return nil, fmt.Errorf("no controls provided")
+	}
+	if timeout <= 0 {
+		timeout = 1200 * time.Millisecond
+	}
+
+	c, err := e.symOpenUDP(timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
+	ids := make([]int, 0, len(controlNames))
+	for _, s := range controlNames {
+		id, err := e.resolveControllerID(s)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+		if _, err := rw.WriteString(fmt.Sprintf("GS2 %d\r", id)); err != nil {
+			return nil, err
+		}
+	}
+	if err := rw.Flush(); err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]float64, len(controlNames))
+	for i := range ids {
+		line, err := symReadLine(rw.Reader)
+		if err != nil {
+			return nil, err
+		}
+		line = strings.TrimSpace(line)
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			return nil, fmt.Errorf("empty response")
+		}
+		// Accept both GS (value only) and GS2 (id value) shapes.
+		posField := fields[len(fields)-1]
+		pos, err := strconv.ParseFloat(posField, 64)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}

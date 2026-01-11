@@ -77,7 +77,10 @@ Run:
   UI → intent → engine → (DSP write gate).
   - Intents are append-logged to: `~/.StudioB-UI/state/intents.jsonl`
 - v0.2.76: Speaker Mute can now perform a **real DSP write** when `dsp.mode=live`.
-  - The engine uses the Symetrix SymNet Composer control protocol (TCP, default port 48631) and issues:
+- The engine uses the Symetrix SymNet Composer control protocol (port 48631).
+  - Control writes prefer **TCP** (clear ACK/NAK semantics).
+  - Meter polling uses **UDP** by default to avoid TCP session resets observed on some DSPs.
+  The engine issues:
     `CS 161 0` (unmute) or `CS 161 65535` (mute)
   - This release is still strictly scoped to **Speaker Mute only**.
   - Every intent is logged, and every DSP write attempt/result is also logged (append-only JSONL).
@@ -269,6 +272,7 @@ The Engineering page edits the operator config file at `~/.StudioB-UI/config/con
 
 ### Meter polling (Symetrix)
 - DSP: Symetrix (host/port from config)
+- Transport: UDP (prevents "connection reset by peer" failures some DSPs exhibit with rapid TCP polls)
 - Meter controllers: 462 (L), 463 (R)
 - Values are normalized to 0.0–1.0 using heuristics (0..1, 0..100, 0..65535, or dB using meters.db_floor).
 

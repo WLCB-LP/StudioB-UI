@@ -86,7 +86,14 @@ func (e *Engine) dspMetersPollLoop() {
 
 	var lastLog int64
 	for range t.C {
-		vals, err := e.ecpGetCG(controls, 900*time.Millisecond)
+		// IMPORTANT: We use UDP for meter polling.
+		//
+		// Field evidence from Studio B:
+		//   read tcp ...->10.101.2.2:48631: read: connection reset by peer
+		//
+		// Symetrix deployments commonly allow multiple UDP pollers but may reset
+		// short-lived TCP sessions, especially when Composer is also connected.
+		vals, err := e.ecpGetCGUDP(controls, 900*time.Millisecond)
 		if err != nil {
 			e.mu.Lock()
 			e.rc[462] = 0
