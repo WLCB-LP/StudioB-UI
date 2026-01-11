@@ -125,26 +125,28 @@ main{padding:18px}
 /*
   Top-row layout:
   Use a grid so the row never wraps into multiple rows.
-  Columns (UI v0.3.60):
+  Columns (UI v0.3.61):
     1) PlayIt Live (fixed)
     2) Speakers (fixed)
     3) Latest Donations (fluid; fills remaining space)
-    4) Program (fixed)
+    4) WLCB Status (fixed)
+    5) Program (fixed)
 */
 #page-studio .mixerRoot--top{
   display: grid;
   /* PIL sizes to its contents; center cards are flexible; right-side cards are fixed */
-  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth);
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth) var(--topRightColWidth);
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
 }
 
-/* In the top row, keep PIL at a fixed width so the 4-column grid is stable. */
+/* In the top row, keep PIL at a fixed width so the grid is stable. */
 #page-studio #pilCard{ width: var(--pilColWidth); }
 
 /* v0.3.60: Speakers + Program are first-class grid citizens (no dock wrapper). */
 #page-studio #speakersCard,
+#page-studio #wlcbStatusCard,
 #page-studio #programCard{
   width: var(--topRightColWidth);
   max-width: var(--topRightColWidth);
@@ -294,8 +296,15 @@ main{padding:18px}
   flex-direction:column;
   gap: 10px;
   width: 96px;
-  /* Align the buttons with the top of the VU lane (not the strip title pill). */
-  margin-top: 14px;
+  /*
+    Align the buttons with the top edge of the VU lane wrapper.
+
+    IMPORTANT:
+    The VU lane has its own padding inside `.fader`.
+    We match that padding here so the AUTO/LIVE button top edge lines up
+    with the meter wrapper top edge.
+  */
+  margin-top: 6px;
 }
 .pilButtons .woBtn{
   max-width: none;
@@ -321,6 +330,21 @@ main{padding:18px}
 /* PIL START momentary button (green) */
 .woBtn--pilStart{ background: rgba(60,255,170,.14); border-color: rgba(60,255,170,.40); }
 .woBtn--pilStart:disabled{ opacity: .55; }
+
+/*
+  WLCB Status (UI v0.3.61)
+  For now this is a visual placeholder panel inside the new top-row card.
+  We intentionally match the fader lane's height so the top row feels coherent.
+*/
+.wlcbStatusPanel{
+  width: 110px;
+  height: 300px;
+  border-radius: 18px;
+  margin: 6px auto 12px auto;
+  background: rgba(0,0,0,.20);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 10px 20px rgba(0,0,0,.28);
+}
 /*
   Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.
 
@@ -359,8 +383,8 @@ main{padding:18px}
 */
 #page-studio #topMixerRoot.mixerRoot--top{
   display: grid !important;
-  /* PlayIt Live | Speakers | Latest Donations | Program */
-  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth);
+  /* PlayIt Live | Speakers | Latest Donations | WLCB Status | Program */
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth) var(--topRightColWidth);
   grid-template-rows: auto;
   gap: 24px;
   align-items: start;
@@ -414,6 +438,24 @@ main{padding:18px}
   background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.06);
   margin-bottom: 8px;
+}
+
+/*
+  Top-row label tweaks (UI v0.3.61)
+
+  - PIL label: widen to content + no-wrap so "PlayIt Live" stays on one line.
+  - WLCB Status label: also no-wrap.
+*/
+.strip__title--pil,
+.strip__title--wlcb{
+  white-space: nowrap;
+  /* Allow the pill to size to its content while remaining centered. */
+  width: max-content;
+  max-width: none;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .strip__title--host{

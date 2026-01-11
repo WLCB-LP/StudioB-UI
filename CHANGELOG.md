@@ -2,6 +2,13 @@
 
 
 
+## v0.3.61 (2026-01-11)
+- Studio (cosmetic): Prevent PlayIt Live strip label from wrapping (wider no-wrap pill).
+- Studio (cosmetic): Refined PlayIt Live AUTO/LIVE button stack alignment to match the VU lane top.
+- Studio (cosmetic): Removed Speakers mute button from the Studio page (Engineering retains mute control).
+- Studio (cosmetic): Added a new top-row card "WLCB Status" to the right of Latest Donations.
+
+
 ## v0.3.60 (2026-01-11)
 - Studio (cosmetic): Removed Headphones card from Studio top row.
 - Studio (cosmetic): Moved Speakers card to immediately right of PlayIt Live.
