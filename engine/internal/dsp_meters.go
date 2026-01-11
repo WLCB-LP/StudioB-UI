@@ -3,6 +3,7 @@ package app
 import (
 	"log"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -100,29 +101,36 @@ func (e *Engine) dspMetersPollLoop() {
 		// short-lived TCP sessions, especially when Composer is also connected.
 		vals, err := e.ecpGetCGUDP(controls, 900*time.Millisecond)
 		if err != nil {
+			// Truth: if we cannot read meters, publish dead meters.
 			e.mu.Lock()
-			e.rc[462] = 0
-			e.rc[463] = 0
+			for _, idStr := range controls {
+				id, _ := strconv.Atoi(idStr)
+				e.rc[id] = 0
+			}
 			e.mu.Unlock()
 			log.Printf("dsp meter poll failed: %v", err)
 			continue
 		}
 
+		// Update the authoritative RC cache for ALL configured meter IDs.
+		// This is what drives the UI's bottom-row VU meters (401–410) and
+		// other meter surfaces.
+		e.mu.Lock()
+		for _, idStr := range controls {
+			id, _ := strconv.Atoi(idStr)
+			e.rc[id] = normalize(vals[idStr])
+		}
+		e.mu.Unlock()
+
+		// Periodic visibility for operators / debugging (every ~5s).
 		rawL := vals["462"]
 		rawR := vals["463"]
 		l := normalize(rawL)
 		r := normalize(rawR)
-
-		// Periodic visibility for operators / debugging (every ~5s).
 		now := time.Now().Unix()
 		if now-lastLog >= 5 {
 			lastLog = now
 			log.Printf("dsp meters ok: raw(462)=%.3f raw(463)=%.3f -> norm L=%.3f R=%.3f", rawL, rawR, l, r)
 		}
-
-		e.mu.Lock()
-		e.rc[462] = l
-		e.rc[463] = r
-		e.mu.Unlock()
 	}
 }

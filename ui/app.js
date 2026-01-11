@@ -489,6 +489,32 @@ const STRIP_VU_RC = {
   zoom: "410",
 };
 
+// ---------------------------------------------------------------------------
+// VU display scaling
+//
+// DSP facts (Studio B):
+//   - Fader range:  -72 dB .. +12 dB
+//   - Meter range:  -72 dB .. 0 dB
+//
+// The engine publishes normalized 0..1 values for meter RCs.
+// When those normalized values represent a -72..0 dB meter, the top of the
+// meter corresponds to 0 dB, not the fader's +12 dB headroom.
+//
+// To make meter travel visually consistent with the fader travel, we map the
+// -72..0 span into the -72..+12 span.
+//
+// This is DISPLAY-ONLY. It does not change truth; it only changes how tall the
+// meter looks.
+// ---------------------------------------------------------------------------
+const VU_MATCH_FADER_RANGE = true;
+const _VU_TO_FADER_SCALE = 72 / 84; // 0.857...
+
+function vuDisplay(v){
+  const x = clamp01(v);
+  if(!VU_MATCH_FADER_RANGE) return x;
+  return clamp01(x * _VU_TO_FADER_SCALE);
+}
+
 // Ensure each bottom-row strip has a .fader__meterFill we can drive.
 // The markup renders an empty .fader__meter lane; we attach the inner fill
 // element dynamically so we can keep HTML clean and stable.
@@ -523,7 +549,7 @@ function applyBottomRowVUMetersFromRC(){
   for(const strip of Object.keys(STRIP_VU_RC)) {
     const rc = STRIP_VU_RC[strip];
     const v = clamp01(rcGet(rc));
-    setMeterFillV(`m_vu_${strip}`, v);
+    setMeterFillV(`m_vu_${strip}`, vuDisplay(v));
   }
 }
 
@@ -639,6 +665,7 @@ function connectRCWebSocket(){
         applyBottomRowVUMetersFromRC();
         applyMixerFadersFromRC();
         applyMixerMutesFromRC();
+        applySpeakerAutoMuteGlowFromRC();
         showMixerWhenReady();
       }
 
@@ -1158,6 +1185,18 @@ function setLampAutoMute(on){
   lamp.classList.toggle("on", !!on);
 }
 
+// Studio request (2026-01-11): when automute (RC 560) is true, make the
+// speakers fader + card glow red so the operator immediately sees why audio
+// is not coming out.
+//
+// IMPORTANT: this is purely a visual indicator. The DSP remains the source of
+// truth for the automute state.
+function applySpeakerAutoMuteGlowFromRC(){
+  const on = rcGet(560) >= 0.5;
+  const card = document.getElementById('speakersCard');
+  if(card) card.classList.toggle('automuteActive', on);
+}
+
 function updateSpeakerUI(){
   // UI v0.3.38: The Studio page no longer renders the speaker "panel".
   // Speakers are now controlled via the top-row fader (RC 160/161).
@@ -1468,8 +1507,8 @@ function meterAnimate(){
   }
 
   // PlayIt Live meters (RC 462/463)
-  setMeterFillV("m_pilL", state.meters.pilL.cur);
-  setMeterFillV("m_pilR", state.meters.pilR.cur);
+  setMeterFillV("m_pilL", vuDisplay(state.meters.pilL.cur));
+  setMeterFillV("m_pilR", vuDisplay(state.meters.pilR.cur));
 
   // NOTE:
   // The following IDs are not yet rendered on the Studio page.

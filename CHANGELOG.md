@@ -1,3 +1,11 @@
+## v0.3.82
+- Engine (Symetrix): Publish **all** meter RCs over `/ws` (not just 462/463).
+  - Meters published: 401–410 (bottom row VU), 411–412 (program), 460–461 (speakers), 462–463 (PlayIt Live).
+- Engine (Symetrix): Seed control RC cache from DSP on startup (truth on page load).
+  - Controllers synced once at boot: 101–110 (faders), 121–130 (mutes), 160 (speakers fader), 560 (automute indicator).
+- UI: VU display scaling option to visually match meter travel to the fader's -72..+12dB span.
+- UI: Speaker automute alert — when RC 560 is true, Speakers card/fader glows red.
+
 ## v0.3.81
 - Engine (Symetrix): Fix fader/mute writes failing with "connection reset by peer".
   - Switch CS controller writes to UDP (same rationale as meter polling).

@@ -283,6 +283,9 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	// stream (v0.3.72). Without this, RC 462/463 would remain at 0 forever and
 	// the UI would show dead meters even when audio is present.
 	if strings.ToLower(strings.TrimSpace(cfg.DSP.Mode)) == "live" {
+		// Seed control positions so the UI reflects DSP truth on page load.
+		// This runs once at startup (no periodic resync by default).
+		e.dspControlStateSyncOnce()
 		go e.dspMetersPollLoop()
 	}
 	go e.publishLoop()
@@ -580,10 +583,20 @@ func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {
 	//   2) Legacy envelope: type=snapshot (kept so older UI builds keep working)
 	//
 	// NOTE: JSON map keys are strings. We intentionally send RC IDs as strings.
+	// Snapshot should seed BOTH meters and controls so the UI can render the
+	// current DSP truth immediately on page load.
+	//
+	// We include:
+	//   - Bottom-row faders: 101..110
+	//   - Bottom-row mutes:  121..130
+	//   - Speakers fader:    160
+	//   - Speakers automute: 560 (indicator)
+	//   - PlayIt Live meters: 462/463 (so PIL meters seed instantly)
+	ids := []int{101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 160, 560, 462, 463}
 	e.mu.RLock()
-	rc := map[string]float64{
-		"462": e.rc[462],
-		"463": e.rc[463],
+	rc := make(map[string]float64, len(ids))
+	for _, id := range ids {
+		rc[strconv.Itoa(id)] = e.rc[id]
 	}
 	e.mu.RUnlock()
 	_ = c.WriteJSON(map[string]any{"type": "rc_state", "rc": rc, "ts": time.Now().UnixMilli()})
@@ -678,8 +691,7 @@ func (e *Engine) publishLoop() {
 		var (
 			delta       map[int]float64
 			metersDirty bool
-			meters462   float64
-			meters463   float64
+			meterVals   map[string]float64
 		)
 
 		e.mu.Lock()
@@ -705,8 +717,13 @@ func (e *Engine) publishLoop() {
 		// can make meters appear "stuck" even when DSP values are changing.
 		//
 		// Therefore we broadcast meters every tick.
-		meters462 = e.rc[462]
-		meters463 = e.rc[463]
+		// Dedicated meters stream: always publish a batched payload at publish_hz.
+		// These are normalized 0.0–1.0 values (UI-friendly).
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
+		meterVals = make(map[string]float64, len(meterIDs))
+		for _, id := range meterIDs {
+			meterVals[strconv.Itoa(id)] = e.rc[id]
+		}
 		metersDirty = true
 		e.mu.Unlock()
 
@@ -715,16 +732,11 @@ func (e *Engine) publishLoop() {
 		}
 
 		// Minimal contract: batched meters payload, normalized 0.0–1.0.
-		// These map directly to the UI's PlayIt Live L/R meters:
-		//   RC 462 -> Left
-		//   RC 463 -> Right
+		// The UI binds specific RC IDs to specific meter surfaces.
 		if metersDirty {
 			e.broadcast("meters", map[string]any{
 				"type": "meters",
-				"data": map[string]float64{
-					"462": meters462,
-					"463": meters463,
-				},
+				"data": meterVals,
 				"ts": time.Now().UnixMilli(),
 			})
 		}

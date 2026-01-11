@@ -162,6 +162,22 @@ main{padding:18px}
   max-width: var(--topRightColWidth);
 }
 
+/* -------------------------------------------------------------------------
+   Speaker automute visual alert (RC 560)
+
+   When automute is active, make the Speakers card and lane glow red.
+   This is display-only; DSP truth still comes from RC 560.
+   ---------------------------------------------------------------------- */
+#page-studio #speakersCard.automuteActive{
+  box-shadow:
+    0 0 0 1px rgba(255, 80, 80, 0.55),
+    0 0 24px rgba(255, 60, 60, 0.25);
+}
+
+#page-studio #speakersCard.automuteActive .fader__lane{
+  box-shadow: 0 0 18px rgba(255, 60, 60, 0.25) inset;
+}
+
 /* WLCB Status is deliberately 3x wider (see --wlcbStatusColWidth). */
 #page-studio #wlcbStatusCard{
   width: var(--wlcbStatusColWidth);
