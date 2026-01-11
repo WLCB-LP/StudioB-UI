@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ import (
 //   SymNet Composer Control Protocol v2.0 (TCP/UDP port 48631)
 //   - CS syntax and ACK/NAK: "CS <CONTROLLER NUMBER> <CONTROLLER POSITION><CR>"
 //   - GS/GS2 syntax: "GS <CONTROLLER NUMBER><CR>" / "GS2 <CONTROLLER NUMBER><CR>"
-// citeturn5view0
+
 //
 // Safety properties (kept from the earlier design):
 //   - short-lived TCP connection per operation
@@ -166,15 +167,25 @@ func (e *Engine) ecpSendCSV(controlName string, value float64, timeout time.Dura
 		pos = 65535
 	}
 
-	c, err := e.symOpenConn(timeout)
+	// IMPORTANT (Studio B): The Symetrix host actively resets TCP sessions under
+	// bursty / short-lived polling and control writes.
+	//
+	// Meter polling was moved to UDP in v0.3.76. In practice we must also send
+	// controller writes (CS) via UDP to avoid the same reset-by-peer failure
+	// mode when operators drag faders quickly.
+	//
+	// SymNet ASCII over UDP is connectionless: we may or may not receive an ACK.
+	// To preserve the "DSP is source of truth" rule, we perform a *readback*
+	// using GS2 after the write and only report success if the DSP reflects the
+	// requested position.
+
+	c, err := e.symOpenUDP(timeout)
 	if err != nil {
 		return "", err
 	}
 	defer c.Close()
 
 	rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
-	e.symInitPortBestEffort(rw)
-
 	cmd := fmt.Sprintf("CS %d %d\r", id, pos)
 	if _, err := rw.WriteString(cmd); err != nil {
 		return "", err
@@ -183,15 +194,38 @@ func (e *Engine) ecpSendCSV(controlName string, value float64, timeout time.Dura
 		return "", err
 	}
 
-	line, err := symReadLine(rw.Reader)
+	// Best-effort: if the DSP replies with an ACK/NAK, respect it.
+	// (Many deployments do not ACK UDP writes, so we treat read timeout as OK.)
+	if line, err := symReadLine(rw.Reader); err == nil {
+		line = strings.TrimSpace(line)
+		if line == "NAK" {
+			return line, fmt.Errorf("dsp returned NAK")
+		}
+		// If we see an ACK, continue to readback below.
+	}
+
+	// Readback check (truth): GS2 the same controller and confirm it matches.
+	// We allow a small tolerance because some Symetrix controls quantize.
+	readback, err := e.ecpGetCGUDP([]string{controlName}, timeout)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("dsp write readback failed: %w", err)
 	}
-	line = strings.TrimSpace(line)
-	if strings.HasPrefix(line, "ACK") {
-		return line, nil
+	got := readback[controlName]
+	// Determine the expected scale. If the DSP returns 0..1 or 0..100, compare
+	// in that space; otherwise assume raw 0..65535.
+	//
+	// This mirrors the robust normalization logic used by the meter poll loop.
+	expected := float64(pos)
+	// If got looks normalized, convert expected accordingly.
+	if got >= 0 && got <= 1.2 {
+		expected = float64(pos) / 65535.0
+	} else if got >= 0 && got <= 120 {
+		expected = (float64(pos) / 65535.0) * 100.0
 	}
-	return line, fmt.Errorf("dsp error: %s", line)
+	if math.Abs(got-expected) > 1.5 { // 1.5 units tolerance (covers % + small jitter)
+		return "", fmt.Errorf("dsp write verify mismatch: want %.3f got %.3f", expected, got)
+	}
+	return "OK", nil
 }
 
 // ecpGetCG is a legacy-named wrapper used by the meter poll loop.

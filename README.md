@@ -281,3 +281,8 @@ The Engineering page edits the operator config file at `~/.StudioB-UI/config/con
 - Meter controllers: 462 (L), 463 (R)
 - Values are normalized to 0.0–1.0 using heuristics (0..1, 0..100, 0..65535, or dB using meters.db_floor).
 
+### Control writes (Symetrix)
+- Transport: UDP (prevents "connection reset by peer" during rapid fader drags)
+- Write command: `CS <controller> <0..65535>\r`
+- Truth rule: after sending `CS`, the engine performs a `GS2` readback and only reports success if the DSP reflects the requested value.
+

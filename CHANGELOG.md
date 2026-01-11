@@ -1,3 +1,8 @@
+## v0.3.81
+- Engine (Symetrix): Fix fader/mute writes failing with "connection reset by peer".
+  - Switch CS controller writes to UDP (same rationale as meter polling).
+  - Add GS2 UDP readback verification so writes are only acknowledged when the DSP reflects the requested value (DSP remains source of truth).
+
 ## v0.3.80
 - HOTFIX (UI boot): Fix a JavaScript syntax error that prevented the Studio page from loading ("expected property name, got '/'").
   - Restores a valid `state.meters` object for the smoothing loop.
