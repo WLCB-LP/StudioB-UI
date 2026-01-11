@@ -2,6 +2,12 @@
 
 
 
+## v0.3.65 (2026-01-11)
+- Studio: PlayIt Live now displays live meter movement using the operator-provided DSP RC meter assignments:
+  - RC 462 = Remote Studio Return VU (Left)
+  - RC 463 = Remote Studio Return VU (Right)
+- Studio: Added vertical meter fill rendering for the PlayIt Live card (new `.fader__meterFill` + JS height driver).
+- Engine contract: Prefer RC WebSocket meters (462/463) when present; fallback mirrors `/api/studio/status` `rsrL/rsrR` into PlayIt Live meters.
 
 ## v0.3.64 (2026-01-11)
 - Fix (cache resilience): Added a self-repair step in app.js that corrects known legacy/static labels when index.html is cached but the JS bundle is new (logs the repair in the runtime event list).

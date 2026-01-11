@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.64";
+const UI_BUILD_VERSION = "0.3.65";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -69,6 +69,15 @@ const state = {
   },
   // meter smoothing
   meters: {
+    // PlayIt Live meters (UI v0.3.65)
+    // Operator-provided RC assignments:
+    //   462 = Remote Studio Return VU (Left)
+    //   463 = Remote Studio Return VU (Right)
+    //
+    // We render these meters in the PlayIt Live card as a simple
+    // VU pair that moves in realtime.
+    pilL: { cur: 0, tgt: 0 },
+    pilR: { cur: 0, tgt: 0 },
     pgmL: { cur: 0, tgt: 0 },
     pgmR: { cur: 0, tgt: 0 },
     spkL: { cur: 0, tgt: 0 },
@@ -408,6 +417,27 @@ function applyMixerMutesFromRC(){
   });
 }
 
+// ---------------------------------------------------------------------------
+// PlayIt Live meters (UI v0.3.65)
+//
+// The operator asked for visible meter movement on the Studio page.
+// The DSP/engine are the source of truth, and the operator-provided
+// RC assignments for Remote Studio Return meters are:
+//   462 = Remote Studio Return VU (Left)
+//   463 = Remote Studio Return VU (Right)
+//
+// We treat these as normalized 0..1 values (engine contract).
+// If the engine sends different semantics in the future, we only need to
+// adjust this mapping (single source of truth).
+// ---------------------------------------------------------------------------
+function applyPILMetersFromRC(){
+  // These values arrive via the RC WebSocket snapshot/delta stream.
+  // If the engine doesn't publish meters on the RC bus, this will remain 0
+  // and we will fall back to /api/studio/status mapping (see applyStudioStatus).
+  state.meters.pilL.tgt = clamp01(rcGet(462));
+  state.meters.pilR.tgt = clamp01(rcGet(463));
+}
+
 
 // Connect to the engine RC WebSocket and keep our local RC cache current.
 //
@@ -444,6 +474,8 @@ function connectRCWebSocket(){
       if(msg && msg.type === 'snapshot' && msg.data && msg.data.rc){
         state.rc = msg.data.rc || {};
         state.mixerHydrated = true;
+        // Meters: update PlayIt Live targets from RC 462/463 if present.
+        applyPILMetersFromRC();
         applyMixerFadersFromRC();
         applyMixerMutesFromRC();
         showMixerWhenReady();
@@ -456,6 +488,8 @@ function connectRCWebSocket(){
         for(const k of Object.keys(msg.rc)){
           state.rc[String(k)] = msg.rc[k];
         }
+        // Meters: update PlayIt Live targets from RC 462/463 if present.
+        applyPILMetersFromRC();
         // Apply only what we render on the studio mixer.
         applyMixerFadersFromRC();
         applyMixerMutesFromRC();
@@ -931,6 +965,15 @@ function setMeterFill(id, v){
   el.style.width = (clamp01(v) * 100).toFixed(1) + "%";
 }
 
+// Vertical meter fill helper (UI v0.3.65)
+// The Studio page VU lanes are tall vertical columns. We drive the inner
+// .fader__meterFill height from 0..100%.
+function setMeterFillV(id, v){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.height = (clamp01(v) * 100).toFixed(1) + "%";
+}
+
 function setLampAutoMute(on){
   const lamp = $("#lampAutoMute");
   if(!lamp) return;
@@ -1174,6 +1217,16 @@ function applyStudioStatus(j){
 
   // meters (targets)
   const m = j?.meters || {};
+
+  // PlayIt Live meters (UI v0.3.65)
+  // Preferred source: RC 462/463 via WebSocket (applyPILMetersFromRC).
+  // Fallback: if the engine exposes Remote Studio Return meters as part of
+  // /api/studio/status (rsrL/rsrR), mirror them into the PlayIt Live meters.
+  // This ensures we still get movement even if the engine does not publish
+  // meter values onto the RC bus.
+  if(typeof m.rsrL === 'number') state.meters.pilL.tgt = clamp01(m.rsrL);
+  if(typeof m.rsrR === 'number') state.meters.pilR.tgt = clamp01(m.rsrR);
+
   state.meters.pgmL.tgt = clamp01(m.pgmL);
   state.meters.pgmR.tgt = clamp01(m.pgmR);
   state.meters.spkL.tgt = clamp01(m.spkL);
@@ -1230,6 +1283,14 @@ function meterAnimate(){
     o.cur = cur + (tgt - cur) * k;
   }
 
+  // PlayIt Live meters (RC 462/463)
+  setMeterFillV("m_pilL", state.meters.pilL.cur);
+  setMeterFillV("m_pilR", state.meters.pilR.cur);
+
+  // NOTE:
+  // The following IDs are not yet rendered on the Studio page.
+  // We keep the calls for future wiring, but they will no-op until
+  // the corresponding DOM elements exist.
   setMeterFill("m_pgmL", state.meters.pgmL.cur);
   setMeterFill("m_pgmR", state.meters.pgmR.cur);
   setMeterFill("m_spkL", state.meters.spkL.cur);

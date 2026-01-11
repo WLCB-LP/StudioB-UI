@@ -523,6 +523,29 @@ main{padding:18px}
   background: linear-gradient(to top, rgba(70,160,255,.25), rgba(55,214,122,.25), rgba(255,176,32,.18));
   opacity: .35;
   filter: saturate(.9);
+  overflow: hidden; /* allows an inner fill element to be clipped cleanly */
+}
+
+/*
+  Meter fill (UI v0.3.65)
+
+  We keep the existing "glass" gradient as the base and add a brighter fill
+  that grows from the bottom.
+
+  IMPORTANT:
+  - app.js drives the height in percent (0..1 => 0%..100%).
+  - This is used first for PlayIt Live (RC 462/463), but the class is generic
+    and can be re-used later for Speakers/Program/etc.
+*/
+.fader__meterFill{
+  position:absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  border-radius: 10px;
+  background: linear-gradient(to top, rgba(70,160,255,.85), rgba(55,214,122,.85), rgba(255,176,32,.75));
+  opacity: .95;
 }
 
 /*
