@@ -5,6 +5,12 @@
 
 
 
+## v0.3.69 (2026-01-11)
+- Engine WS: Implemented minimal meter publishing over the single /ws endpoint.
+  - Sends an immediate `{type:"rc_state", rc:{"462":<0..1>,"463":<0..1>}, ts:<ms>}` snapshot on connect (in addition to legacy `{type:"snapshot"}`).
+  - Publishes `{type:"meters", data:{"462":<0..1>,"463":<0..1>}, ts:<ms>}` updates at `meters.publish_hz` (default 20 Hz).
+- Engine WS: Added best-effort handling of the UI subscribe handshake `{type:"subscribe", topics:["rc","meters"]}` to allow opt-in streams.
+
 ## v0.3.68 (2026-01-11)
 - WS: Added a conservative subscribe handshake on `/ws` connect: `{type:"subscribe", topics:["rc","meters"]}`.
   - This is harmless if the engine is push-only, and required if the engine expects client subscriptions.

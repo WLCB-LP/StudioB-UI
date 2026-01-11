@@ -105,14 +105,15 @@ type Engine struct {
 	cfg      *Config
 	version  string
 
-	mu       sync.RWMutex
-	rc       map[int]float64
-	lastSent map[int]float64
+	mu            sync.RWMutex
+	rc            map[int]float64
+	lastSent      map[int]float64
+	meterLastSent map[int]float64
 
 	upgrader websocket.Upgrader
 
 	clientsMu sync.Mutex
-	clients   map[*websocket.Conn]bool
+	clients   map[*websocket.Conn]*wsClient
 
 	updateMu      sync.Mutex
 	updateCached  *UpdateInfo
@@ -139,6 +140,18 @@ type Engine struct {
 	// - This is LOGGING ONLY. It does NOT bypass any DSP write guards.
 	// - It is append-only (JSON Lines) so the watchdog/operator can inspect
 	//   what was requested even if something later failed.
+}
+
+// wsClient tracks per-connection subscription state for /ws.
+//
+// v0.3.69:
+// - UI sends {"type":"subscribe","topics":["rc","meters"]} on connect.
+// - Engine can broadcast multiple streams; subscriptions allow clients to opt in.
+// - For backwards compatibility, connections default to subscribing to both.
+type wsClient struct {
+	conn      *websocket.Conn
+	subRC     bool
+	subMeters bool
 }
 
 // WatchdogStatus describes the current systemd status of stub-ui-watchdog.
@@ -202,13 +215,14 @@ type StudioStatus struct {
 
 func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	e := &Engine{
-		cfg:      cfg,
-		version:  version,
-		cfgPath: cfgPath,
-		rc:       make(map[int]float64),
-		lastSent: make(map[int]float64),
-		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
-		clients:  make(map[*websocket.Conn]bool),
+		cfg:           cfg,
+		version:       version,
+		cfgPath:       cfgPath,
+		rc:            make(map[int]float64),
+		lastSent:      make(map[int]float64),
+		meterLastSent: make(map[int]float64),
+		upgrader:      websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		clients:       make(map[*websocket.Conn]*wsClient),
 	}
 
 	// v0.2.48: derive stateDir from the config YAML path.
@@ -230,6 +244,9 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	for _, id := range cfg.RCAllowlist {
 		e.rc[id] = 0
 		e.lastSent[id] = math.NaN()
+		// meterLastSent is used for the dedicated "meters" stream so we can
+		// publish smooth meter motion without fighting the generic RC delta logic.
+		e.meterLastSent[id] = math.NaN()
 	}
 
 	// Friendly defaults for v1 UI
@@ -419,7 +436,12 @@ func (e *Engine) ApplySpeakerMuteIntent(mute bool, source string) error {
 			Ok:    (werr == nil),
 			Resp:  resp,
 			Mode:  mode,
-			Error: func() string { if werr != nil { return werr.Error() }; return "" }(),
+			Error: func() string {
+				if werr != nil {
+					return werr.Error()
+				}
+				return ""
+			}(),
 		})
 		if werr != nil {
 			return fmt.Errorf("dsp write failed: %w", werr)
@@ -479,14 +501,34 @@ func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
+	// v0.3.69: Track per-connection subscriptions.
+	// Default is backwards-compatible: the connection receives both rc + meters.
+	cl := &wsClient{conn: c, subRC: true, subMeters: true}
+
 	e.clientsMu.Lock()
-	e.clients[c] = true
+	e.clients[c] = cl
 	e.clientsMu.Unlock()
 
-	// Send immediate snapshot
+	// Immediate snapshot (authoritative cache). This is what seeds window.state.rc.
+	//
+	// We send TWO snapshots:
+	//   1) New stable envelope: type=rc_state (what the UI handoff expects)
+	//   2) Legacy envelope: type=snapshot (kept so older UI builds keep working)
+	//
+	// NOTE: JSON map keys are strings. We intentionally send RC IDs as strings.
+	e.mu.RLock()
+	rc := map[string]float64{
+		"462": e.rc[462],
+		"463": e.rc[463],
+	}
+	e.mu.RUnlock()
+	_ = c.WriteJSON(map[string]any{"type": "rc_state", "rc": rc, "ts": time.Now().UnixMilli()})
 	_ = c.WriteJSON(map[string]any{"type": "snapshot", "data": e.StateSnapshot()})
 
-	// Keep alive / read pump
+	// Read pump:
+	// - Keeps connection alive
+	// - Accepts (optional) subscribe handshakes from the UI
 	go func() {
 		defer func() {
 			e.clientsMu.Lock()
@@ -494,20 +536,69 @@ func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {
 			e.clientsMu.Unlock()
 			_ = c.Close()
 		}()
+
 		for {
-			_, _, err := c.ReadMessage()
+			_, msg, err := c.ReadMessage()
 			if err != nil {
 				return
 			}
+
+			// Best-effort subscribe handling. Unknown messages are ignored.
+			var env struct {
+				Type   string   `json:"type"`
+				Topics []string `json:"topics"`
+			}
+			if err := json.Unmarshal(msg, &env); err != nil {
+				continue
+			}
+			if env.Type != "subscribe" {
+				continue
+			}
+
+			// Default to false, then enable explicit topics.
+			subRC := false
+			subMeters := false
+			for _, t := range env.Topics {
+				switch strings.ToLower(strings.TrimSpace(t)) {
+				case "rc":
+					subRC = true
+				case "meters":
+					subMeters = true
+				}
+			}
+
+			e.clientsMu.Lock()
+			if cur, ok := e.clients[c]; ok {
+				cur.subRC = subRC
+				cur.subMeters = subMeters
+			}
+			e.clientsMu.Unlock()
+
+			// Optional ACK (useful for debugging, harmless if UI ignores it).
+			_ = c.WriteJSON(map[string]any{"type": "subscribed", "topics": env.Topics, "ts": time.Now().UnixMilli()})
 		}
 	}()
 }
 
-func (e *Engine) broadcast(v any) {
+func (e *Engine) broadcast(topic string, v any) {
 	b, _ := json.Marshal(v)
 	e.clientsMu.Lock()
 	defer e.clientsMu.Unlock()
-	for c := range e.clients {
+	for c, cl := range e.clients {
+		// Apply subscription filters (v0.3.69).
+		if cl != nil {
+			switch topic {
+			case "rc":
+				if !cl.subRC {
+					continue
+				}
+			case "meters":
+				if !cl.subMeters {
+					continue
+				}
+			}
+		}
+
 		_ = c.SetWriteDeadline(time.Now().Add(2 * time.Second))
 		if err := c.WriteMessage(websocket.TextMessage, b); err != nil {
 			_ = c.Close()
@@ -521,8 +612,18 @@ func (e *Engine) publishLoop() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		var (
+			delta       map[int]float64
+			metersDirty bool
+			meters462   float64
+			meters463   float64
+		)
+
 		e.mu.Lock()
-		delta := make(map[int]float64)
+		// ------------------------------------------------------------------
+		// 1) Generic RC delta stream (legacy)
+		// ------------------------------------------------------------------
+		delta = make(map[int]float64)
 		for id, val := range e.rc {
 			last := e.lastSent[id]
 			if math.IsNaN(last) || math.Abs(val-last) >= e.cfg.Meters.Deadband {
@@ -530,10 +631,42 @@ func (e *Engine) publishLoop() {
 				e.lastSent[id] = val
 			}
 		}
+
+		// ------------------------------------------------------------------
+		// 2) Dedicated meters stream (minimal MVP)
+		// ------------------------------------------------------------------
+		meters462 = e.rc[462]
+		meters463 = e.rc[463]
+
+		last462 := e.meterLastSent[462]
+		last463 := e.meterLastSent[463]
+		if math.IsNaN(last462) || math.Abs(meters462-last462) >= e.cfg.Meters.Deadband {
+			metersDirty = true
+			e.meterLastSent[462] = meters462
+		}
+		if math.IsNaN(last463) || math.Abs(meters463-last463) >= e.cfg.Meters.Deadband {
+			metersDirty = true
+			e.meterLastSent[463] = meters463
+		}
 		e.mu.Unlock()
 
 		if len(delta) > 0 {
-			e.broadcast(map[string]any{"type": "delta", "rc": delta, "t": time.Now().UnixMilli()})
+			e.broadcast("rc", map[string]any{"type": "delta", "rc": delta, "t": time.Now().UnixMilli()})
+		}
+
+		// Minimal contract: batched meters payload, normalized 0.0–1.0.
+		// These map directly to the UI's PlayIt Live L/R meters:
+		//   RC 462 -> Left
+		//   RC 463 -> Right
+		if metersDirty {
+			e.broadcast("meters", map[string]any{
+				"type": "meters",
+				"data": map[string]float64{
+					"462": meters462,
+					"463": meters463,
+				},
+				"ts": time.Now().UnixMilli(),
+			})
 		}
 	}
 }
@@ -624,9 +757,9 @@ func (e *Engine) ReloadConfig() error {
 // That means the engine state will always match what the operator just edited.
 //
 // SAFETY:
-// - Switching to non-live always disarms writes immediately.
-// - Switching to live attempts to arm writes, but only succeeds if DSP is connected.
-//   If arming fails, desired mode remains "live" (config truth) but ActiveMode remains "mock".
+//   - Switching to non-live always disarms writes immediately.
+//   - Switching to live attempts to arm writes, but only succeeds if DSP is connected.
+//     If arming fails, desired mode remains "live" (config truth) but ActiveMode remains "mock".
 func (e *Engine) ReloadConfigFrom(path string) error {
 	cfgPath := strings.TrimSpace(path)
 	if cfgPath == "" {
@@ -1019,6 +1152,18 @@ func runCmdTimeout(timeout time.Duration, name string, args ...string) (string, 
 	return string(out), err
 }
 
+// wsClient tracks per-connection subscription state for /ws.
+//
+// v0.3.69:
+// - UI sends {"type":"subscribe","topics":["rc","meters"]} on connect.
+// - Engine can broadcast multiple streams; subscriptions allow clients to opt in.
+// - For backwards compatibility, connections default to subscribing to both.
+type wsClient struct {
+	conn      *websocket.Conn
+	subRC     bool
+	subMeters bool
+}
+
 // WatchdogStatusSnapshot returns the current systemd status of stub-ui-watchdog.
 func (e *Engine) WatchdogStatusSnapshot() WatchdogStatus {
 	s := WatchdogStatus{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
@@ -1104,26 +1249,26 @@ func tailLines(s string, n int) string {
 // the engine or affect DSP polling. We keep it behind a mutex and copy the struct
 // so callers can't mutate shared state accidentally.
 func (e *Engine) setLastDSPWrite(st *DSPWriteStatus) {
-    if st == nil {
-        return
-    }
-    e.lastDSPWriteMu.Lock()
-    defer e.lastDSPWriteMu.Unlock()
-    // Copy by value to avoid holding references to caller-owned memory.
-    c := *st
-    e.lastDSPWrite = &c
+	if st == nil {
+		return
+	}
+	e.lastDSPWriteMu.Lock()
+	defer e.lastDSPWriteMu.Unlock()
+	// Copy by value to avoid holding references to caller-owned memory.
+	c := *st
+	e.lastDSPWrite = &c
 }
 
 // getLastDSPWriteCopy returns a copy of the last DSP write attempt for API responses.
 // Returning a copy prevents accidental mutation races with the engine loop.
 func (e *Engine) getLastDSPWriteCopy() *DSPWriteStatus {
-    e.lastDSPWriteMu.Lock()
-    defer e.lastDSPWriteMu.Unlock()
-    if e.lastDSPWrite == nil {
-        return nil
-    }
-    c := *e.lastDSPWrite
-    return &c
+	e.lastDSPWriteMu.Lock()
+	defer e.lastDSPWriteMu.Unlock()
+	if e.lastDSPWrite == nil {
+		return nil
+	}
+	c := *e.lastDSPWrite
+	return &c
 }
 
 type DSPWriteStatus struct {
@@ -1143,12 +1288,12 @@ type DSPModeStatus struct {
 	LiveArmed   bool   `json:"liveArmed"`
 	LiveArmedAt string `json:"liveArmedAt,omitempty"`
 
-	Host          string `json:"host,omitempty"`
-	Port          int    `json:"port,omitempty"`
-	Validated     bool   `json:"validated"`
-	ValidatedAt   string `json:"validatedAt,omitempty"`
+	Host          string          `json:"host,omitempty"`
+	Port          int             `json:"port,omitempty"`
+	Validated     bool            `json:"validated"`
+	ValidatedAt   string          `json:"validatedAt,omitempty"`
 	ConfigChanged bool            `json:"configChanged"`
-	LastWrite     *DSPWriteStatus  `json:"lastWrite,omitempty"`
+	LastWrite     *DSPWriteStatus `json:"lastWrite,omitempty"`
 }
 
 func (e *Engine) DSPModeStatus() DSPModeStatus {
@@ -1320,30 +1465,29 @@ func (e *Engine) DisarmDSPLive() {
 
 // DSPLiveActive reports whether DSP writes are currently armed.
 func (e *Engine) DSPLiveActive() bool {
-    // In this project, "live" vs "mock" is about whether we *should* talk to the DSP.
-    //
-    // Earlier versions used an in-memory "arming" flag (set after a manual test) to decide
-    // whether live was "active". That caused confusing behavior after engine restarts: the
-    // desired mode would remain "live" (persisted), but the UI would show "MOCK" until you
-    // manually re-armed.
-    //
-    // We now treat live as active whenever:
-    //   1) desired mode is live, AND
-    //   2) the DSP is not in a disconnected state.
-    //
-    // This matches DSPControlAllowed(), which already gates writes on connectivity rather
-    // than an in-memory flag.
+	// In this project, "live" vs "mock" is about whether we *should* talk to the DSP.
+	//
+	// Earlier versions used an in-memory "arming" flag (set after a manual test) to decide
+	// whether live was "active". That caused confusing behavior after engine restarts: the
+	// desired mode would remain "live" (persisted), but the UI would show "MOCK" until you
+	// manually re-armed.
+	//
+	// We now treat live as active whenever:
+	//   1) desired mode is live, AND
+	//   2) the DSP is not in a disconnected state.
+	//
+	// This matches DSPControlAllowed(), which already gates writes on connectivity rather
+	// than an in-memory flag.
 
-    e.cfgMu.Lock()
-    desired := e.cfg.DSP.Mode
-    e.cfgMu.Unlock()
+	e.cfgMu.Lock()
+	desired := e.cfg.DSP.Mode
+	e.cfgMu.Unlock()
 
-    if !strings.EqualFold(desired, "live") {
-        return false
-    }
+	if !strings.EqualFold(desired, "live") {
+		return false
+	}
 
-    // Snapshot is safe and already handles nil DSP state.
-    snap := e.DSPHealthSnapshot()
-    return snap.State != DSPHealthDisconnected
+	// Snapshot is safe and already handles nil DSP state.
+	snap := e.DSPHealthSnapshot()
+	return snap.State != DSPHealthDisconnected
 }
-
