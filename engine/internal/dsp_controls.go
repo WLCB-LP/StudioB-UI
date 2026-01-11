@@ -79,3 +79,60 @@ func (e *Engine) dspControlStateSyncOnce() {
 
 	log.Printf("dsp control sync ok: seeded %d controllers", len(controls))
 }
+
+// dspControlReadNow performs a best-effort read of the given controller IDs from
+// the DSP and seeds the authoritative RC cache.
+//
+// v0.3.83 rationale:
+// We attempted a one-time sync at engine startup, but operators often start/stop
+// the UI at different times than the engine. Doing a best-effort read right
+// before sending the WebSocket snapshot ensures the first render reflects DSP
+// truth (when available) without requiring the browser to poll.
+func (e *Engine) dspControlReadNow(ids []int, timeout time.Duration) {
+	cfg := e.GetConfigCopy()
+	if strings.ToLower(strings.TrimSpace(cfg.DSP.Mode)) != "live" {
+		return
+	}
+	if len(ids) == 0 {
+		return
+	}
+	if timeout <= 0 {
+		timeout = 900 * time.Millisecond
+	}
+
+	controls := make([]string, 0, len(ids))
+	for _, id := range ids {
+		controls = append(controls, strconv.Itoa(id))
+	}
+
+	vals, err := e.ecpGetCGUDP(controls, timeout)
+	if err != nil {
+		log.Printf("dsp control read failed: %v", err)
+		return
+	}
+
+	normalize := func(v float64) float64 {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0
+		}
+		if v >= 0 && v <= 1 {
+			return v
+		}
+		if v >= 0 && v <= 65535 {
+			return v / 65535.0
+		}
+		if v != 0 {
+			return 1
+		}
+		return 0
+	}
+
+	e.mu.Lock()
+	for _, id := range ids {
+		k := strconv.Itoa(id)
+		if raw, ok := vals[k]; ok {
+			e.rc[id] = normalize(raw)
+		}
+	}
+	e.mu.Unlock()
+}

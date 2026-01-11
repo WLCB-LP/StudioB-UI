@@ -1,3 +1,8 @@
+## v0.3.83
+- Engine (Symetrix): Fix "DSP truth on page load" by refreshing control RCs from the DSP right before sending the WebSocket rc_state snapshot.
+  - This ensures faders/mutes/speakers/automute reflect DSP state even if the engine started earlier.
+
+
 ## v0.3.82
 - Engine (Symetrix): Publish **all** meter RCs over `/ws` (not just 462/463).
   - Meters published: 401–410 (bottom row VU), 411–412 (program), 460–461 (speakers), 462–463 (PlayIt Live).

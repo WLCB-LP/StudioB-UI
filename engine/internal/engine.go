@@ -593,6 +593,14 @@ func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {
 	//   - Speakers automute: 560 (indicator)
 	//   - PlayIt Live meters: 462/463 (so PIL meters seed instantly)
 	ids := []int{101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 160, 560, 462, 463}
+	// Best-effort: refresh control truth from the DSP right before we snapshot.
+	// This avoids stale defaults on page load when the engine started earlier.
+	// (Meters are handled by the continuous poll loops.)
+	e.dspControlReadNow([]int{101,102,103,104,105,106,107,108,109,110,121,122,123,124,125,126,127,128,129,130,160,560}, 900*time.Millisecond)
+
+	// Best-effort: refresh control truth from the DSP right before we snapshot.
+	// This avoids stale defaults on page load when the engine started earlier.
+	e.dspControlReadNow([]int{101,102,103,104,105,106,107,108,109,110,121,122,123,124,125,126,127,128,129,130,160,560}, 900*time.Millisecond)
 	e.mu.RLock()
 	rc := make(map[string]float64, len(ids))
 	for _, id := range ids {
