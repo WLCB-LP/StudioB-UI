@@ -15,6 +15,17 @@
   --topRightColWidth:190px; /* matches single-strip cards (AUX/BT/PC/Zoom) */
   /* Top-row PIL card is intentionally narrower than the standard left-column cards */
   --pilColWidth:260px;
+
+  /*
+    WLCB Status (UI v0.3.62)
+
+    Operator request:
+      - Make the WLCB Status card 300% wider than a standard single-strip card.
+
+    We express that as 3x the standard top-right column width so future
+    top-row layout tweaks remain a one-variable change.
+  */
+  --wlcbStatusColWidth: calc(var(--topRightColWidth) * 3);
 }
 
 *{box-sizing:border-box}
@@ -135,7 +146,7 @@ main{padding:18px}
 #page-studio .mixerRoot--top{
   display: grid;
   /* PIL sizes to its contents; center cards are flexible; right-side cards are fixed */
-  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth) var(--topRightColWidth);
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--wlcbStatusColWidth) var(--topRightColWidth);
   column-gap: var(--mixerInterGroupGap);
   row-gap: 0;
   align-items: stretch;
@@ -146,10 +157,15 @@ main{padding:18px}
 
 /* v0.3.60: Speakers + Program are first-class grid citizens (no dock wrapper). */
 #page-studio #speakersCard,
-#page-studio #wlcbStatusCard,
 #page-studio #programCard{
   width: var(--topRightColWidth);
   max-width: var(--topRightColWidth);
+}
+
+/* WLCB Status is deliberately 3x wider (see --wlcbStatusColWidth). */
+#page-studio #wlcbStatusCard{
+  width: var(--wlcbStatusColWidth);
+  max-width: var(--wlcbStatusColWidth);
 }
 
 
@@ -281,7 +297,18 @@ main{padding:18px}
   operator can identify the card.
 */
 .mixerCard--panelEmpty .mixerCard__head{ display:flex; justify-content:center; padding-top: 8px; }
-.mixerCard--panelEmpty .mixerCard__title{ pointer-events:none; }
+.mixerCard--panelEmpty .mixerCard__title{
+  pointer-events:none;
+  /*
+    v0.3.62: The operator asked that the "LATEST DONATIONS" pill label match the
+    other top-row pill labels in size. Those labels use `.strip__title`.
+
+    We keep the existing accent color styling of `.mixerCard__title`, but bump
+    the font size and weight to match.
+  */
+  font-size: 16px;
+  font-weight: 850;
+}
 .mixerCard--panelEmpty .mixerCard__emptyBody{ height: 100%; }
 
 /* Unlabeled placeholder: keep the pill height but render no visible text */
@@ -384,7 +411,7 @@ main{padding:18px}
 #page-studio #topMixerRoot.mixerRoot--top{
   display: grid !important;
   /* PlayIt Live | Speakers | Latest Donations | WLCB Status | Program */
-  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--topRightColWidth) var(--topRightColWidth);
+  grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--wlcbStatusColWidth) var(--topRightColWidth);
   grid-template-rows: auto;
   gap: 24px;
   align-items: start;
@@ -454,8 +481,12 @@ main{padding:18px}
   max-width: none;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 12px;
-  padding-right: 12px;
+  /*
+    v0.3.62: Make these pills feel "roomier" so longer labels don't look cramped.
+    (This is purely cosmetic; we still keep width-to-content + no-wrap.)
+  */
+  padding-left: 18px;
+  padding-right: 18px;
 }
 
 .strip__title--host{

@@ -2,6 +2,12 @@
 
 
 
+## v0.3.62 (2026-01-11)
+- Studio (cosmetic): Made PlayIt Live and WLCB Status strip title pills wider (more horizontal padding) so labels feel less cramped.
+- Studio (cosmetic): Widened WLCB Status card to 3× the standard single-strip width (new --wlcbStatusColWidth).
+- Studio (cosmetic): Increased the "LATEST DONATIONS" title pill font size so it matches the other top-row pill labels.
+
+
 ## v0.3.61 (2026-01-11)
 - Studio (cosmetic): Prevent PlayIt Live strip label from wrapping (wider no-wrap pill).
 - Studio (cosmetic): Refined PlayIt Live AUTO/LIVE button stack alignment to match the VU lane top.
