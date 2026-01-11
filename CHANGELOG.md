@@ -1,3 +1,9 @@
+## v0.3.80
+- HOTFIX (UI boot): Fix a JavaScript syntax error that prevented the Studio page from loading ("expected property name, got '/'").
+  - Restores a valid `state.meters` object for the smoothing loop.
+  - Moves bottom-row VU meter helpers (RC 401–410) out of the `state` literal into normal functions.
+  - Bumps the UI build version constant to match `VERSION`.
+
 ## v0.3.79
 - HOTFIX (build): Fix a stray newline that produced a Go parser error ("newline in string") in `engine/internal/engine.go`.
   - No behavior changes vs v0.3.78; this release restores a clean build.

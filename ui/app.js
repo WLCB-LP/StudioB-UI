@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.68";
+const UI_BUILD_VERSION = "0.3.80";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -70,83 +70,16 @@ const state = {
   // meter smoothing
   meters: {
     // PlayIt Live meters (UI v0.3.66)
-    /
-// ---------------------------------------------------------------------------
-// Bottom-row VU meters (Studio B) — authoritative RC render source
-//
-// Operator-provided RC assignments (DSP truth):
-//   Host Mic VU     -> 401
-//   Guest 1 VU      -> 402
-//   Guest 2 VU      -> 403
-//   Guest 3 VU      -> 404
-//   CD1 VU          -> 405
-//   CD2 VU          -> 406
-//   AUX VU          -> 407
-//   Bluetooth VU    -> 408
-//   PC VU           -> 409
-//   Zoom VU         -> 410
-//
-// These are published by the engine over /ws as normalized 0.0–1.0 values.
-// The UI never synthesizes meter motion; if the DSP goes dead, meters go dead.
-// ---------------------------------------------------------------------------
-const STRIP_VU_RC = {
-  host: "401",
-  g1:   "402",
-  g2:   "403",
-  g3:   "404",
-  cd1:  "405",
-  cd2:  "406",
-  aux:  "407",
-  bt:   "408",
-  pc:   "409",
-  zoom: "410",
-};
-
-// Ensure each bottom-row strip has real meter fill DOM nodes we can drive.
-// (PIL uses hard-coded ids m_pilL/m_pilR; the bottom row uses per-strip ids.)
-function ensureBottomRowVUMeterFills(){
-  document.querySelectorAll(".studioBottomFaders .strip[data-strip]").forEach(stripEl=>{
-    const id = stripEl.getAttribute("data-strip");
-    if(!id) return;
-    const meters = stripEl.querySelectorAll(".fader__meter");
-    if(!meters || meters.length < 1) return;
-
-    // We render mono VU values into both lanes (L/R) for now because Composer
-    // exposes one VU controller per source in this design.
-    meters.forEach((mEl, idx)=>{
-      // idx 0 -> L, idx 1 -> R (if present)
-      const side = (idx === 0) ? "L" : "R";
-      const fillId = `m_vu_${id}_${side}`;
-      if(mEl.querySelector(".fader__meterFill")) return;
-
-      const fill = document.createElement("div");
-      fill.className = "fader__meterFill";
-      fill.id = fillId;
-      mEl.appendChild(fill);
-    });
-  });
-}
-
-function applyBottomRowVUMetersFromRC(){
-  // Drive meter fill heights directly from the RC cache.
-  // We intentionally DO NOT smooth here; smoothing (if desired) is purely visual
-  // and can be added later without touching DSP truth.
-  Object.keys(STRIP_VU_RC).forEach(strip=>{
-    const rc = STRIP_VU_RC[strip];
-    const v = clamp01(rcGet(rc));
-    setMeterFillV(`m_vu_${strip}_L`, v);
-    setMeterFillV(`m_vu_${strip}_R`, v);
-  });
-}
-
-/ Operator-provided RC assignments:
-    //   462 = Remote Studio Return VU (Left)
-    //   463 = Remote Studio Return VU (Right)
+    // Operator-provided RC assignments:
+    //   462 = PlayIt Live meter Left
+    //   463 = PlayIt Live meter Right
     //
-    // We render these meters in the PlayIt Live card as a simple
-    // VU pair that moves in realtime.
+    // NOTE: state.meters is ONLY used by the smoothing animation loop.
+    // Each entry must be an object with {cur,tgt}.
     pilL: { cur: 0, tgt: 0 },
     pilR: { cur: 0, tgt: 0 },
+
+    // Reserved for future taps (not yet rendered as DOM IDs on the Studio page)
     pgmL: { cur: 0, tgt: 0 },
     pgmR: { cur: 0, tgt: 0 },
     spkL: { cur: 0, tgt: 0 },
@@ -523,8 +456,77 @@ function applyPILMetersFromRC(){
   // We want the UI to match Composer exactly for these meter taps.
   state.meters.pilL.tgt = clamp01(rcGet(462));
   state.meters.pilR.tgt = clamp01(rcGet(463));
-  state.meters.pilLastUpdateMs = Date.now();
 }
+
+// ---------------------------------------------------------------------------
+// Bottom-row VU meters (Studio B) — authoritative RC render source
+//
+// Operator-provided RC assignments (DSP truth):
+//   Host Mic VU     -> 401
+//   Guest 1 VU      -> 402
+//   Guest 2 VU      -> 403
+//   Guest 3 VU      -> 404
+//   CD1 VU          -> 405
+//   CD2 VU          -> 406
+//   AUX VU          -> 407
+//   Bluetooth VU    -> 408
+//   PC VU           -> 409
+//   Zoom VU         -> 410
+//
+// Contract: engine publishes normalized 0.0–1.0 values over /ws as RC meters.
+// The UI never synthesizes meter motion; if the DSP goes dead, meters go dead.
+// ---------------------------------------------------------------------------
+const STRIP_VU_RC = {
+  host: "401",
+  g1:   "402",
+  g2:   "403",
+  g3:   "404",
+  cd1:  "405",
+  cd2:  "406",
+  aux:  "407",
+  bt:   "408",
+  pc:   "409",
+  zoom: "410",
+};
+
+// Ensure each bottom-row strip has a .fader__meterFill we can drive.
+// The markup renders an empty .fader__meter lane; we attach the inner fill
+// element dynamically so we can keep HTML clean and stable.
+function ensureBottomRowVUMeterFills(){
+  try{
+    document.querySelectorAll(".studioBottomFaders .strip[data-strip]").forEach(stripEl=>{
+      const id = stripEl.getAttribute("data-strip");
+      if(!id) return;
+
+      const meterLane = stripEl.querySelector(".fader__meter");
+      if(!meterLane) return;
+
+      // One mono VU per strip in this design (we fill the single lane).
+      if(meterLane.querySelector(".fader__meterFill")) return;
+
+      const fill = document.createElement("div");
+      fill.className = "fader__meterFill";
+      fill.id = `m_vu_${id}`;
+      meterLane.appendChild(fill);
+    });
+  }catch(e){
+    // Never allow meter scaffolding to break UI boot.
+    console.warn("[ensureBottomRowVUMeterFills] failed", e);
+  }
+}
+
+function applyBottomRowVUMetersFromRC(){
+  // Drive bottom-row VU lanes directly from the authoritative RC cache.
+  // IMPORTANT: This is *not* part of the smoothing loop — meters should match
+  // DSP motion as closely as possible. If we want smoothing, we add it later
+  // purely as a visual post-process (no effect on truth).
+  for(const strip of Object.keys(STRIP_VU_RC)) {
+    const rc = STRIP_VU_RC[strip];
+    const v = clamp01(rcGet(rc));
+    setMeterFillV(`m_vu_${strip}`, v);
+  }
+}
+
 
 
 
