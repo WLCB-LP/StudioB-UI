@@ -71,6 +71,16 @@ type Config struct {
 		// NOTE: the dedicated meters stream is published every tick and does NOT
 		// apply deadband suppression.
 		Deadband float64 `yaml:"deadband"`
+
+		// DbFloor is the dBFS floor used when normalizing DSP meter values that are
+		// reported in dB (negative values).
+		//
+		// Example: if the DSP returns -60..0 dBFS, and DbFloor is -60, then:
+		//   -60 dB -> 0.0
+		//     0 dB -> 1.0
+		//
+		// If unset/0, we default to -60.
+		DbFloor float64 `yaml:"db_floor"`
 	} `yaml:"meters"`
 
 	Updates struct {
@@ -131,6 +141,10 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.Meters.Deadband <= 0 {
 		cfg.Meters.Deadband = 0.01
+	}
+	if cfg.Meters.DbFloor == 0 {
+		// Default dBFS floor for normalizing meter values reported in dB.
+		cfg.Meters.DbFloor = -60
 	}
 	if cfg.Admin.PIN == "" {
 		cfg.Admin.PIN = "CHANGE_ME"

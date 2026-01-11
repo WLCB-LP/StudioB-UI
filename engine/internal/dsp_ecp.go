@@ -159,13 +159,16 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse cv value %q from %q: %w", numTok, line, err)
 		}
-		// Clamp to normalized range (defensive; DSP should already be normalized).
-		if v < 0 {
-			v = 0
-		}
-		if v > 1 {
-			v = 1
-		}
+		// IMPORTANT (v0.3.73): Do NOT clamp here.
+		//
+		// Some Q-SYS meter controls report values in dBFS (negative numbers),
+		// while others may report normalized 0..1 or even 0..100.
+		//
+		// If we clamp here, any negative dB values collapse to 0.0 and the UI
+		// meters appear permanently dead.
+		//
+		// Normalization is handled by the caller (dsp_meters.go) with heuristics
+		// and a configurable dB floor.
 		out[name] = v
 	}
 	return out, nil

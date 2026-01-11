@@ -5,6 +5,14 @@
 
 
 
+## v0.3.73 (2026-01-11)
+- FIX (meters stuck at 0): Q-SYS meter controls may return values in **dBFS** (negative numbers).
+  - Removed premature clamping in the ECP `cg` read helper (negative values were being collapsed to 0.0).
+  - Added normalization heuristics in the DSP meter poll loop:
+    - 0..1 = already normalized
+    - 0..100 = percent (÷100)
+    - otherwise treated as dBFS and mapped `[meters.db_floor..0]` → `[0..1]` (default db_floor = -60).
+
 ## v0.3.72 (2026-01-11)
 - FIX (truthful meters in live mode): the engine now polls the DSP for PlayIt Live meter controls and feeds them into the WS meters stream.
   - Uses Q-SYS ECP `cg` reads for `STUB_RSR_L` and `STUB_RSR_R`.
