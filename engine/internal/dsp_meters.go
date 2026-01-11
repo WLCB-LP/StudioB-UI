@@ -47,20 +47,44 @@ func (e *Engine) dspMetersPollLoop() {
 	// resolve them without needing name mappings.
 	controls := []string{"462", "463"}
 
-	normalize := func(pos float64) float64 {
-		if math.IsNaN(pos) || math.IsInf(pos, 0) {
-			return 0
-		}
-		// Symetrix positions are integers but we tolerate float.
-		if pos <= 0 {
-			return 0
-		}
-		if pos >= 65535 {
-			return 1
-		}
-		return pos / 65535.0
+	cfg2 := e.GetConfigCopy()
+	dbFloor := cfg2.Meters.DbFloor
+	if dbFloor == 0 {
+		dbFloor = -60
 	}
 
+	normalize := func(v float64) float64 {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0
+		}
+		// Heuristics (robust across different controller output types):
+		// 1) Already normalized linear 0..1
+		if v >= 0 && v <= 1 {
+			return v
+		}
+		// 2) Percent 0..100
+		if v >= 0 && v <= 100 {
+			return v / 100.0
+		}
+		// 3) Symetrix 16-bit position 0..65535
+		if v >= 0 && v <= 65535 {
+			return v / 65535.0
+		}
+		// 4) dB-style negative values (e.g. -60..0)
+		if v < 0 {
+			if v <= dbFloor {
+				return 0
+			}
+			if v >= 0 {
+				return 1
+			}
+			// Map [dbFloor..0] -> [0..1]
+			return (v - dbFloor) / (0 - dbFloor)
+		}
+		return 0
+	}
+
+	var lastLog int64
 	for range t.C {
 		vals, err := e.ecpGetCG(controls, 900*time.Millisecond)
 		if err != nil {
@@ -72,8 +96,17 @@ func (e *Engine) dspMetersPollLoop() {
 			continue
 		}
 
-		l := normalize(vals["462"])
-		r := normalize(vals["463"])
+		rawL := vals["462"]
+		rawR := vals["463"]
+		l := normalize(rawL)
+		r := normalize(rawR)
+
+		// Periodic visibility for operators / debugging (every ~5s).
+		now := time.Now().Unix()
+		if now-lastLog >= 5 {
+			lastLog = now
+			log.Printf("dsp meters ok: raw(462)=%.3f raw(463)=%.3f -> norm L=%.3f R=%.3f", rawL, rawR, l, r)
+		}
 
 		e.mu.Lock()
 		e.rc[462] = l

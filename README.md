@@ -266,3 +266,9 @@ DSP-mode-only fix. StudioB-UI always monitors DSP connectivity on startup. The E
 ### Operator config
 
 The Engineering page edits the operator config file at `~/.StudioB-UI/config/config.v1` (persisted across updates). Mode changes are applied immediately by hot-reloading the running engine.
+
+### Meter polling (Symetrix)
+- DSP: Symetrix (host/port from config)
+- Meter controllers: 462 (L), 463 (R)
+- Values are normalized to 0.0–1.0 using heuristics (0..1, 0..100, 0..65535, or dB using meters.db_floor).
+

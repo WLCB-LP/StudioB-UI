@@ -64,9 +64,17 @@ func (e *Engine) symOpenConn(timeout time.Duration) (net.Conn, error) {
 		timeout = 1200 * time.Millisecond
 	}
 	addr := net.JoinHostPort(host, itoa(port))
+
+	// Symetrix control protocol is commonly used over TCP on 48631.
+	// Some installations also accept UDP. We try TCP first (preferred), then
+	// fall back to UDP if TCP cannot connect.
 	c, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-		return nil, err
+		uc, uerr := net.DialTimeout("udp", addr, timeout)
+		if uerr != nil {
+			return nil, err
+		}
+		c = uc
 	}
 	_ = c.SetDeadline(time.Now().Add(timeout))
 	return c, nil
@@ -76,22 +84,34 @@ func (e *Engine) symOpenConn(timeout time.Duration) (net.Conn, error) {
 // this TCP session. These are the factory defaults, but we set them defensively
 // because parsing becomes ambiguous if the port is in verbose/echo mode.
 func (e *Engine) symInitPortBestEffort(rw *bufio.ReadWriter) {
-	// Quiet mode ON: SQ 1<CR>
-	// Echo mode OFF: EH 0<CR>
-	// If these fail, we keep going — next reads may still work if the DSP is
-	// already in defaults.
-	_, _ = rw.WriteString("SQ 1\r")
-	_, _ = rw.WriteString("EH 0\r")
-	_ = rw.Flush()
-	// Drain up to 2 short lines (ACK/NAK/verbose strings) without blocking too long.
-	// Deadlines are already set on the connection.
-	for i := 0; i < 2; i++ {
-		line, err := rw.ReadString('\r')
+	// Older code attempted to force quiet mode + echo off (SQ/EH commands).
+	// In practice, some Symetrix deployments reject these or respond in verbose
+	// ways that complicate parsing.
+	//
+	// For robustness, we *do not* send any session init commands by default.
+	// We rely on strict parsing of the GS2 response instead.
+	_ = rw
+}
+
+// symReadLine reads one response line, accepting either CR or LF as the
+// terminator (different DSP firmware/builds vary).
+func symReadLine(r *bufio.Reader) (string, error) {
+	var b []byte
+	for {
+		ch, err := r.ReadByte()
 		if err != nil {
-			return
+			return "", err
 		}
-		_ = line
+		if ch == '\r' || ch == '\n' {
+			break
+		}
+		b = append(b, ch)
+		// Safety: avoid unbounded growth if the peer is misbehaving.
+		if len(b) > 4096 {
+			return "", fmt.Errorf("dsp line too long")
+		}
 	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // ecpSendCSV is a legacy-named wrapper used by the engine.
@@ -138,7 +158,7 @@ func (e *Engine) ecpSendCSV(controlName string, value float64, timeout time.Dura
 		return "", err
 	}
 
-	line, err := rw.ReadString('\r')
+	line, err := symReadLine(rw.Reader)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +208,7 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 	out := make(map[string]float64, len(controlNames))
 	for i, id := range ids {
 		// In quiet mode, GS2 returns: "<controller> <position><CR>"
-		line, err := rw.ReadString('\r')
+		line, err := symReadLine(rw.Reader)
 		if err != nil {
 			return nil, err
 		}
@@ -201,22 +221,22 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 		if len(fields) == 1 {
 			// Some systems might respond to GS2 like GS (position only) if GS2 is
 			// not supported. Accept that.
-			pos, err := strconv.Atoi(fields[0])
+			pos, err := strconv.ParseFloat(fields[0], 64)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 			}
-			out[strings.TrimSpace(controlNames[i])] = float64(pos)
+			out[strings.TrimSpace(controlNames[i])] = pos
 			continue
 		}
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("malformed GS2 response: %q", line)
 		}
 		// fields[0] may include leading zeros; ignore and trust the order.
-		pos, err := strconv.Atoi(fields[len(fields)-1])
+		pos, err := strconv.ParseFloat(fields[len(fields)-1], 64)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}
-		out[strings.TrimSpace(controlNames[i])] = float64(pos)
+		out[strings.TrimSpace(controlNames[i])] = pos
 	}
 	return out, nil
 }

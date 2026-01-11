@@ -1,3 +1,7 @@
+## v0.3.75
+- Fix: Symetrix meter polling now accepts float or dB-style values and normalizes robustly.
+- Debug: periodic log of raw+normalized meter values in LIVE mode.
+
 # Changelog
 
 
