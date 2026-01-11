@@ -2,6 +2,13 @@
 
 
 
+
+## v0.3.66 (2026-01-11)
+- FIX: PlayIt Live meters now read RC 462/463 **only** (no /api/studio/status mirroring).
+  This prevents mismatched / "still moving when muted" behavior when the status endpoint
+  reflects a different tap-point than the RC meter assignments.
+- Added debug timestamp: state.meters.pilLastUpdateMs.
+
 ## v0.3.65 (2026-01-11)
 - Studio: PlayIt Live now displays live meter movement using the operator-provided DSP RC meter assignments:
   - RC 462 = Remote Studio Return VU (Left)

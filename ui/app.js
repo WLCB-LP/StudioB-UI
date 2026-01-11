@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.65";
+const UI_BUILD_VERSION = "0.3.66";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -69,7 +69,7 @@ const state = {
   },
   // meter smoothing
   meters: {
-    // PlayIt Live meters (UI v0.3.65)
+    // PlayIt Live meters (UI v0.3.66)
     // Operator-provided RC assignments:
     //   462 = Remote Studio Return VU (Left)
     //   463 = Remote Studio Return VU (Right)
@@ -418,7 +418,7 @@ function applyMixerMutesFromRC(){
 }
 
 // ---------------------------------------------------------------------------
-// PlayIt Live meters (UI v0.3.65)
+// PlayIt Live meters (UI v0.3.66)
 //
 // The operator asked for visible meter movement on the Studio page.
 // The DSP/engine are the source of truth, and the operator-provided
@@ -431,12 +431,17 @@ function applyMixerMutesFromRC(){
 // adjust this mapping (single source of truth).
 // ---------------------------------------------------------------------------
 function applyPILMetersFromRC(){
-  // These values arrive via the RC WebSocket snapshot/delta stream.
-  // If the engine doesn't publish meters on the RC bus, this will remain 0
-  // and we will fall back to /api/studio/status mapping (see applyStudioStatus).
+  // RC-only meters (UI v0.3.66)
+  // 462 = Remote Studio Return VU (Left)
+  // 463 = Remote Studio Return VU (Right)
+  //
+  // IMPORTANT: Do not blend in /api/studio/status meters here.
+  // We want the UI to match Composer exactly for these meter taps.
   state.meters.pilL.tgt = clamp01(rcGet(462));
   state.meters.pilR.tgt = clamp01(rcGet(463));
+  state.meters.pilLastUpdateMs = Date.now();
 }
+
 
 
 // Connect to the engine RC WebSocket and keep our local RC cache current.
@@ -1218,14 +1223,20 @@ function applyStudioStatus(j){
   // meters (targets)
   const m = j?.meters || {};
 
-  // PlayIt Live meters (UI v0.3.65)
+  // PlayIt Live meters (UI v0.3.66)
   // Preferred source: RC 462/463 via WebSocket (applyPILMetersFromRC).
-  // Fallback: if the engine exposes Remote Studio Return meters as part of
+  // IMPORTANT: Do not mirror /api/studio/status meters into PlayIt Live.
+  // That endpoint may reflect a different tap-point (or be stale), which
+  // creates confusing behavior when Composer meters are dead.
+  //
+  // PlayIt Live meters are RC-only: 462/463.
+  //
+  // (We keep rsrL/rsrR for the dedicated Remote Studio Return meters.)
+
+  // Fallback removed: do NOT mirror Remote Studio Return meters as part of
   // /api/studio/status (rsrL/rsrR), mirror them into the PlayIt Live meters.
   // This ensures we still get movement even if the engine does not publish
   // meter values onto the RC bus.
-  if(typeof m.rsrL === 'number') state.meters.pilL.tgt = clamp01(m.rsrL);
-  if(typeof m.rsrR === 'number') state.meters.pilR.tgt = clamp01(m.rsrR);
 
   state.meters.pgmL.tgt = clamp01(m.pgmL);
   state.meters.pgmR.tgt = clamp01(m.pgmR);
