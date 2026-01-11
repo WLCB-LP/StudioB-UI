@@ -2,6 +2,11 @@
 
 
 
+
+## v0.3.64 (2026-01-11)
+- Fix (cache resilience): Added a self-repair step in app.js that corrects known legacy/static labels when index.html is cached but the JS bundle is new (logs the repair in the runtime event list).
+- Ops: Expanded cache-control META hints in ui/index.html (Cache-Control/Pragma/Expires). Authoritative control remains nginx headers.
+
 ## v0.3.63 (2026-01-11)
 - Studio (cosmetic): Increased horizontal padding on the PlayIt Live and WLCB Status title pills so the full labels fit comfortably.
 - Studio (cosmetic): Updated the donations title text to Title Case: "Latest Donations".

@@ -10,7 +10,37 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.63";
+const UI_BUILD_VERSION = "0.3.64";
+
+// ---------------------------------------------------------------------------
+// Cache / stale-HTML self-repair (v0.3.64)
+//
+// Real-world studio deployments sometimes see "split-brain" updates:
+//   - app.js loads (cache-busted via ?v=...)
+//   - index.html remains cached by an intermediary (proxy / kiosk / etc.)
+//
+// When that happens, purely static text in index.html can appear "stuck" even
+// though the rest of the UI is up to date.
+//
+// Contract: scripts should be self-verifying / self-repairing.
+// This function patches known legacy labels at runtime, then logs the repair so
+// operators can diagnose caching issues quickly.
+function repairLegacyStaticLabels(){
+  try {
+    // Donations title (legacy builds rendered as "LATEST DONATIONS")
+    const donationsTitle = document.querySelector('#donationsCard .mixerCard__title');
+    if(donationsTitle){
+      const t = (donationsTitle.textContent || '').trim();
+      if(t === 'LATEST DONATIONS'){
+        donationsTitle.textContent = 'Latest Donations';
+        addRuntimeEvent('Repaired cached Donations label (LATEST DONATIONS → Latest Donations)');
+      }
+    }
+  } catch (e){
+    // Never allow a repair step to break UI boot.
+    console.warn('[repairLegacyStaticLabels] failed', e);
+  }
+}
 
 // One-time auto-refresh guard. We *try* to use sessionStorage so a refresh
 // survives a reload, but we also keep an in-memory flag so browsers with
@@ -2510,6 +2540,10 @@ function initPlayItLiveControls(){
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
+
+  // v0.3.64: repair known legacy labels when index.html is stale.
+  // This is safe, idempotent, and provides an on-screen audit trail.
+  repairLegacyStaticLabels();
 
 
   // Mixer hydration (v0.3.30): connect to RC WebSocket and wait for an

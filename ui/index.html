@@ -12,9 +12,16 @@
     We deliberately ask the browser not to cache index.html so it can quickly
     discover the new cache-busted asset URLs after an update.
   -->
-  <meta http-equiv="Cache-Control" content="no-store" />
+  <!--
+    Cache-control META tags are a *hint* to browsers.
+    The authoritative fix is nginx headers (see README).
+    We include these anyway because some kiosk environments respect them.
+  -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>WLCB • Studio B</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.63" />
+  <link rel="stylesheet" href="/styles.css?v=0.3.64" />
 </head>
 <body>
   <header class="topbar">
@@ -772,6 +779,6 @@
   </main>
 
   <!-- Cache-buster: keep this in sync with VERSION so browsers pick up new JS after updates -->
-  <script src="/app.js?v=0.3.63"></script>
+  <script src="/app.js?v=0.3.64"></script>
 </body>
 </html>
