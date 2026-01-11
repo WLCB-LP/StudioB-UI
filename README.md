@@ -77,8 +77,8 @@ Run:
   UI → intent → engine → (DSP write gate).
   - Intents are append-logged to: `~/.StudioB-UI/state/intents.jsonl`
 - v0.2.76: Speaker Mute can now perform a **real DSP write** when `dsp.mode=live`.
-  - The engine uses Q-SYS External Control Protocol (ECP) over TCP and issues:
-    `csv STUB_SPK_MUTE 0` or `csv STUB_SPK_MUTE 1`
+  - The engine uses the Symetrix SymNet Composer control protocol (TCP, default port 48631) and issues:
+    `CS 161 0` (unmute) or `CS 161 65535` (mute)
   - This release is still strictly scoped to **Speaker Mute only**.
   - Every intent is logged, and every DSP write attempt/result is also logged (append-only JSONL).
 - Update/Rollback are implemented as **local git operations** on the VM:
