@@ -279,6 +279,12 @@ func NewEngine(cfg *Config, version string, cfgPath string) *Engine {
 	if strings.ToLower(strings.TrimSpace(cfg.DSP.Mode)) == "mock" {
 		go e.mockLoop()
 	}
+	// In live mode, poll the DSP for meter values that feed the WebSocket meters
+	// stream (v0.3.72). Without this, RC 462/463 would remain at 0 forever and
+	// the UI would show dead meters even when audio is present.
+	if strings.ToLower(strings.TrimSpace(cfg.DSP.Mode)) == "live" {
+		go e.dspMetersPollLoop()
+	}
 	go e.publishLoop()
 	go e.dspMonitorLoop()
 	return e

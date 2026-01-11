@@ -5,6 +5,13 @@
 
 
 
+## v0.3.72 (2026-01-11)
+- FIX (truthful meters in live mode): the engine now polls the DSP for PlayIt Live meter controls and feeds them into the WS meters stream.
+  - Uses Q-SYS ECP `cg` reads for `STUB_RSR_L` and `STUB_RSR_R`.
+  - Updates RC 462/463 in-memory (normalized 0.0–1.0), then publishes via `/ws` as `{type:"meters", data:{"462":...,"463":...}}`.
+  - Poll rate configurable via `meters.dsp_poll_hz` (default 10Hz, capped at 50Hz).
+  - On poll failure, forces both meters to 0 so the UI meters go dead (visible and truthful).
+
 ## v0.3.71 (2026-01-11)
 - Engine WS meters reliability:
   - Do **not** run the mock meter generator when `dsp.mode` is `live` (meters must go dead when DSP goes dead).

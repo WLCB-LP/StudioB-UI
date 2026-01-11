@@ -53,8 +53,24 @@ type Config struct {
 	} `yaml:"admin"`
 
 	Meters struct {
-		PublishHz int     `yaml:"publish_hz"`
-		Deadband  float64 `yaml:"deadband"`
+		// PublishHz controls how often the engine emits WebSocket meter frames.
+		// UI expects ~20Hz (configurable).
+		PublishHz int `yaml:"publish_hz"`
+
+		// DspPollHz controls how often the engine polls the DSP for meter values in
+		// live mode.
+		//
+		// Why is this separate from PublishHz?
+		// - PublishHz is about UI smoothness and can be ~20Hz.
+		// - Polling the DSP too fast can be expensive if it requires network I/O.
+		//
+		// If unset/0, the engine will pick a conservative default.
+		DspPollHz int `yaml:"dsp_poll_hz"`
+
+		// Deadband controls the generic RC delta suppression threshold.
+		// NOTE: the dedicated meters stream is published every tick and does NOT
+		// apply deadband suppression.
+		Deadband float64 `yaml:"deadband"`
 	} `yaml:"meters"`
 
 	Updates struct {
@@ -104,6 +120,14 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.Meters.PublishHz <= 0 {
 		cfg.Meters.PublishHz = 20
+	}
+	// Polling the DSP can be more expensive than publishing WebSocket frames.
+	// Default to a conservative 10Hz (or PublishHz if lower).
+	if cfg.Meters.DspPollHz <= 0 {
+		cfg.Meters.DspPollHz = 10
+		if cfg.Meters.PublishHz > 0 && cfg.Meters.PublishHz < cfg.Meters.DspPollHz {
+			cfg.Meters.DspPollHz = cfg.Meters.PublishHz
+		}
 	}
 	if cfg.Meters.Deadband <= 0 {
 		cfg.Meters.Deadband = 0.01
