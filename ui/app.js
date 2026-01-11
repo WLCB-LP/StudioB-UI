@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.66";
+const UI_BUILD_VERSION = "0.3.67";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -159,6 +159,21 @@ const state = {
     inited: false,
   },
 };
+
+// ---------------------------------------------------------------------------
+// Debug exports (UI v0.3.67)
+// These are intentionally *read-only* conveniences for field diagnostics.
+// They let operators verify whether RC snapshot data is arriving without
+// modifying application state from the console.
+//
+// NOTE: We do NOT rely on these exports for functionality. The UI should
+// behave correctly even if a kiosk browser blocks access to window.*.
+try{
+  // Expose a reference so DevTools checks like `window.state.rc` work.
+  // This is critical for diagnosing "meters moving but not matching DSP".
+  window.state = state;
+}catch(_e){ /* ignore */ }
+
 
 // Keep prior observed values here so we can detect transitions cleanly.
 // (We avoid sprinkling "prevX" properties across unrelated code paths.)
@@ -466,6 +481,9 @@ function connectRCWebSocket(){
     const ws = new WebSocket(url);
     _rcWS = ws;
 
+    // Debug handle (UI v0.3.67): allow quick inspection of WS status.
+    try{ window.rcSocket = ws; }catch(_e){ /* ignore */ }
+
     ws.onopen = ()=>{
       _rcWSBackoffMs = 500; // reset backoff on success
       // Keep mixer hidden until we receive the first snapshot.
@@ -476,28 +494,73 @@ function connectRCWebSocket(){
       let msg = null;
       try{ msg = JSON.parse(ev.data); }catch(_e){ return; }
 
-      if(msg && msg.type === 'snapshot' && msg.data && msg.data.rc){
-        state.rc = msg.data.rc || {};
+      // -------------------------------------------------------------------
+      // RC payload compatibility layer (UI v0.3.67)
+      //
+      // The engine publishes ALL realtime updates over a single /ws endpoint.
+      // We accept multiple message shapes so the UI can remain stable while
+      // we converge on a standard payload format.
+      //
+      // Supported shapes (current + future-friendly):
+      //   1) Snapshot:
+      //      { type: "snapshot", data: { rc: { "462": 0.12, ... } } }
+      //      { type: "rc_state", rc: { "462": 0.12, ... } }
+      //
+      //   2) Delta / partial update:
+      //      { type: "delta", rc: { "462": 0.13 } }
+      //      { type: "rc_delta", rc: { "462": 0.13 } }
+      //
+      //   3) Single-meter event:
+      //      { type: "meter", rc: 462, value: 0.13 }
+      //
+      // NOTE:
+      // - We keep ALL RC values in state.rc as string keys.
+      // - We do not invent or smooth values at the RC layer.
+      // - Meters are rendered from RC only; if RC is absent, meters freeze.
+      // -------------------------------------------------------------------
+
+      function applyRCObject(rcObj, isSnapshot){
+        if(!rcObj || typeof rcObj !== 'object') return;
+        if(isSnapshot || !state.rc) state.rc = {};
+        for(const k of Object.keys(rcObj)){
+          state.rc[String(k)] = rcObj[k];
+        }
         state.mixerHydrated = true;
-        // Meters: update PlayIt Live targets from RC 462/463 if present.
+
+        // Update any UI surfaces that depend on RC.
         applyPILMetersFromRC();
         applyMixerFadersFromRC();
         applyMixerMutesFromRC();
         showMixerWhenReady();
+      }
+
+      // Snapshot (preferred)
+      if(msg && msg.type === 'snapshot' && msg.data && msg.data.rc){
+        applyRCObject(msg.data.rc, true);
+        return;
+      }
+      if(msg && msg.type === 'rc_state' && msg.rc){
+        applyRCObject(msg.rc, true);
         return;
       }
 
+      // Delta
       if(msg && msg.type === 'delta' && msg.rc){
-        // Merge delta into cache.
+        applyRCObject(msg.rc, false);
+        return;
+      }
+      if(msg && msg.type === 'rc_delta' && msg.rc){
+        applyRCObject(msg.rc, false);
+        return;
+      }
+
+      // Single meter event
+      if(msg && msg.type === 'meter' && (msg.rc !== undefined) && (msg.value !== undefined)){
         state.rc = state.rc || {};
-        for(const k of Object.keys(msg.rc)){
-          state.rc[String(k)] = msg.rc[k];
-        }
-        // Meters: update PlayIt Live targets from RC 462/463 if present.
+        state.rc[String(msg.rc)] = msg.value;
+        state.mixerHydrated = true;
         applyPILMetersFromRC();
-        // Apply only what we render on the studio mixer.
-        applyMixerFadersFromRC();
-        applyMixerMutesFromRC();
+        return;
       }
     };
 

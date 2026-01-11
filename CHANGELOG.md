@@ -3,6 +3,15 @@
 
 
 
+
+## v0.3.67 (2026-01-11)
+- FIX: Implemented RC WebSocket client compatibility for the single `/ws` endpoint and began accepting multiple payload shapes:
+  - Snapshot: `{type:"snapshot", data:{rc:{...}}}` or `{type:"rc_state", rc:{...}}`
+  - Delta: `{type:"delta", rc:{...}}` or `{type:"rc_delta", rc:{...}}`
+  - Meter event: `{type:"meter", rc:<number>, value:<value>}`
+- Debuggability: Exposed `window.state` and `window.rcSocket` for field diagnostics (read-only convenience).
+- Meters remain RC-only: PlayIt Live meters continue to use RC 462/463 as authoritative sources.
+
 ## v0.3.66 (2026-01-11)
 - FIX: PlayIt Live meters now read RC 462/463 **only** (no /api/studio/status mirroring).
   This prevents mismatched / "still moving when muted" behavior when the status endpoint
