@@ -484,9 +484,12 @@ main{padding:18px}
   /*
     v0.3.62: Make these pills feel "roomier" so longer labels don't look cramped.
     (This is purely cosmetic; we still keep width-to-content + no-wrap.)
+
+    v0.3.63: Make them a bit wider still so "PlayIt Live" and "WLCB Status"
+    have comfortable breathing room.
   */
-  padding-left: 18px;
-  padding-right: 18px;
+  padding-left: 26px;
+  padding-right: 26px;
 }
 
 .strip__title--host{

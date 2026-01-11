@@ -2,10 +2,15 @@
 
 
 
+## v0.3.63 (2026-01-11)
+- Studio (cosmetic): Increased horizontal padding on the PlayIt Live and WLCB Status title pills so the full labels fit comfortably.
+- Studio (cosmetic): Updated the donations title text to Title Case: "Latest Donations".
+
+
 ## v0.3.62 (2026-01-11)
 - Studio (cosmetic): Made PlayIt Live and WLCB Status strip title pills wider (more horizontal padding) so labels feel less cramped.
 - Studio (cosmetic): Widened WLCB Status card to 3× the standard single-strip width (new --wlcbStatusColWidth).
-- Studio (cosmetic): Increased the "LATEST DONATIONS" title pill font size so it matches the other top-row pill labels.
+- Studio (cosmetic): Increased the "Latest Donations" title pill font size so it matches the other top-row pill labels.
 
 
 ## v0.3.61 (2026-01-11)
