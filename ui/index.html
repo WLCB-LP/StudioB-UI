@@ -120,7 +120,7 @@
           <div class="mixerRoot mixerRoot--top isHydrating" id="topMixerRoot">
 
             <!-- PIL (placeholder – no controls yet) -->
-            <div class="card mixerCard mixerCard--placeholder mixerCard--pilWide">
+            <div class="card mixerCard mixerCard--placeholder mixerCard--pilWide pilCard" id="pilCard">
               <div class="mixerCard__head"><div class="mixerCard__title">PIL</div></div>
               <div class="mixerRow mixerRow--1">
                 <div class="strip strip--placeholder" data-strip="pil">
@@ -153,7 +153,7 @@
             </div>
 
             <!-- LATEST DONATIONS (placeholder panel – intentionally empty for now) -->
-            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--panelEmpty">
+            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--panelEmpty cardLatestDonations" id="donationsCard">
               <div class="mixerCard__head"><div class="mixerCard__title">LATEST DONATIONS</div></div>
               <!--
                 IMPORTANT (UI v0.3.47):
@@ -164,7 +164,7 @@
             </div>
 
             <!-- Unlabeled placeholder panel – intentionally empty for now -->
-            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--untitled mixerCard--panelEmpty">
+            <div class="card mixerCard mixerCard--placeholder mixerCard--flexFill mixerCard--untitled mixerCard--panelEmpty cardTopPlaceholder" id="topPlaceholderCard">
               <div class="mixerCard__head"><div class="mixerCard__title">&#8203;</div></div>
               <div class="mixerCard__emptyBody" aria-hidden="true"></div>
             </div>
@@ -173,7 +173,7 @@
             <div class="topRightDock" id="topRightDock">
 
               <!-- Headphones (placeholder – no fader or mute assigned yet) -->
-              <div class="card mixerCard mixerCard--placeholder mixerCard--tall">
+              <div class="card mixerCard mixerCard--placeholder mixerCard--tall mixerCard--narrow headphonesCard" id="headphonesCard">
                 <div class="mixerCard__head"><div class="mixerCard__title">Headphones</div></div>
                 <div class="mixerRow mixerRow--1">
                   <div class="strip strip--placeholder" data-strip="hp">
@@ -201,7 +201,7 @@
               </div>
 
               <!-- Speakers (LIVE RC: 160 level, 161 mute) -->
-              <div class="card mixerCard mixerCard--tall">
+              <div class="card mixerCard mixerCard--tall mixerCard--narrow speakersCard" id="speakersCard">
                 <div class="mixerCard__head"><div class="mixerCard__title">Speakers</div></div>
                 <div class="mixerRow mixerRow--1">
                   <div class="strip" data-strip="spk">
@@ -232,7 +232,7 @@
               </div>
 
               <!-- Program (placeholder – fader/mute to be wired later) -->
-              <div class="card mixerCard mixerCard--placeholder mixerCard--tall">
+              <div class="card mixerCard mixerCard--placeholder mixerCard--tall mixerCard--narrow programCard" id="programCard">
                 <div class="mixerCard__head"><div class="mixerCard__title">Program</div></div>
                 <div class="mixerRow mixerRow--1">
                   <div class="strip strip--placeholder" data-strip="pgm">

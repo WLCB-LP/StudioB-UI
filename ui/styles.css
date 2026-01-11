@@ -13,6 +13,8 @@
 
   /* Layout sizing */
   --topRightColWidth:190px; /* matches single-strip cards (AUX/BT/PC/Zoom) */
+  /* Top-row PIL card is intentionally narrower than the standard left-column cards */
+  --pilColWidth:260px;
 }
 
 *{box-sizing:border-box}
@@ -154,29 +156,31 @@ main{padding:18px}
 /* Ensure flex rules on base .mixerRoot don't conflict with grid */
 #page-studio .mixerRoot--top > *{min-width: 0;}
 
-/* Ensure the top-row grid can shrink its middle columns without overflowing */
-#page-studio #topMixerRoot{width: 100%;}
-
-/* Explicit grid placement to prevent accidental wrapping/stacking */
-#page-studio #topMixerRoot.mixerRoot--top{display:grid !important;}
-#page-studio #pilCard{grid-column: 1; grid-row: 1;}
-#page-studio #cardLatestDonations{grid-column: 2; grid-row: 1;}
-#page-studio #cardPlaceholder{grid-column: 3; grid-row: 1;}
-#page-studio #headphonesCard{grid-column: 4; grid-row: 1;}
-#page-studio #speakersCard{grid-column: 5; grid-row: 1;}
-#page-studio #programCard{grid-column: 6; grid-row: 1;}
-
-/* PIL card should hug its content so the VU has the same edge gap as the buttons side */
-#page-studio #pilCard{
-  justify-self: start;
-  width: max-content;
+/* --- Studio top row layout -------------------------------------------------
+   Goals:
+     - Top section renders as a ROW: [PIL] [middle empty panels] [HP/SPK/PGM]
+     - PIL card is narrower and visually balanced left/right.
+     - Headphones/Speakers/Program match AUX (single-strip) width.
+*/
+#page-studio #topMixerRoot{
+  width: 100%;
 }
 
-/* Top-right cards should match single-strip card width (AUX/BT/PC/Zoom) */
-#page-studio .topRightDock .mixerCard--tall{
-  width: var(--topRightColWidth);
-  max-width: var(--topRightColWidth);
+#page-studio #topMixerRoot.mixerRoot--top{
+  display:grid !important;
+  grid-template-columns: var(--pilColWidth) 1fr var(--topRightColWidth);
+  grid-template-rows: auto auto;
+  gap: 24px;
+  align-items: start;
 }
+
+#page-studio #pilCard{grid-column: 1; grid-row: 1 / span 2; width: var(--pilColWidth);}
+#page-studio #donationsCard{grid-column: 2; grid-row: 1; min-width: 0;}
+#page-studio #topPlaceholderCard{grid-column: 2; grid-row: 2; min-width: 0;}
+#page-studio #topRightDock{grid-column: 3; grid-row: 1 / span 2; width: var(--topRightColWidth);}
+
+/* Constrain the three top-right cards */
+#page-studio #topRightDock .mixerCard{width: var(--topRightColWidth); max-width: var(--topRightColWidth);}
 
 /* Mixer groups (UI v0.3.34)
    Operator requirement:
