@@ -5,6 +5,10 @@
 
 
 
+## v0.3.70 (2026-01-11)
+- Hotfix: Fix engine build/test failure caused by an accidental duplicate `wsClient` type definition.
+  - No runtime behavior changes (RC/meter publishing over `/ws` remains the same as v0.3.69).
+
 ## v0.3.69 (2026-01-11)
 - Engine WS: Implemented minimal meter publishing over the single /ws endpoint.
   - Sends an immediate `{type:"rc_state", rc:{"462":<0..1>,"463":<0..1>}, ts:<ms>}` snapshot on connect (in addition to legacy `{type:"snapshot"}`).

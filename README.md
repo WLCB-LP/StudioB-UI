@@ -1,11 +1,11 @@
-# STUB Mixer UI (Studio B) — Release 0.3.69
+# STUB Mixer UI (Studio B) — Release 0.3.70
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
 - A Go "engine" scaffold with:
   - health endpoint
   - websocket state stream (mock data by default)
-    - /ws message types (v0.3.69 minimal contract):
+    - /ws message types (v0.3.70 minimal contract):
       - Snapshot on connect: {type:"rc_state", rc:{"462":<0..1>,"463":<0..1>}, ts:<ms>}
       - Meter updates (~20Hz): {type:"meters", data:{"462":<0..1>,"463":<0..1>}, ts:<ms>}
       - (Legacy compatibility) {type:"snapshot"} + {type:"delta"} are still sent for older UIs.

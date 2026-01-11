@@ -1152,18 +1152,6 @@ func runCmdTimeout(timeout time.Duration, name string, args ...string) (string, 
 	return string(out), err
 }
 
-// wsClient tracks per-connection subscription state for /ws.
-//
-// v0.3.69:
-// - UI sends {"type":"subscribe","topics":["rc","meters"]} on connect.
-// - Engine can broadcast multiple streams; subscriptions allow clients to opt in.
-// - For backwards compatibility, connections default to subscribing to both.
-type wsClient struct {
-	conn      *websocket.Conn
-	subRC     bool
-	subMeters bool
-}
-
 // WatchdogStatusSnapshot returns the current systemd status of stub-ui-watchdog.
 func (e *Engine) WatchdogStatusSnapshot() WatchdogStatus {
 	s := WatchdogStatus{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
