@@ -1,3 +1,9 @@
+## v0.3.84
+- UI: Wire **Speakers VU meters** on the Studio page to RC **460/461**.
+  - Add the missing vertical meter fill DOM elements (`m_spkL`, `m_spkR`) so the existing meter animation loop can render movement.
+  - Use the same display mapping as other vertical VU meters (VU travel scaled to match the fader's -72..+12 dB span).
+- UI: Update cache-buster query strings in `index.html` to match VERSION (reduces "stale UI" after updates).
+
 ## v0.3.83
 - Engine (Symetrix): Fix "DSP truth on page load" by refreshing control RCs from the DSP right before sending the WebSocket rc_state snapshot.
   - This ensures faders/mutes/speakers/automute reflect DSP state even if the engine started earlier.

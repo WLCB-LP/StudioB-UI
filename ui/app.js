@@ -1511,13 +1511,15 @@ function meterAnimate(){
   setMeterFillV("m_pilR", vuDisplay(state.meters.pilR.cur));
 
   // NOTE:
-  // The following IDs are not yet rendered on the Studio page.
-  // We keep the calls for future wiring, but they will no-op until
-  // the corresponding DOM elements exist.
+  // Some top-row meters are rendered incrementally.
+  // - Speakers (m_spkL/m_spkR) are wired as of UI v0.3.84.
+  // - Program + RSR remain placeholders until their cards render fill elements.
   setMeterFill("m_pgmL", state.meters.pgmL.cur);
   setMeterFill("m_pgmR", state.meters.pgmR.cur);
-  setMeterFill("m_spkL", state.meters.spkL.cur);
-  setMeterFill("m_spkR", state.meters.spkR.cur);
+  // Speakers meters are vertical columns on the Studio page.
+  // Use the same display mapping as PlayIt Live (VU -72..0 mapped into fader travel).
+  setMeterFillV("m_spkL", vuDisplay(state.meters.spkL.cur));
+  setMeterFillV("m_spkR", vuDisplay(state.meters.spkR.cur));
   setMeterFill("m_rsrL", state.meters.rsrL.cur);
   setMeterFill("m_rsrR", state.meters.rsrR.cur);
 
