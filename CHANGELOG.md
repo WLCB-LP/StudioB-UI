@@ -1,3 +1,11 @@
+## v0.3.86
+- Engine/UI: Make Speaker automute glow update **live** (no refresh required).
+  - Engine now performs a best-effort delayed DSP read of RC **560** after any mic mute write (RC **121–124**) so derived logic indicators publish real-time deltas.
+- PlayIt Live controls: Fix AUTO toggle + START command plumbing.
+  - Engine `/api/pil/playoutMode` now forwards POST as POST (some PIL builds reject PUT-only writes).
+  - Engine `/api/pil/play` accepts POST (and GET for legacy) and forwards a POST play command.
+  - UI START button now sends POST (matches engine contract).
+
 ## v0.3.85
 - UI: Fix Speakers card glow + layout polish.
   - Prevent top-row card glow from being clipped (Studio layout no longer hides vertical overflow).

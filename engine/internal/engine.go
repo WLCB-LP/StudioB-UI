@@ -346,15 +346,41 @@ func (e *Engine) SetRC(idStr string, value float64) error {
 
 	if isLive && isControl {
 		// Symetrix Controller Set expects a 16-bit position (0..65535).
-			// ecpSendCSV performs clamp01() + scaling and writes "CS <id> <pos>\r\n".
+		// ecpSendCSV performs clamp01() + scaling and writes "CS <id> <pos>\r\n".
 		if _, werr := e.ecpSendCSV(strconv.Itoa(id), value, 1200*time.Millisecond); werr != nil {
 			return fmt.Errorf("dsp write failed (rc %d): %w", id, werr)
 		}
 	}
 
+	// ---------------------------------------------------------------------
+	// DSP-derived logic resync (v0.3.86)
+	//
+	// Problem observed in the field:
+	// - The UI writes mic mute RCs (121–124) successfully.
+	// - RC 560 (ALL_MICS_CLOSED / automute indicator) is DSP-derived logic.
+	// - The engine cannot infer RC 560 from the write alone.
+	// - Without a follow-up DSP read, RC 560 only updates on a page refresh
+	//   (because the first WebSocket snapshot is seeded from DSP truth).
+	//
+	// Fix:
+	// After any mic mute write, perform a small delayed read of RC 560 from the
+	// DSP so clients receive a real-time delta over WebSocket.
+	//
+	// IMPORTANT:
+	// - Best-effort only. If the read fails, we do not fail the original write.
+	// - LIVE mode only (mock has no external DSP to query).
+	// ---------------------------------------------------------------------
+	need560Read := (id >= 121 && id <= 124)
+
 	e.mu.Lock()
-	defer e.mu.Unlock()
 	e.rc[id] = value
+	e.mu.Unlock()
+
+	if isLive && need560Read {
+		time.AfterFunc(150*time.Millisecond, func() {
+			e.dspControlReadNow([]int{560}, 900*time.Millisecond)
+		})
+	}
 	return nil
 }
 

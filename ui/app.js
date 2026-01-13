@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.83";
+const UI_BUILD_VERSION = "0.3.86";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -2805,7 +2805,8 @@ async function pilStartPlayout(){
   const btn = document.querySelector("#pilStartBtn");
   if(btn){ btn.disabled = true; setTimeout(()=>{ btn.disabled=false; }, 600); }
   try{
-    await fetch(pilUrl("/play"), { method:"GET" });
+    // Engine proxy expects POST (but also accepts GET for legacy). Use POST.
+    await fetch(pilUrl("/play"), { method:"POST" });
   }catch(e){
     // ignore; best-effort momentary command
   }

@@ -432,19 +432,29 @@ func main() {
 		switch r.Method {
 		case http.MethodGet:
 			pilProxy(w, r, http.MethodGet, "/api/control/liveAssist/playoutMode")
-		case http.MethodPost, http.MethodPut:
-			// Attempt to write the mode. We pass through the JSON payload.
+		case http.MethodPost:
+			// Attempt to write the mode. Pass through JSON payload.
+			// Some PIL builds expect POST (not PUT).
+			pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/playoutMode")
+		case http.MethodPut:
+			// Some PIL builds expect PUT.
 			pilProxy(w, r, http.MethodPut, "/api/control/liveAssist/playoutMode")
 		default:
 			writeAPIError(w, http.StatusMethodNotAllowed, "GET/POST required")
 		}
 	})
 	mux.HandleFunc("/api/pil/play", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+		// UI uses a momentary action. Prefer POST.
+		// We also accept GET for backwards compatibility with older UIs.
+		switch r.Method {
+		case http.MethodPost:
+			pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/masterControl/play")
+		case http.MethodGet:
+			pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/masterControl/play")
+		default:
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET/POST required")
 			return
 		}
-		pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/masterControl/play")
 	})
 
 	// -----------------------------------------------------------------------
