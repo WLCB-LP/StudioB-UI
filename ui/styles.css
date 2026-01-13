@@ -108,9 +108,19 @@ main{padding:18px}
   display:flex;
   flex-direction:column;
   gap: 10px;
-  min-height: calc(100vh - 120px);
+  /*
+    v0.3.85: Allow the neon card glow rings (box-shadows) to render cleanly.
+    The Studio console is still designed to fit in a 1920x1080 viewport with
+    NO scrolling, but `overflow:hidden` was clipping the top/bottom glow of
+    the top-row cards (most noticeable on Speakers/Program).
+
+    We keep horizontal clipping (no sideways scroll), but let vertical overflow
+    render so shadows aren't cut off.
+  */
+  min-height: calc(100vh - 90px);
   align-items:stretch;
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:visible;
 }
 
 /* Keep the bottom fader row pinned toward the bottom of the Studio page */
@@ -165,17 +175,30 @@ main{padding:18px}
 /* -------------------------------------------------------------------------
    Speaker automute visual alert (RC 560)
 
-   When automute is active, make the Speakers card and lane glow red.
-   This is display-only; DSP truth still comes from RC 560.
+   Operator intent (2026-01-13):
+     - Do NOT outline the entire Speakers card in red.
+     - Instead, make the *fader lane / background* glow red when speakers are
+       auto-muted (i.e., "mics are open").
+
+   IMPORTANT:
+     - This is display-only.
+     - The DSP remains the source of truth.
+     - JS applies `.automuteActive` to #speakersCard when automute is active.
    ---------------------------------------------------------------------- */
-#page-studio #speakersCard.automuteActive{
+
+/* Red glow on the fader lane (not the card) */
+#page-studio #speakersCard.automuteActive .fader__lane{
   box-shadow:
     0 0 0 1px rgba(255, 80, 80, 0.55),
-    0 0 24px rgba(255, 60, 60, 0.25);
+    0 0 18px rgba(255, 60, 60, 0.22) inset,
+    0 0 22px rgba(255, 60, 60, 0.18);
 }
 
-#page-studio #speakersCard.automuteActive .fader__lane{
-  box-shadow: 0 0 18px rgba(255, 60, 60, 0.25) inset;
+/* Slight red accent on the puck so the operator sees it from across the room */
+#page-studio #speakersCard.automuteActive .fader__puck{
+  box-shadow:
+    0 0 0 1px rgba(255, 80, 80, 0.35),
+    0 0 18px rgba(255, 60, 60, 0.20);
 }
 
 /* WLCB Status is deliberately 3x wider (see --wlcbStatusColWidth). */

@@ -1185,14 +1185,20 @@ function setLampAutoMute(on){
   lamp.classList.toggle("on", !!on);
 }
 
-// Studio request (2026-01-11): when automute (RC 560) is true, make the
-// speakers fader + card glow red so the operator immediately sees why audio
-// is not coming out.
+// Speaker automute visual alert (RC 560)
+//
+// v0.3.82 intent (original): RC 560 was "SPK AUTO-MUTED" (TRUE when muted).
+// v0.3.85 update (operator relabel): RC 560 is now "ALL_MICS_CLOSED".
+//   - RC 560 TRUE  = all mics closed  (speakers should be free)
+//   - RC 560 FALSE = any mic open     (speakers are auto-muted)
+//
+// Therefore, the red "automute" glow should engage when RC 560 is FALSE.
 //
 // IMPORTANT: this is purely a visual indicator. The DSP remains the source of
 // truth for the automute state.
 function applySpeakerAutoMuteGlowFromRC(){
-  const on = rcGet(560) >= 0.5;
+  const allMicsClosed = rcGet(560) >= 0.5;
+  const on = !allMicsClosed;
   const card = document.getElementById('speakersCard');
   if(card) card.classList.toggle('automuteActive', on);
 }
@@ -1512,7 +1518,7 @@ function meterAnimate(){
 
   // NOTE:
   // Some top-row meters are rendered incrementally.
-  // - Speakers (m_spkL/m_spkR) are wired as of UI v0.3.84.
+  // - Speakers (m_spkL/m_spkR) are wired as of UI v0.3.85.
   // - Program + RSR remain placeholders until their cards render fill elements.
   setMeterFill("m_pgmL", state.meters.pgmL.cur);
   setMeterFill("m_pgmR", state.meters.pgmR.cur);

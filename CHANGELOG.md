@@ -1,3 +1,9 @@
+## v0.3.85
+- UI: Fix Speakers card glow + layout polish.
+  - Prevent top-row card glow from being clipped (Studio layout no longer hides vertical overflow).
+  - Automute visual alert now turns the **Speakers fader lane/puck** red (not the entire card).
+  - Automute glow polarity updated for relabeled RC 560 (**ALL_MICS_CLOSED**): glow engages when RC 560 is **FALSE** (any mic open).
+
 ## v0.3.84
 - UI: Wire **Speakers VU meters** on the Studio page to RC **460/461**.
   - Add the missing vertical meter fill DOM elements (`m_spkL`, `m_spkR`) so the existing meter animation loop can render movement.
