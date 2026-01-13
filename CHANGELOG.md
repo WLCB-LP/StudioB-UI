@@ -1,3 +1,9 @@
+## v0.3.88
+- Automute glow: eliminate "blink" while all mics are muted.
+  - Engine: on transient DSP UDP poll failure, we now hard-zero **meters only**; we **do not** clobber logic/indicator RCs like **560**.
+  - Engine: if a DSP response is partial (missing a controller), we now **hold last-known** value rather than forcing 0.
+  - UI: add a small **visual-only debounce** for the Speakers automute glow so brief gaps do not flash red.
+
 ## v0.3.87
 - Automute indicator reliability + visibility.
   - Engine: RC **560** (ALL_MICS_CLOSED) is now included in the DSP UDP poll loop, so the UI receives frequent truthful updates (no "refresh-only" behavior).

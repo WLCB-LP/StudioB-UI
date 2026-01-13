@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.87";
+const UI_BUILD_VERSION = "0.3.88";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -1196,11 +1196,51 @@ function setLampAutoMute(on){
 //
 // IMPORTANT: this is purely a visual indicator. The DSP remains the source of
 // truth for the automute state.
+//
+// v0.3.88 reliability:
+// RC 560 is DSP-derived logic and may occasionally arrive late or be missing
+// from a partial update. Additionally, transient DSP poll failures can cause
+// brief gaps in the RC stream. To prevent a distracting red "blink" when all
+// mics are muted, we add a tiny debounce / hold-last-known layer *only for the
+// visual glow*.
+let _spkAutoMuteStableOn = false;        // what we are currently showing
+let _spkAutoMuteCandidateOn = null;      // proposed new state (waiting)
+let _spkAutoMuteCandidateSince = 0;      // ms timestamp when candidate began
 function applySpeakerAutoMuteGlowFromRC(){
-  const allMicsClosed = rcGet(560) >= 0.5;
+  const v = rcGet(560);
+  // If RC 560 is absent/invalid, hold last-known visual state.
+  if(typeof v !== 'number' || isNaN(v)){
+    const card = document.getElementById('speakersCard');
+    if(card) card.classList.toggle('automuteActive', _spkAutoMuteStableOn);
+    return;
+  }
+
+  const allMicsClosed = v >= 0.5;
   const on = !allMicsClosed;
+
+  // Debounce: require the new state to be stable for a short window
+  // before we flip the UI. (Purely visual; DSP remains truth.)
+  const now = Date.now();
+  const msOn  = 180; // require ~180ms stable before showing red
+  const msOff = 320; // require longer stability before clearing red
+  if(on !== _spkAutoMuteStableOn){
+    if(_spkAutoMuteCandidateOn !== on){
+      _spkAutoMuteCandidateOn = on;
+      _spkAutoMuteCandidateSince = now;
+    }
+    const age = now - _spkAutoMuteCandidateSince;
+    const need = on ? msOn : msOff;
+    if(age >= need){
+      _spkAutoMuteStableOn = on;
+      _spkAutoMuteCandidateOn = null;
+    }
+  } else {
+    // If we're already showing the correct state, clear any candidate.
+    _spkAutoMuteCandidateOn = null;
+  }
+
   const card = document.getElementById('speakersCard');
-  if(card) card.classList.toggle('automuteActive', on);
+  if(card) card.classList.toggle('automuteActive', _spkAutoMuteStableOn);
 }
 
 function updateSpeakerUI(){

@@ -46,15 +46,25 @@ func (e *Engine) dspMetersPollLoop() {
 
 	// We read by controller ID. Passing numeric strings lets the shared helper
 	// resolve them without needing name mappings.
-	controls := []string{
+	//
+	// IMPORTANT:
+	// We intentionally keep "meters" separate from "logic/indicator" controls.
+	// Meters are safe to hard-zero on UDP poll failure (UI goes dead = truthful).
+	// Logic/indicator controls (like RC 560) should *not* be hard-zeroed on a
+	// transient poll hiccup, otherwise the UI will flicker into a false state.
+	meters := []string{
 		// Bottom-row channel VU meters
 		"401", "402", "403", "404", "405", "406", "407", "408", "409", "410",
 		// Program / speakers / remote return
 		"411", "412", "460", "461", "462", "463",
+	}
+	indicators := []string{
 		// DSP-derived logic indicators (read-only)
 		// 560 = ALL_MICS_CLOSED (TRUE when all mics muted / speakers free)
 		"560",
 	}
+	// Single UDP read call for efficiency.
+	controls := append(append([]string{}, meters...), indicators...)
 
 	cfg2 := e.GetConfigCopy()
 	dbFloor := cfg2.Meters.DbFloor
@@ -105,13 +115,18 @@ func (e *Engine) dspMetersPollLoop() {
 		vals, err := e.ecpGetCGUDP(controls, 900*time.Millisecond)
 		if err != nil {
 			// Truth: if we cannot read meters, publish dead meters.
+			//
+			// IMPORTANT (v0.3.88): Do NOT clobber logic/indicator controllers
+			// on a transient UDP poll failure. In Studio B, RC 560 drives the
+			// speaker automute UI glow. If we hard-zero it here, operators see
+			// a false "automute active" blink even though nothing changed.
 			e.mu.Lock()
-			for _, idStr := range controls {
+			for _, idStr := range meters {
 				id, _ := strconv.Atoi(idStr)
 				e.rc[id] = 0
 			}
 			e.mu.Unlock()
-			log.Printf("dsp meter poll failed: %v", err)
+			log.Printf("dsp meter poll failed (meters zeroed, indicators held): %v", err)
 			continue
 		}
 
@@ -120,8 +135,15 @@ func (e *Engine) dspMetersPollLoop() {
 		// other meter surfaces.
 		e.mu.Lock()
 		for _, idStr := range controls {
+			// If the DSP response does not include a given controller ID, hold
+			// the last-known value rather than forcing a 0. This avoids flicker
+			// for indicators like RC 560 when a partial response arrives.
+			raw, ok := vals[idStr]
+			if !ok {
+				continue
+			}
 			id, _ := strconv.Atoi(idStr)
-			e.rc[id] = normalize(vals[idStr])
+			e.rc[id] = normalize(raw)
 		}
 		e.mu.Unlock()
 
