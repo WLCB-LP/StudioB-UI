@@ -1,3 +1,12 @@
+## v0.3.87
+- Automute indicator reliability + visibility.
+  - Engine: RC **560** (ALL_MICS_CLOSED) is now included in the DSP UDP poll loop, so the UI receives frequent truthful updates (no "refresh-only" behavior).
+  - Engine: After mic mute writes (RC **121–124**) we now coalesce and perform a small burst of best-effort RC 560 reads at multiple delays to handle DSP logic settling.
+  - UI: Make the Speakers automute glow **brighter and more pronounced** (applied to the fader lane/puck only).
+- PlayIt Live: Fix AUTO/LIVE toggling against the documented Control API.
+  - Engine: Add `/api/pil/playoutMode/toggleAutomation` proxy (POST) → `/api/control/liveAssist/playoutMode/toggleAutomation`.
+  - UI: AUTO/LIVE button now prefers the toggleAutomation endpoint with body `{ "on": true|false }`, with legacy fallbacks.
+
 ## v0.3.86
 - Engine/UI: Make Speaker automute glow update **live** (no refresh required).
   - Engine now performs a best-effort delayed DSP read of RC **560** after any mic mute write (RC **121–124**) so derived logic indicators publish real-time deltas.

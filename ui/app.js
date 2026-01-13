@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.86";
+const UI_BUILD_VERSION = "0.3.87";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -2779,19 +2779,33 @@ async function pollPILMode(){
 }
 
 async function setPILAutomationOn(nextOn){
-  // Best-effort write. We try a JSON PUT/POST to the same endpoint.
-  // If PIL uses a different method/path, the poller will immediately reflect truth.
-  const payload = JSON.stringify({ automationOn: !!nextOn });
-  const opts = (method)=>({
+  // Best-effort write.
+  //
+  // Observed PlayIt Live Control API (docs screenshot, 2026-01-13):
+  //   POST /api/control/liveAssist/playoutMode/toggleAutomation
+  //   Body: { "on": <boolean> }
+  //
+  // Our engine exposes a same-origin proxy:
+  //   POST /api/pil/playoutMode/toggleAutomation
+  //
+  // For backwards compatibility (and unknown PIL builds), we also fall back to
+  // the older /api/control/liveAssist/playoutMode write path.
+  const payloadToggle = JSON.stringify({ on: !!nextOn });
+  const payloadLegacy = JSON.stringify({ automationOn: !!nextOn });
+  const opts = (method, body)=>({
     method,
     headers:{ "Content-Type":"application/json" },
-    body: payload,
+    body,
   });
 
-  // Try PUT then POST.
   try{
-    let res = await fetch(pilUrl("/playoutMode"), opts("PUT"));
-    if(!res.ok) res = await fetch(pilUrl("/playoutMode"), opts("POST"));
+    // Preferred: explicit toggleAutomation endpoint.
+    let res = await fetch(pilUrl("/playoutMode/toggleAutomation"), opts("POST", payloadToggle));
+    if(!res.ok){
+      // Legacy fallbacks: PUT then POST to /playoutMode
+      res = await fetch(pilUrl("/playoutMode"), opts("PUT", payloadLegacy));
+      if(!res.ok) res = await fetch(pilUrl("/playoutMode"), opts("POST", payloadLegacy));
+    }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
   }catch(e){
     // ignore; poll will show truth

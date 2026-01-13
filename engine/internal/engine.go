@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -140,6 +141,25 @@ type Engine struct {
 	// - This is LOGGING ONLY. It does NOT bypass any DSP write guards.
 	// - It is append-only (JSON Lines) so the watchdog/operator can inspect
 	//   what was requested even if something later failed.
+
+	// v0.3.87: Coalesced DSP-derived logic refresh token
+	//
+	// Field observation:
+	// - RC 560 (ALL_MICS_CLOSED / speaker automute indicator) is derived inside the DSP.
+	// - When operators click mic mute/unmute (RC 121–124), we must re-read RC 560
+	//   from the DSP to keep the UI indicator responsive.
+	//
+	// Why a token?
+	// - Multiple rapid mute toggles can schedule multiple delayed reads.
+	// - We want old scheduled reads to become no-ops once a newer toggle occurs.
+	// - This keeps DSP traffic low and makes the UI feel deterministic.
+	//
+	// Implementation:
+	// - writeRC() increments this token when it schedules a 560 refresh.
+	// - Each delayed read checks that its captured token is still current.
+	//
+	// NOTE: uint64 is used with sync/atomic.
+	refresh560Token uint64
 }
 
 // wsClient tracks per-connection subscription state for /ws.
@@ -377,13 +397,30 @@ func (e *Engine) SetRC(idStr string, value float64) error {
 	e.mu.Unlock()
 
 	if isLive && need560Read {
-		time.AfterFunc(150*time.Millisecond, func() {
+		// v0.3.87: Make RC 560 updates deterministic.
+		//
+		// Composer/Symetrix logic can settle a little after the mute RC write
+		// (especially when multiple mics are toggled quickly). A single delayed
+		// read is sometimes too early or too late, resulting in an indicator that
+		// appears to "only update on refresh".
+		//
+		// Strategy:
+		// - Coalesce rapid toggles with a token.
+		// - Perform a small burst of best-effort reads at increasing delays.
+		//   (This is still cheap: one controller read of a single RC.)
+		seq := atomic.AddUint64(&e.refresh560Token, 1)
+		readIfCurrent := func() {
+			if atomic.LoadUint64(&e.refresh560Token) != seq {
+				return // newer toggle happened; abandon
+			}
 			e.dspControlReadNow([]int{560}, 900*time.Millisecond)
-		})
+		}
+		time.AfterFunc(120*time.Millisecond, readIfCurrent)
+		time.AfterFunc(350*time.Millisecond, readIfCurrent)
+		time.AfterFunc(900*time.Millisecond, readIfCurrent)
 	}
 	return nil
 }
-
 
 // ---------------------------------------------------------------------------
 // Operator Intent Logging (v0.2.75)
@@ -622,11 +659,11 @@ func (e *Engine) HandleWS(w http.ResponseWriter, r *http.Request) {
 	// Best-effort: refresh control truth from the DSP right before we snapshot.
 	// This avoids stale defaults on page load when the engine started earlier.
 	// (Meters are handled by the continuous poll loops.)
-	e.dspControlReadNow([]int{101,102,103,104,105,106,107,108,109,110,121,122,123,124,125,126,127,128,129,130,160,560}, 900*time.Millisecond)
+	e.dspControlReadNow([]int{101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 160, 560}, 900*time.Millisecond)
 
 	// Best-effort: refresh control truth from the DSP right before we snapshot.
 	// This avoids stale defaults on page load when the engine started earlier.
-	e.dspControlReadNow([]int{101,102,103,104,105,106,107,108,109,110,121,122,123,124,125,126,127,128,129,130,160,560}, 900*time.Millisecond)
+	e.dspControlReadNow([]int{101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 160, 560}, 900*time.Millisecond)
 	e.mu.RLock()
 	rc := make(map[string]float64, len(ids))
 	for _, id := range ids {
@@ -771,7 +808,7 @@ func (e *Engine) publishLoop() {
 			e.broadcast("meters", map[string]any{
 				"type": "meters",
 				"data": meterVals,
-				"ts": time.Now().UnixMilli(),
+				"ts":   time.Now().UnixMilli(),
 			})
 		}
 	}
@@ -783,7 +820,7 @@ func (e *Engine) mockLoop() {
 	for {
 		e.mu.Lock()
 		// meters: 411/412 program, 460/461 speakers, 462/463 rs return
-		meterIDs := []int{401,402,403,404,405,406,407,408,409,410,411,412,460,461,462,463}
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
 		for _, id := range meterIDs {
 			// random walk
 			cur := e.rc[id]

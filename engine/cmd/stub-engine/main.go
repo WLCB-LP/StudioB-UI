@@ -1,8 +1,8 @@
 package main
 
 import (
-	"crypto/tls"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -443,6 +443,27 @@ func main() {
 			writeAPIError(w, http.StatusMethodNotAllowed, "GET/POST required")
 		}
 	})
+
+	// v0.3.87: Toggle automation explicitly (PlayIt Live Control API)
+	//
+	// Some PlayIt Live deployments expose automation toggling as a dedicated
+	// endpoint:
+	//   POST /api/control/liveAssist/playoutMode/toggleAutomation
+	// with JSON:
+	//   {"on": true}
+	//
+	// We expose this under the same-origin engine proxy to avoid CORS/TLS issues:
+	//   POST /api/pil/playoutMode/toggleAutomation
+	//
+	// NOTE: This is best-effort. The UI still polls /api/pil/playoutMode for truth.
+	mux.HandleFunc("/api/pil/playoutMode/toggleAutomation", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "POST required")
+			return
+		}
+		pilProxy(w, r, http.MethodPost, "/api/control/liveAssist/playoutMode/toggleAutomation")
+	})
+
 	mux.HandleFunc("/api/pil/play", func(w http.ResponseWriter, r *http.Request) {
 		// UI uses a momentary action. Prefer POST.
 		// We also accept GET for backwards compatibility with older UIs.
@@ -729,9 +750,9 @@ func writeAPIError(w http.ResponseWriter, status int, msg string) {
 // pilProxy is used by our /api/pil/* endpoints to forward a request to PlayIt Live.
 //
 // Why we proxy:
-// - Browser -> PIL would be blocked by CORS.
-// - PIL uses a self-signed certificate; the engine can safely ignore TLS
-//   validation on this *specific* upstream without weakening the browser.
+//   - Browser -> PIL would be blocked by CORS.
+//   - PIL uses a self-signed certificate; the engine can safely ignore TLS
+//     validation on this *specific* upstream without weakening the browser.
 //
 // `method` allows our API to expose a clean contract while still matching PIL's
 // expected verbs (e.g. we may accept POST but forward PUT).

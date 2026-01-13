@@ -48,9 +48,12 @@ func (e *Engine) dspMetersPollLoop() {
 	// resolve them without needing name mappings.
 	controls := []string{
 		// Bottom-row channel VU meters
-		"401","402","403","404","405","406","407","408","409","410",
+		"401", "402", "403", "404", "405", "406", "407", "408", "409", "410",
 		// Program / speakers / remote return
-		"411","412","460","461","462","463",
+		"411", "412", "460", "461", "462", "463",
+		// DSP-derived logic indicators (read-only)
+		// 560 = ALL_MICS_CLOSED (TRUE when all mics muted / speakers free)
+		"560",
 	}
 
 	cfg2 := e.GetConfigCopy()
