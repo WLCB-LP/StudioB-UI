@@ -352,15 +352,37 @@ func parseGoalFromHTML(html string) (float64, error) {
 	// - The markup is stable enough that a targeted regex is safer than a
 	//   broad heuristic ("largest dollar amount").
 	{
-		reValueThenLabel := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-value\"[^>]*>\s*\$?\s*([^<]+?)\s*</span>\s*<span[^>]*givewp-layouts-goal_stats-panel_stat-label\"[^>]*>\s*Goal\s*</span>`)
-		if m := reValueThenLabel.FindStringSubmatch(html); len(m) == 2 {
-			if v, err := parseMoney(m[1]); err == nil && v > 0 {
-				return v, nil
+		// The browser DOM you pasted shows VALUE + LABEL spans inside a list-item.
+		// In practice, GiveWP themes can add extra classes/attributes or reorder spans.
+		//
+		// Strategy:
+		// 1) Find each goal stat list-item block.
+		// 2) Within each block, find the *label* text and *value* text.
+		// 3) If label == "Goal", parse the value as currency.
+		//
+		// This is more robust than assuming immediate adjacency like:
+		//   <span class="...value">$10,000.00</span><span class="...label">Goal</span>
+		// because templates sometimes insert wrappers or reorder spans.
+		reItem := regexp.MustCompile(`(?is)<li[^>]*givewp-layouts-goal_stats-panel_list-item[^>]*>(.*?)</li>`)
+		reLabel := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-label[^>]*>\s*([^<]+?)\s*</span>`)
+		reValue := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-value[^>]*>\s*\$?\s*([^<]+?)\s*</span>`)
+
+		items := reItem.FindAllStringSubmatch(html, 20) // goal panel is small; cap for safety
+		for _, it := range items {
+			if len(it) != 2 {
+				continue
 			}
-		}
-		reLabelThenValue := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-label\"[^>]*>\s*Goal\s*</span>\s*<span[^>]*givewp-layouts-goal_stats-panel_stat-value\"[^>]*>\s*\$?\s*([^<]+?)\s*</span>`)
-		if m := reLabelThenValue.FindStringSubmatch(html); len(m) == 2 {
-			if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			block := it[1]
+			lm := reLabel.FindStringSubmatch(block)
+			vm := reValue.FindStringSubmatch(block)
+			if len(lm) != 2 || len(vm) != 2 {
+				continue
+			}
+			label := strings.TrimSpace(lm[1])
+			if !strings.EqualFold(label, "Goal") {
+				continue
+			}
+			if v, err := parseMoney(vm[1]); err == nil && v > 0 {
 				return v, nil
 			}
 		}
@@ -376,8 +398,10 @@ func parseGoalFromHTML(html string) (float64, error) {
 	}
 
 	// Keep the search space reasonable.
-	if len(html) > 2<<20 {
-		html = html[:2<<20]
+	// We already cap the HTTP read (see caller), but we also cap here so that
+	// any future call sites that pass huge strings won't cause regex blowups.
+	if len(html) > 6<<20 {
+		html = html[:6<<20]
 	}
 
 	// 1) Look for explicit data-goal style attributes (common in fundraising widgets).
@@ -548,7 +572,17 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return c.fallback(fmt.Errorf("upstream status %d", resp.StatusCode), limit)
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB cap
+	// NOTE: Some WordPress/GiveWP pages can be surprisingly large (lots of markup,
+	// inlined scripts, and long donor walls). We previously capped at 2MB, but
+	// that can truncate the part of the HTML where the Goal widget/config is
+	// defined (which would make goal parsing fail even though the browser shows it).
+	//
+	// We still keep a hard cap for appliance safety, but raise it to 6MB.
+	//
+	// ALSO: io.LimitReader truncates silently. We *intentionally* don't attempt
+	// to detect truncation here; instead we oversize the cap enough that this
+	// is unlikely for our use case.
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 6<<20)) // 6MB cap
 	if err != nil {
 		return c.fallback(err, limit)
 	}
@@ -573,7 +607,7 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 		goal, goalErr = parseGoalByMaxDollar(string(b), raisedThisYear)
 	}
 	if goalErr != nil {
-		log.Printf("donations: goal parse failed: %v", goalErr)
+		log.Printf("donations: goal parse failed: %v (html_bytes=%d)", goalErr, len(b))
 		// Still publish RAISED if we were able to compute it.
 		// The UI will show "Raised $X" when Goal is missing/zero.
 		if raisedThisYear > 0 {

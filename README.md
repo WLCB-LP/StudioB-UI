@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.99
+# STUB Mixer UI (Studio B) — Release 0.4.00
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.4.00: Donations: keep the "Raised ..." line centered, raise the engine HTML read cap to reduce truncation, and make GiveWP goal parsing more robust (label/value scan inside the goal stats panel).
 
 - v0.3.99: Donations: polish GOAL parsing for GiveWP by matching the explicit Goal label/value DOM pair (no heuristics). This makes "Raised $X of $Y for YEAR" reliably include the goal.
 

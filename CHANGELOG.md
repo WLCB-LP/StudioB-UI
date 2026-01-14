@@ -1,3 +1,10 @@
+## v0.4.00 (2026-01-14)
+
+### Fixes
+- Donations: re-center the "Raised ..." meta line (CSS) after font/weight changes.
+- Donations: improve GiveWP goal parsing robustness (scan goal stat list-items by label/value), and increase the HTML fetch cap to reduce truncation-related goal misses.
+- Donations: log the HTML byte length on goal parse failure to make future debugging deterministic.
+
 ## v0.3.99 (2026-01-14)
 
 - Donations (engine): fix GOAL parsing for GiveWP by matching the explicit `Goal` label/value DOM pair:
