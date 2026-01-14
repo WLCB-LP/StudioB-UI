@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.91";
+const UI_BUILD_VERSION = "0.3.92";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -32,8 +32,11 @@ function repairLegacyStaticLabels(){
     if(donationsTitle){
       const t = (donationsTitle.textContent || '').trim();
       if(t === 'LATEST DONATIONS'){
-        donationsTitle.textContent = 'Latest Donations';
-        addRuntimeEvent('Repaired cached Donations label (LATEST DONATIONS → Latest Donations)');
+        donationsTitle.textContent = 'Latest Donations at lakesradio.org';
+        addRuntimeEvent('Repaired cached Donations label (LATEST DONATIONS → Latest Donations at lakesradio.org)');
+      } else if(t === 'Latest Donations'){
+        donationsTitle.textContent = 'Latest Donations at lakesradio.org';
+        addRuntimeEvent('Repaired cached Donations label (Latest Donations → Latest Donations at lakesradio.org)');
       }
     }
   } catch (e){
@@ -2912,7 +2915,7 @@ function initPlayItLiveControls(){
 // We inject a simple list at runtime so future layout updates to index.html
 // don't have to guess about donation-provider output shapes.
 //
-// Poll rate: 60s (operator asked ~30–60s; start conservative).
+// Poll rate: 30s (operator preference).
 // NOTE: This is read-only and safe to call even when the DSP is disconnected.
 // Poll interval for the Latest Donations card.
 // User request (2026-01-13): 60s → 30s.

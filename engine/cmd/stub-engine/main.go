@@ -153,7 +153,7 @@ func stripTags(in string) string {
 	return s
 }
 
-func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
+func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, error) {
 	// Normalize into trimmed, non-empty lines.
 	linesRaw := strings.Split(txt, "\n")
 	lines := make([]string, 0, len(linesRaw))
@@ -166,10 +166,30 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 		lines = append(lines, l)
 	}
 
-	// Scan for donation blocks using the "Amount Donated" anchor.
+	
+// Also compute a "Raised this year" total from the same donor wall.
+// The user asked to simplify progress parsing by:
+//   - scraping GOAL from the page
+//   - computing RAISED as the sum of donations in the current year
+//
+// This avoids fragile "Raised $X of $Y" widget text parsing, while still
+// staying truthful (derived directly from the displayed donations list).
+// Scan for donation blocks using the "Amount Donated" anchor.
 	// This survives HTML stripping and is less fragile than DOM selectors.
 	items := make([]donationItem, 0, limit)
 	loc, _ := time.LoadLocation("America/Chicago") // best-effort
+
+
+// Also compute a "Raised this year" total from the same donor wall.
+// The user asked to simplify progress parsing by:
+//   - scraping GOAL from the page
+//   - computing RAISED as the sum of donations in the current year
+//
+// This avoids fragile "Raised $X of $Y" widget text parsing, while still
+// staying truthful (derived directly from the displayed donations list).
+currentYear := time.Now().In(loc).Year()
+yearTotal := 0.0
+
 
 	for k := 0; k < len(lines); k++ {
 		lk := strings.TrimSpace(lines[k])
@@ -261,16 +281,23 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 		}
 		msg := strings.Join(msgParts, "\n")
 
-		items = append(items, donationItem{
-			Name:    name,
-			Amount:  amt,
-			Message: msg,
-			Time:    t.Format(time.RFC3339),
-		})
+		// Add to yearTotal when we have a parsed date in the current year.
+// If date parsing failed (t is zero), we skip it for the year total.
+if dateIdx != -1 && t.Year() == currentYear {
+	yearTotal += amt
+}
 
-		if len(items) >= limit {
-			break
-		}
+// Only keep the newest N items for the UI list, but keep scanning
+// the whole page to compute the yearly total.
+if len(items) < limit {
+	items = append(items, donationItem{
+		Name:    name,
+		Amount:  amt,
+		Message: msg,
+		Time:    t.Format(time.RFC3339),
+	})
+}
+
 		// Advance past the amount line if the amount was on the next line.
 		if amtLine != lk {
 			k = k + 1
@@ -278,12 +305,12 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 	}
 
 	if len(items) == 0 {
-		return nil, fmt.Errorf("no donation blocks found")
+		return nil, 0, fmt.Errorf("no donation blocks found")
 	}
-	return items, nil
+	return items, yearTotal, nil
 }
 
-// parseCampaignProgressFromText extracts the "Raised" and "Goal" dollar amounts
+// parseGoalFromText extracts the campaign GOAL amount from the website text.
 // shown near the donation form.
 //
 // Upstream currently renders both of these as plain text, for example:
@@ -299,8 +326,13 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 // This function is BEST-EFFORT:
 // - If it fails, we still return the donations list.
 // - The cache preserves the last-known-good summary.
-func parseCampaignProgressFromText(txt string) (*donationSummary, error) {
-	// Flatten whitespace to make regex simpler and less fragile across line breaks.
+func parseGoalFromText(txt string) (float64, error) {
+	// We only need the GOAL from the campaign widget/page.
+	// The "Raised" number will be computed as the sum of current-year donations
+	// from the donor wall list itself (see parseDonationsFromText).
+	//
+	// We intentionally accept a few possible formats, because WordPress/GiveWP
+	// widgets can change markup without changing the visible text.
 	flat := strings.Join(strings.Fields(txt), " ")
 
 	parseMoney := func(s string) (float64, error) {
@@ -308,43 +340,32 @@ func parseCampaignProgressFromText(txt string) (*donationSummary, error) {
 		return strconv.ParseFloat(s, 64)
 	}
 
-	// 1) Preferred: "$X of $Y" (this appears on the page as a progress string).
-	// Example: "$5,295.85 of $10,000.00"
-	reOf := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+of\s+\$([0-9][0-9,]*\.[0-9]{2})`)
+	// 1) If the page contains a progress string like "$X of $Y", use the second value as GOAL.
+	reOf := regexp.MustCompile(`\$([0-9][0-9,]*(?:\.[0-9]{2})?)\s+of\s+\$([0-9][0-9,]*(?:\.[0-9]{2})?)`)
 	if m := reOf.FindStringSubmatch(flat); len(m) == 3 {
-		raised, err1 := parseMoney(m[1])
-		goal, err2 := parseMoney(m[2])
-		if err1 == nil && err2 == nil {
-			return &donationSummary{Raised: raised, Goal: goal, Currency: "USD"}, nil
+		goal, err := parseMoney(m[2])
+		if err == nil {
+			return goal, nil
 		}
-		// If one parse fails, keep looking via fallbacks.
 	}
 
-	// 2) Fallback: "$X Raised" and "$Y Goal" somewhere in the text.
-	reRaised := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+Raised`)
-	reGoal := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+Goal`)
-
-	var (
-		raisedStr string
-		goalStr   string
-	)
-	if m := reRaised.FindStringSubmatch(flat); len(m) == 2 {
-		raisedStr = m[1]
-	}
+	// 2) Look for an explicit "goal" label near a currency amount.
+	// Examples we try to match:
+	//   "Goal $10,000.00"
+	//   "Goal: $10,000"
+	//   "… goal is $10,000 …"
+	reGoal := regexp.MustCompile(`(?i)\bgoal\b[^\$]{0,60}\$([0-9][0-9,]*(?:\.[0-9]{2})?)`)
 	if m := reGoal.FindStringSubmatch(flat); len(m) == 2 {
-		goalStr = m[1]
-	}
-	if raisedStr != "" && goalStr != "" {
-		raised, err1 := parseMoney(raisedStr)
-		goal, err2 := parseMoney(goalStr)
-		if err1 == nil && err2 == nil {
-			return &donationSummary{Raised: raised, Goal: goal, Currency: "USD"}, nil
+		goal, err := parseMoney(m[1])
+		if err == nil {
+			return goal, nil
 		}
-		return nil, fmt.Errorf("raised/goal parse failed: raised=%v goal=%v", err1, err2)
+		return 0, fmt.Errorf("goal parse failed: %v", err)
 	}
 
-	return nil, fmt.Errorf("campaign progress not found")
+	return 0, fmt.Errorf("goal not found")
 }
+
 
 func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if limit <= 0 {
@@ -385,17 +406,19 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 		return c.fallback(err, limit)
 	}
 	text := stripTags(string(b))
-	items, err := parseDonationsFromText(text, limit)
+	items, raisedThisYear, err := parseDonationsFromText(text, limit)
 	if err != nil {
 		return c.fallback(err, limit)
 	}
 
-	// Best-effort: campaign progress (Raised/Goal). If this fails we still
-	// return the donation list. The UI prefers this summary, but it must never
-	// block operator visibility of the latest donations.
-	summary, sumErr := parseCampaignProgressFromText(text)
-	if sumErr != nil {
-		log.Printf("donations: progress parse failed: %v", sumErr)
+	// Best-effort: campaign progress summary.
+	// We scrape GOAL from the page and compute RAISED as the sum of current-year donations.
+	summary := (*donationSummary)(nil)
+	goal, goalErr := parseGoalFromText(text)
+	if goalErr != nil {
+		log.Printf("donations: goal parse failed: %v", goalErr)
+	} else {
+		summary = &donationSummary{Raised: raisedThisYear, Goal: goal, Currency: "USD"}
 	}
 
 	out := donationsResponse{

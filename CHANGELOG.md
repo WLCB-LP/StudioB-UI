@@ -1,3 +1,8 @@
+## v0.3.92
+
+- Latest Donations: card title now reads "Latest Donations at lakesradio.org".
+- Latest Donations: campaign progress now uses GOAL scraped from website, and RAISED computed as sum of current-year donations.
+
 ## v0.3.91
 - Latest Donations: replace the "Updated" timestamp line with fundraiser progress.
   - Engine: scrape + return `summary.raised` and `summary.goal` (USD) from the same Support WLCB page.
