@@ -1,7 +1,9 @@
-## v0.3.98 (2026-01-14)
+## v0.3.99 (2026-01-14)
 
-- Donations (engine): scrape campaign GOAL deterministically from the GiveWP goal stats widget (`givewp-layouts-goal_stats-panel_stat-*` spans labeled "Goal") on lakesradio.org.
-- Donations (UI): center the "Raised $X of $Y for YEAR" progress line.
+- Donations (engine): fix GOAL parsing for GiveWP by matching the explicit `Goal` label/value DOM pair:
+  - `givewp-layouts-goal_stats-panel_stat-label` == `Goal`
+  - paired with `givewp-layouts-goal_stats-panel_stat-value` (supports both VALUE→LABEL and LABEL→VALUE ordering)
+  - This makes `Raised $X of $Y for YEAR` reliably include the goal when the GiveWP widget is present.
 
 ## v0.3.97 (2026-01-14)
 

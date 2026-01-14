@@ -339,26 +339,30 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, err
 //
 // This is best-effort and intentionally tolerant of multiple formats.
 func parseGoalFromHTML(html string) (float64, error) {
-	// GiveWP (lakesradio.org) goal widget selector (stable and explicit).
-	// The page source contains paired spans like:
+	// GiveWP (WordPress) goal stats panel (the exact DOM the operator pasted):
+	//
 	//   <span class="givewp-layouts-goal_stats-panel_stat-value">$10,000.00</span>
 	//   <span class="givewp-layouts-goal_stats-panel_stat-label">Goal</span>
 	//
-	// We prefer this over heuristics because it is deterministic and survives
-	// changes to other parts of the page.
+	// The order is typically VALUE then LABEL (as above), but some templates may
+	// render LABEL then VALUE. We support both.
 	//
-	// We support both possible orders (value then label, or label then value)
-	// just in case the theme changes markup.
-	reGivewpValueThenLabel := regexp.MustCompile(`(?is)<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-value[^"]*"[^>]*>\s*([^<]+?)\s*</span>\s*<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-label[^"]*"[^>]*>\s*Goal\s*</span>`)
-	if m := reGivewpValueThenLabel.FindStringSubmatch(html); len(m) == 2 {
-		if v, err := parseMoney(m[1]); err == nil && v > 0 {
-			return v, nil
+	// Why regex instead of an HTML parser?
+	// - We keep the engine dependency-light and deterministic for this appliance.
+	// - The markup is stable enough that a targeted regex is safer than a
+	//   broad heuristic ("largest dollar amount").
+	{
+		reValueThenLabel := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-value\"[^>]*>\s*\$?\s*([^<]+?)\s*</span>\s*<span[^>]*givewp-layouts-goal_stats-panel_stat-label\"[^>]*>\s*Goal\s*</span>`)
+		if m := reValueThenLabel.FindStringSubmatch(html); len(m) == 2 {
+			if v, err := parseMoney(m[1]); err == nil && v > 0 {
+				return v, nil
+			}
 		}
-	}
-	reGivewpLabelThenValue := regexp.MustCompile(`(?is)<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-label[^"]*"[^>]*>\s*Goal\s*</span>\s*<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-value[^"]*"[^>]*>\s*([^<]+?)\s*</span>`)
-	if m := reGivewpLabelThenValue.FindStringSubmatch(html); len(m) == 2 {
-		if v, err := parseMoney(m[1]); err == nil && v > 0 {
-			return v, nil
+		reLabelThenValue := regexp.MustCompile(`(?is)givewp-layouts-goal_stats-panel_stat-label\"[^>]*>\s*Goal\s*</span>\s*<span[^>]*givewp-layouts-goal_stats-panel_stat-value\"[^>]*>\s*\$?\s*([^<]+?)\s*</span>`)
+		if m := reLabelThenValue.FindStringSubmatch(html); len(m) == 2 {
+			if v, err := parseMoney(m[1]); err == nil && v > 0 {
+				return v, nil
+			}
 		}
 	}
 
