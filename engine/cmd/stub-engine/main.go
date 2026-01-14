@@ -53,6 +53,11 @@ func defaultConfigPath() string {
 
 var version = "dev"
 
+// processStart is used for operator-visible uptime calculations.
+// We keep this in main (not Engine) so it remains correct even if the engine
+// object is recreated in the future.
+var processStart = time.Now()
+
 // ---------------------------------------------------------------------
 // Latest Donations (server-side scrape)
 // ---------------------------------------------------------------------
@@ -129,6 +134,158 @@ type donationsCache struct {
 }
 
 var donations = &donationsCache{}
+
+// ---------------------------------------------------------------------
+// WLCB Status (high-level station/system status)
+// ---------------------------------------------------------------------
+// Design contract:
+// - Engine is the single source of truth.
+// - The UI does NOT probe external services directly.
+// - On transient failures, return last-known-good with stale=true.
+//
+// NOTE:
+// This is intentionally conservative. We start with a small set of checks we
+// can validate reliably *today*:
+//   - Engine process uptime
+//   - DSP link health (engine's always-on monitor)
+//   - PlayIt Live reachability + automation state
+//   - Website reachability (lakesradio.org)
+
+type wlcbStatusCheck struct {
+	Name      string `json:"name"`
+	Ok        bool   `json:"ok"`
+	Detail    string `json:"detail"`
+	CheckedAt string `json:"checkedAt"`
+}
+
+type wlcbStatusResponse struct {
+	UpdatedAt       string            `json:"updatedAt"`
+	EngineVersion   string            `json:"engineVersion"`
+	EngineUptimeSec int64             `json:"engineUptimeSec"`
+	Stale           bool              `json:"stale"`
+	Error           string            `json:"error,omitempty"`
+	Checks          []wlcbStatusCheck `json:"checks"`
+}
+
+type wlcbStatusCache struct {
+	mu        sync.Mutex
+	lastGood  wlcbStatusResponse
+	hasLast   bool
+	lastFetch time.Time
+}
+
+var wlcbStatus = &wlcbStatusCache{}
+
+var wlcbHTTP = &http.Client{Timeout: 3 * time.Second}
+
+func checkWebsite(url string) (bool, string, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return false, "build failed", err
+	}
+	// Avoid caches (best-effort). We want a real reachability signal.
+	req.Header.Set("Cache-Control", "no-store")
+	resp, err := wlcbHTTP.Do(req)
+	if err != nil {
+		return false, "unreachable", err
+	}
+	defer resp.Body.Close()
+	// We don't need body; just consume a tiny amount to allow connection reuse.
+	io.CopyN(io.Discard, resp.Body, 256) //nolint:errcheck
+	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		return true, fmt.Sprintf("HTTP %d", resp.StatusCode), nil
+	}
+	return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
+}
+
+func checkPILAutomation() (bool, string, error) {
+	// We call PIL directly from the engine so the browser never has to deal with
+	// CORS or self-signed TLS.
+	u := pilBaseURL + "/api/control/liveAssist/playoutMode"
+	if strings.Contains(u, "?") {
+		u = u + "&apiKey=" + pilAPIKey
+	} else {
+		u = u + "?apiKey=" + pilAPIKey
+	}
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return false, "build failed", err
+	}
+	resp, err := pilHTTP.Do(req)
+	if err != nil {
+		return false, "unreachable", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
+	}
+	var j struct {
+		AutomationOn bool `json:"automationOn"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
+		return false, "bad JSON", err
+	}
+	if j.AutomationOn {
+		return true, "AUTO", nil
+	}
+	// Reachable, but automation OFF.
+	return true, "LIVE", nil
+}
+
+func buildWLCBStatus(engine *app.Engine, engineVersion string) wlcbStatusResponse {
+	now := time.Now().UTC()
+	resp := wlcbStatusResponse{
+		UpdatedAt:       now.Format(time.RFC3339),
+		EngineVersion:   engineVersion,
+		EngineUptimeSec: int64(time.Since(processStart).Seconds()),
+		Checks:          []wlcbStatusCheck{},
+	}
+
+	add := func(name string, ok bool, detail string) {
+		resp.Checks = append(resp.Checks, wlcbStatusCheck{
+			Name:      name,
+			Ok:        ok,
+			Detail:    detail,
+			CheckedAt: now.Format(time.RFC3339),
+		})
+	}
+
+	// Engine itself is always "reachable" if this handler is running.
+	add("Engine", true, fmt.Sprintf("v%s", engineVersion))
+
+	// DSP link health (engine internal monitor)
+	d := engine.DSPHealthSnapshot()
+	if d.Connected && d.State == "OK" {
+		add("DSP", true, "OK")
+	} else {
+		// Provide the most useful, short detail we have.
+		det := string(d.State)
+		if d.LastError != "" {
+			det = det + ": " + d.LastError
+		}
+		add("DSP", false, det)
+	}
+
+	// PlayIt Live reachability + automation state
+	pilOK, pilDetail, pilErr := checkPILAutomation()
+	if pilErr == nil {
+		add("PlayIt Live", true, pilDetail)
+	} else {
+		add("PlayIt Live", false, pilDetail)
+		_ = pilOK
+	}
+
+	// Website reachability (lakesradio.org)
+	webOK, webDetail, webErr := checkWebsite(donationsSourceURL)
+	if webErr == nil {
+		add("lakesradio.org", true, webDetail)
+	} else {
+		add("lakesradio.org", false, webDetail)
+		_ = webOK
+	}
+
+	return resp
+}
 
 // stripTags converts HTML into a conservative plain-text form.
 //
@@ -460,16 +617,16 @@ func parseGoalFromHTML(html string) (float64, error) {
 // when the widget stores it in an unexpected format.
 //
 // Why this exists:
-// - WordPress fundraising plugins sometimes change markup without warning.
-// - We already have several "exact" parsers (data-* fields, JSON-ish fields,
-//   "$X Goal" text).
-// - If all of those fail, operators still want to see "Raised $X of $Y".
+//   - WordPress fundraising plugins sometimes change markup without warning.
+//   - We already have several "exact" parsers (data-* fields, JSON-ish fields,
+//     "$X Goal" text).
+//   - If all of those fail, operators still want to see "Raised $X of $Y".
 //
 // Heuristic:
-// - Scan the raw HTML for all "$<number>" occurrences.
-// - Pick the *largest* value that is >= minExpected.
-// - Also require it to be reasonably large (>= $100) so a single generous
-//   donation doesn't accidentally become the "goal".
+//   - Scan the raw HTML for all "$<number>" occurrences.
+//   - Pick the *largest* value that is >= minExpected.
+//   - Also require it to be reasonably large (>= $100) so a single generous
+//     donation doesn't accidentally become the "goal".
 //
 // This is intentionally conservative. If it can't find a plausible goal,
 // it returns an error and the UI falls back to showing only "Raised $X".
@@ -559,11 +716,11 @@ func parseGoalFromText(txt string) (float64, error) {
 // GiveWP's public "form grid" REST endpoint.
 //
 // Why:
-// - The donor wall page (/support-wlcb/) is scrape-friendly for donations,
-//   but the GOAL widget is often rendered client-side.
-// - lakesradio.org exposes the GiveWP REST namespace "give-api/v2" publicly,
-//   including /wp-json/give-api/v2/form-grid.
-// - The form-grid response includes an HTML fragment containing text like:
+//   - The donor wall page (/support-wlcb/) is scrape-friendly for donations,
+//     but the GOAL widget is often rendered client-side.
+//   - lakesradio.org exposes the GiveWP REST namespace "give-api/v2" publicly,
+//     including /wp-json/give-api/v2/form-grid.
+//   - The form-grid response includes an HTML fragment containing text like:
 //     "... of $10,000 ..."
 //
 // We keep this intentionally simple and defensive:
@@ -994,6 +1151,72 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(out)
+	})
+
+	// ------------------------------------------------------------
+	// WLCB Status (high-level station/system status)
+	// ------------------------------------------------------------
+	// Endpoint:
+	//   GET /api/wlcb/status
+	//
+	// Contract:
+	// - The engine probes external services (not the browser).
+	// - On internal errors, we return last-known-good with stale=true.
+	mux.HandleFunc("/api/wlcb/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		wlcbStatus.mu.Lock()
+		// Tiny throttle: if multiple clients request within a short window,
+		// reuse the most recent snapshot.
+		if wlcbStatus.hasLast && time.Since(wlcbStatus.lastFetch) < 2*time.Second {
+			_ = json.NewEncoder(w).Encode(wlcbStatus.lastGood)
+			wlcbStatus.mu.Unlock()
+			return
+		}
+		wlcbStatus.mu.Unlock()
+
+		// Build a fresh snapshot (best-effort). This never returns an error for
+		// downstream check failures; each check records its own ok/detail.
+		var snap wlcbStatusResponse
+		var buildErr error
+		func() {
+			defer func() {
+				if rec := recover(); rec != nil {
+					buildErr = fmt.Errorf("panic: %v", rec)
+				}
+			}()
+			snap = buildWLCBStatus(engine, engine.Version())
+		}()
+
+		wlcbStatus.mu.Lock()
+		defer wlcbStatus.mu.Unlock()
+
+		if buildErr == nil {
+			wlcbStatus.lastGood = snap
+			wlcbStatus.hasLast = true
+			wlcbStatus.lastFetch = time.Now()
+			_ = json.NewEncoder(w).Encode(snap)
+			return
+		}
+
+		// Internal build failure: return last-known-good if we have it.
+		if wlcbStatus.hasLast {
+			cached := wlcbStatus.lastGood
+			cached.Stale = true
+			cached.Error = buildErr.Error()
+			_ = json.NewEncoder(w).Encode(cached)
+			return
+		}
+
+		// No cached value: return a minimal stale response.
+		_ = json.NewEncoder(w).Encode(wlcbStatusResponse{
+			UpdatedAt:       time.Now().UTC().Format(time.RFC3339),
+			EngineVersion:   engine.Version(),
+			EngineUptimeSec: int64(time.Since(processStart).Seconds()),
+			Stale:           true,
+			Error:           buildErr.Error(),
+			Checks:          []wlcbStatusCheck{},
+		})
 	})
 
 	// Admin config file editor (Engineering page).

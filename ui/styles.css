@@ -412,6 +412,87 @@ main{padding:18px}
   border: 1px solid rgba(255,255,255,.08);
   box-shadow: inset 0 10px 20px rgba(0,0,0,.28);
 }
+
+/*
+  WLCB Status (real content) (UI v0.4.02)
+  Rendered dynamically by app.js.
+
+  Design goals:
+  - Clean, readable at a glance.
+  - Looks like part of the console (neon/glass aesthetic) without turning into
+    a "dashboard" wall of text.
+*/
+.wlcbStatusBody{
+  width: calc(100% - 18px);
+  margin: 8px auto 10px auto;
+  padding: 10px 10px 8px 10px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 10px 20px rgba(0,0,0,.22);
+}
+.wlcbStatusMeta{
+  text-align: center;
+  font-size: 12px;
+  opacity: .86;
+  margin-bottom: 8px;
+  letter-spacing: .3px;
+}
+.wlcbStatusList{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wlcbStatusRow{
+  display: grid;
+  grid-template-columns: 12px 140px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.wlcbStatusRow--bad{
+  background: rgba(255, 60, 60, .06);
+  border-color: rgba(255, 60, 60, .18);
+}
+.wlcbStatusRow--empty{
+  justify-content: center;
+  grid-template-columns: 1fr;
+  text-align: center;
+  opacity: .75;
+}
+.wlcbDot{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: 0 0 10px rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.wlcbDot--ok{
+  background: rgba(60,255,170,.28);
+  border-color: rgba(60,255,170,.55);
+  box-shadow: 0 0 14px rgba(60,255,170,.12);
+}
+.wlcbDot--bad{
+  background: rgba(255, 60, 60, .22);
+  border-color: rgba(255, 60, 60, .50);
+  box-shadow: 0 0 14px rgba(255, 60, 60, .12);
+}
+.wlcbName{
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: .2px;
+}
+.wlcbDetail{
+  font-size: 12px;
+  opacity: .88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /*
   Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.
 

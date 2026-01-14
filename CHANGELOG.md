@@ -1,3 +1,11 @@
+## v0.4.02 (2026-01-14)
+
+### Added
+- WLCB Status card (first functional implementation):
+  - Engine: new endpoint `GET /api/wlcb/status` returns a normalized list of checks (engine uptime, DSP link health, PlayIt Live reachability/automation, lakesradio.org reachability).
+  - UI: renders the checks inside the existing “WLCB Status” top-row card and polls every 5 seconds.
+  - Contract: UI performs **no browser-side probing** of external services for this card; it only renders engine-provided status.
+
 ## v0.4.01 (2026-01-14)
 
 ### Fixes
