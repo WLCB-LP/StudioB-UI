@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -68,6 +69,22 @@ var version = "dev"
 // proper JSON feed (preferred long-term) without changing the UI contract.
 
 const donationsSourceURL = "https://lakesradio.org/support-wlcb/"
+
+// GiveWP goal scraping note (important):
+//
+// The public /support-wlcb/ page *does* include a donor wall we can scrape
+// reliably (names, dates, amounts, comments), but the fundraising *goal*
+// widget ("Raised ... of ...") is rendered client-side by GiveWP and may not
+// appear as plain text in the server-rendered HTML.
+//
+// To make the goal robust without needing API keys, we also consult GiveWP's
+// public form-grid endpoint (WordPress REST):
+//   /wp-json/give-api/v2/form-grid
+//
+// That endpoint returns an HTML fragment (as a JSON string) that includes
+// the "of $GOAL" number we need.
+
+const givewpFormGridPath = "/wp-json/give-api/v2/form-grid"
 
 type donationItem struct {
 	Name    string  `json:"name"`
@@ -538,6 +555,101 @@ func parseGoalFromText(txt string) (float64, error) {
 	return 0, fmt.Errorf("goal not found")
 }
 
+// parseGoalFromGiveWPFormGrid attempts to extract the campaign GOAL from
+// GiveWP's public "form grid" REST endpoint.
+//
+// Why:
+// - The donor wall page (/support-wlcb/) is scrape-friendly for donations,
+//   but the GOAL widget is often rendered client-side.
+// - lakesradio.org exposes the GiveWP REST namespace "give-api/v2" publicly,
+//   including /wp-json/give-api/v2/form-grid.
+// - The form-grid response includes an HTML fragment containing text like:
+//     "... of $10,000 ..."
+//
+// We keep this intentionally simple and defensive:
+// - No authentication.
+// - Small body cap.
+// - Prefer the first "of $X" that appears after the "Support WLCB" card title.
+func parseGoalFromGiveWPFormGrid(client *http.Client, donorWallURL string) (float64, error) {
+	if client == nil {
+		client = &http.Client{Timeout: 6 * time.Second}
+	}
+	u, err := url.Parse(donorWallURL)
+	if err != nil {
+		return 0, fmt.Errorf("bad donor wall url: %v", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return 0, fmt.Errorf("bad donor wall url: missing scheme/host")
+	}
+	gridURL := (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: givewpFormGridPath}).String()
+
+	resp, err := client.Get(gridURL)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("upstream status %d", resp.StatusCode)
+	}
+	bb, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB cap (form grid is small)
+	if err != nil {
+		return 0, err
+	}
+
+	// The endpoint commonly returns a JSON string that contains HTML.
+	frag := ""
+	if err := json.Unmarshal(bb, &frag); err != nil {
+		// Not JSON? fall back to raw bytes.
+		frag = string(bb)
+	}
+	frag = html.UnescapeString(frag)
+
+	// Prefer the goal that appears after the "Support WLCB" title.
+	needle := "Support WLCB"
+	idx := strings.Index(frag, needle)
+	search := frag
+	if idx >= 0 {
+		// Only scan a limited window after the title to avoid accidentally
+		// matching unrelated currency values in other widgets/cards.
+		start := idx
+		end := idx + 1500
+		if end > len(frag) {
+			end = len(frag)
+		}
+		search = frag[start:end]
+	}
+
+	reOf := regexp.MustCompile(`(?i)\bof\s+\$\s*([0-9][0-9,]*(?:\.[0-9]{2})?)`)
+	if m := reOf.FindStringSubmatch(search); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
+	// Final fallback: if we couldn't find the title, take the largest "of $X".
+	// This is still safer than "largest $X" because it keys off the GiveWP
+	// goal text.
+	matches := reOf.FindAllStringSubmatch(frag, -1)
+	max := 0.0
+	for _, mm := range matches {
+		if len(mm) != 2 {
+			continue
+		}
+		v, err := parseMoney(mm[1])
+		if err != nil {
+			continue
+		}
+		if v > max {
+			max = v
+		}
+	}
+	if max > 0 {
+		return max, nil
+	}
+
+	return 0, fmt.Errorf("goal not found in form-grid")
+}
+
 func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if limit <= 0 {
 		limit = 5
@@ -599,6 +711,11 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if goalErr != nil {
 		// Fall back to stripped-text parsing (older themes may render the goal as plain text).
 		goal, goalErr = parseGoalFromText(text)
+	}
+	if goalErr != nil {
+		// Next fallback: ask GiveWP itself (public WP REST endpoint).
+		// This is much more reliable than trying to infer the goal from the donor wall.
+		goal, goalErr = parseGoalFromGiveWPFormGrid(client, donationsSourceURL)
 	}
 	if goalErr != nil {
 		// Final fallback: heuristic scan for the largest "$X" value in the raw HTML.

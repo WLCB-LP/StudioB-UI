@@ -1,3 +1,9 @@
+## v0.4.01 (2026-01-14)
+
+### Fixes
+- Donations: fix GOAL parsing by consulting GiveWP's public form-grid endpoint (`/wp-json/give-api/v2/form-grid`) and extracting the `of $GOAL` value for the "Support WLCB" card.
+  - This resolves the case where the donor-wall page does not contain the goal widget in server-rendered HTML (client-side rendering).
+
 ## v0.4.00 (2026-01-14)
 
 ### Fixes
