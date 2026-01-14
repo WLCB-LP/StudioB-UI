@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.88";
+const UI_BUILD_VERSION = "0.3.89";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -66,6 +66,23 @@ const state = {
     // When an update completes, we auto-trigger a cache-busting reload.
     // This avoids the common "nothing happened until I hit refresh" confusion.
     autoReloadArmed:false,
+  },
+
+  // -----------------------------------------------------------------------
+  // Latest Donations (UI v0.3.89)
+  // -----------------------------------------------------------------------
+  // This is populated by the engine endpoint:
+  //   GET /api/donations/latest?limit=5
+  //
+  // Why the engine (not the browser) fetches:
+  // - Avoids CORS/mixed-content issues
+  // - Avoids exposing any future auth/token needs
+  // - Provides a stable JSON contract even if the website HTML changes
+  donations: {
+    items: [],
+    updatedAt: "",
+    stale: false,
+    lastErr: "",
   },
   // meter smoothing
   meters: {
@@ -2884,6 +2901,101 @@ function initPlayItLiveControls(){
   setInterval(pollPILMode, 2000);
 }
 
+
+// ---------------------------------------------------------------------------
+// Latest Donations (UI v0.3.89)
+// ---------------------------------------------------------------------------
+// The donations card is intentionally empty in index.html (placeholder).
+// We inject a simple list at runtime so future layout updates to index.html
+// don't have to guess about donation-provider output shapes.
+//
+// Poll rate: 60s (operator asked ~30–60s; start conservative).
+// NOTE: This is read-only and safe to call even when the DSP is disconnected.
+const DONATIONS_POLL_MS = 60000;
+
+// Minimal HTML escape (defense-in-depth).
+// Even though our engine is the one scraping/parsing, we still avoid
+// rendering raw strings into innerHTML.
+function escapeHTML(s){
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function ensureDonationsCardBody(){
+  const card = document.querySelector('#donationsCard');
+  if(!card) return null;
+
+  // If a previous build injected the body, reuse it.
+  let body = card.querySelector('.donationsBody');
+  if(body) return body;
+
+  // Hide the empty placeholder (kept for legacy + layout stability).
+  const empty = card.querySelector('.mixerCard__emptyBody');
+  if(empty) empty.style.display = 'none';
+
+  body = document.createElement('div');
+  body.className = 'donationsBody';
+  body.innerHTML = `
+    <div class="donationsMeta" id="donationsMeta"></div>
+    <div class="donationsList" id="donationsList"></div>
+  `;
+  card.appendChild(body);
+  return body;
+}
+
+function renderLatestDonations(){
+  ensureDonationsCardBody();
+  const meta = document.querySelector('#donationsMeta');
+  const list = document.querySelector('#donationsList');
+  if(!meta || !list) return;
+
+  const updated = state.donations.updatedAt ? `Updated ${new Date(state.donations.updatedAt).toLocaleString()}` : 'Not yet loaded';
+  const stale = state.donations.stale ? ' · STALE' : '';
+  const err = state.donations.lastErr ? ` · ${state.donations.lastErr}` : '';
+  meta.textContent = `${updated}${stale}${err}`;
+
+  if(!state.donations.items || state.donations.items.length === 0){
+    list.innerHTML = `<div class="donationRow donationRow--empty">No donations to display.</div>`;
+    return;
+  }
+
+  const rows = state.donations.items.map(it=>{
+    const amt = (typeof it.amount === 'number') ? it.amount.toFixed(2) : String(it.amount || '');
+    const msg = (it.message || '').trim();
+    const msgHTML = msg ? `<div class="donationComment">${escapeHTML(msg)}</div>` : '';
+    return `
+      <div class="donationRow">
+        <div class="donationLine1"><span class="donationName">${escapeHTML(it.name||'')}</span> - <span class="donationAmt">$${escapeHTML(amt)}</span></div>
+        ${msgHTML}
+      </div>
+    `;
+  }).join('');
+
+  list.innerHTML = rows;
+}
+
+function fetchLatestDonations(){
+  // Best-effort only: donations are informational and must never break UI boot.
+  fetch('/api/donations/latest?limit=5', { cache: 'no-store' })
+    .then(r=>r.json())
+    .then(j=>{
+      state.donations.items = Array.isArray(j.items) ? j.items : [];
+      state.donations.updatedAt = j.updated_at || '';
+      state.donations.stale = !!j.stale;
+      state.donations.lastErr = j.error || '';
+      renderLatestDonations();
+    })
+    .catch(e=>{
+      state.donations.stale = true;
+      state.donations.lastErr = String(e && e.message ? e.message : e);
+      renderLatestDonations();
+    });
+}
+
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
@@ -2891,6 +3003,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // v0.3.64: repair known legacy labels when index.html is stale.
   // This is safe, idempotent, and provides an on-screen audit trail.
   repairLegacyStaticLabels();
+
+  // Latest Donations (UI v0.3.89)
+  // This is informational only; fetch failures fall back to last-known-good.
+  ensureDonationsCardBody();
+  fetchLatestDonations();
+  setInterval(fetchLatestDonations, DONATIONS_POLL_MS);
 
 
   // Mixer hydration (v0.3.30): connect to RC WebSocket and wait for an

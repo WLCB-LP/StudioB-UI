@@ -6,13 +6,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	app "stub-mixer/internal"
@@ -48,6 +51,254 @@ func defaultConfigPath() string {
 }
 
 var version = "dev"
+
+// ---------------------------------------------------------------------
+// Latest Donations (server-side scrape)
+// ---------------------------------------------------------------------
+// Requirement (operator):
+// - The browser UI must NOT scrape directly (CORS, mixed content, security).
+// - The engine should fetch + parse, then expose a stable JSON contract.
+// - On failures, return the last-known-good results (with a stale flag).
+//
+// NOTE:
+// Today we scrape a single public WordPress page:
+//   https://lakesradio.org/support-wlcb/
+//
+// In the future, if scraping becomes fragile, this can be replaced with a
+// proper JSON feed (preferred long-term) without changing the UI contract.
+
+const donationsSourceURL = "https://lakesradio.org/support-wlcb/"
+
+type donationItem struct {
+	Name    string  `json:"name"`
+	Amount  float64 `json:"amount"`
+	Message string  `json:"message"`
+	Time    string  `json:"time"` // RFC3339
+}
+
+type donationsResponse struct {
+	Source    string         `json:"source"`          // "scrape"
+	UpdatedAt string         `json:"updated_at"`      // RFC3339
+	Stale     bool           `json:"stale"`           // true when returning cached last-good
+	Error     string         `json:"error,omitempty"` // human-readable scrape/parse error
+	Items     []donationItem `json:"items"`           // newest first
+}
+
+// donationsCache holds the last-known-good scrape.
+// We keep it process-local (in-memory) because:
+// - this is a convenience UI surface
+// - the watchdog will restart the engine if it is unhealthy
+// - we do not want to write website-derived data to disk without a clear need
+type donationsCache struct {
+	mu        sync.Mutex
+	lastGood  donationsResponse
+	hasLast   bool
+	lastFetch time.Time
+}
+
+var donations = &donationsCache{}
+
+// stripTags converts HTML into a conservative plain-text form.
+// We deliberately avoid pulling in heavy HTML parsing libs here.
+// The target page has a stable, repeated text pattern:
+//
+//	###  Name
+//	Month Day, Year
+//	(optional comment line)
+//	Amount Donated
+//	$X.XX
+func stripTags(in string) string {
+	// Remove script/style blocks first (best-effort).
+	reScript := regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	reStyle := regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	s := reScript.ReplaceAllString(in, "")
+	s = reStyle.ReplaceAllString(s, "")
+	// Convert <br> to newlines so comments don't collapse.
+	reBR := regexp.MustCompile(`(?i)<br\s*/?>`)
+	s = reBR.ReplaceAllString(s, "\n")
+	// Drop all remaining tags.
+	reTags := regexp.MustCompile(`(?s)<[^>]+>`)
+	s = reTags.ReplaceAllString(s, "\n")
+	// Decode HTML entities (&amp; etc)
+	s = html.UnescapeString(s)
+	return s
+}
+
+func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
+	// Normalize into trimmed, non-empty lines.
+	linesRaw := strings.Split(txt, "\n")
+	lines := make([]string, 0, len(linesRaw))
+	for _, l := range linesRaw {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		// Avoid the header menu etc. We only care about the repeated donation blocks.
+		lines = append(lines, l)
+	}
+
+	// Scan linearly for blocks.
+	items := make([]donationItem, 0, limit)
+	loc, _ := time.LoadLocation("America/Chicago") // best-effort
+
+	for i := 0; i < len(lines); i++ {
+		l := lines[i]
+		if !strings.HasPrefix(l, "###") {
+			continue
+		}
+		name := strings.TrimSpace(strings.TrimPrefix(l, "###"))
+		if name == "" {
+			continue
+		}
+
+		// Next non-empty line is the date.
+		j := i + 1
+		if j >= len(lines) {
+			break
+		}
+		dateStr := strings.TrimSpace(lines[j])
+		// WordPress page currently uses "January 3, 2026".
+		t, terr := time.ParseInLocation("January 2, 2006", dateStr, loc)
+		if terr != nil {
+			// If parsing fails, keep it as "now" but note in error later.
+			// We don't fail the entire scrape for one bad date.
+			t = time.Now().In(loc)
+		}
+		// We only have a date (no time). Use noon local to avoid DST edge weirdness.
+		t = time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, loc).UTC()
+
+		// Optional comment lines until "Amount Donated".
+		msg := ""
+		k := j + 1
+		for k < len(lines) {
+			if strings.EqualFold(strings.TrimSpace(lines[k]), "Amount Donated") {
+				break
+			}
+			// Some entries have no comment; in that case the next line is "Amount Donated".
+			// If a comment exists, it's usually one line.
+			if msg == "" {
+				msg = strings.TrimSpace(lines[k])
+			}
+			k++
+		}
+		if k >= len(lines) {
+			continue
+		}
+		// Amount line should follow "Amount Donated".
+		if k+1 >= len(lines) {
+			continue
+		}
+		amtStr := strings.TrimSpace(lines[k+1])
+		amtStr = strings.TrimPrefix(amtStr, "$")
+		amtStr = strings.ReplaceAll(amtStr, ",", "")
+		amt, aerr := strconv.ParseFloat(amtStr, 64)
+		if aerr != nil {
+			continue
+		}
+
+		items = append(items, donationItem{
+			Name:    name,
+			Amount:  amt,
+			Message: msg,
+			Time:    t.Format(time.RFC3339),
+		})
+
+		if len(items) >= limit {
+			break
+		}
+		// Advance i forward so we don't accidentally match nested "###" elsewhere.
+		i = k + 1
+	}
+
+	if len(items) == 0 {
+		return nil, fmt.Errorf("no donation blocks found")
+	}
+	return items, nil
+}
+
+func (c *donationsCache) getLatest(limit int) donationsResponse {
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	// Gentle rate-limit: if multiple UI clients request simultaneously,
+	// don't hammer the website. We allow a fresh fetch at most every 15 seconds.
+	c.mu.Lock()
+	tooSoon := c.lastFetch.After(time.Now().Add(-15 * time.Second))
+	lastGood := c.lastGood
+	hasLast := c.hasLast
+	c.mu.Unlock()
+
+	if tooSoon && hasLast {
+		// Return cached without marking stale.
+		out := lastGood
+		if len(out.Items) > limit {
+			out.Items = out.Items[:limit]
+		}
+		return out
+	}
+
+	client := &http.Client{Timeout: 6 * time.Second}
+	resp, err := client.Get(donationsSourceURL)
+	if err != nil {
+		return c.fallback(err, limit)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return c.fallback(fmt.Errorf("upstream status %d", resp.StatusCode), limit)
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB cap
+	if err != nil {
+		return c.fallback(err, limit)
+	}
+	text := stripTags(string(b))
+	items, err := parseDonationsFromText(text, limit)
+	if err != nil {
+		return c.fallback(err, limit)
+	}
+
+	out := donationsResponse{
+		Source:    "scrape",
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+		Stale:     false,
+		Items:     items,
+	}
+
+	c.mu.Lock()
+	c.lastGood = out
+	c.hasLast = true
+	c.lastFetch = time.Now()
+	c.mu.Unlock()
+
+	return out
+}
+
+func (c *donationsCache) fallback(err error, limit int) donationsResponse {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.lastFetch = time.Now()
+	if c.hasLast {
+		out := c.lastGood
+		out.Stale = true
+		out.Error = err.Error()
+		if len(out.Items) > limit {
+			out.Items = out.Items[:limit]
+		}
+		return out
+	}
+
+	return donationsResponse{
+		Source:    "scrape",
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+		Stale:     true,
+		Error:     err.Error(),
+		Items:     []donationItem{},
+	}
+}
 
 func main() {
 	var cfgPath string
@@ -236,6 +487,38 @@ func main() {
 			},
 			"sources": cfg.Meta,
 		})
+	})
+
+	// -----------------------------------------------------------------
+	// Latest Donations (UI card data source)
+	// -----------------------------------------------------------------
+	// Contract:
+	//   GET /api/donations/latest?limit=5
+	// Returns:
+	//   {
+	//     "source": "scrape",
+	//     "updated_at": "2026-01-13T23:15:00Z",
+	//     "stale": false,
+	//     "items": [ {"name":"...","amount":25,"message":"...","time":"..."}, ... ]
+	//   }
+	// Notes:
+	// - Server-side scrape avoids browser CORS + mixed-content issues.
+	// - On any failure, we return last-known-good with stale=true.
+	mux.HandleFunc("/api/donations/latest", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET required")
+			return
+		}
+		limit := 5
+		if s := strings.TrimSpace(r.URL.Query().Get("limit")); s != "" {
+			if v, err := strconv.Atoi(s); err == nil {
+				limit = v
+			}
+		}
+		out := donations.getLatest(limit)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(out)
 	})
 
 	// Admin config file editor (Engineering page).

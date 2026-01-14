@@ -1298,3 +1298,17 @@ main{padding:18px}
 .wd-dsp{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
 .wd-dsp__title{font-weight:600;margin-bottom:6px}
 .wd-dsp__err{margin-top:6px;padding:6px;border:1px solid rgba(255,255,255,.15);border-radius:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;white-space:pre-wrap}
+
+/* -------------------------------------------------------------------------
+   Latest Donations card (UI v0.3.89)
+   -------------------------------------------------------------------------
+   The card is created dynamically by app.js (donationsBody/donationsList).
+   Keep styling minimal so we don't fight the overall mixer layout.
+*/
+#donationsCard .donationsBody{padding:10px 12px}
+#donationsCard .donationsMeta{opacity:.8;font-size:12px;margin-bottom:8px}
+#donationsCard .donationsList{display:flex;flex-direction:column;gap:8px}
+#donationsCard .donationRow{padding:8px;border:1px solid rgba(255,255,255,.10);border-radius:10px}
+#donationsCard .donationRow--empty{opacity:.7;text-align:center}
+#donationsCard .donationLine1{font-weight:600;line-height:1.2}
+#donationsCard .donationComment{margin-top:4px;opacity:.9;font-size:13px;white-space:pre-wrap}

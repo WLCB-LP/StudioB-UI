@@ -1,3 +1,13 @@
+## v0.3.89
+- Latest Donations: populate the Studio page "Latest Donations" card from a server-side scrape.
+  - Engine: add `GET /api/donations/latest?limit=5`.
+    - Scrapes the public WLCB Support page and returns a stable JSON contract.
+    - Includes defensive parsing + a 2MB download cap.
+    - On scrape/parse failure, returns **last-known-good** results with `stale: true` and an `error` field.
+  - UI: poll the engine endpoint every 60s and render:
+    - `Name - Amount` on the first line
+    - `Comment` on the second line (when present)
+
 ## v0.3.88
 - Automute glow: eliminate "blink" while all mics are muted.
   - Engine: on transient DSP UDP poll failure, we now hard-zero **meters only**; we **do not** clobber logic/indicator RCs like **560**.
