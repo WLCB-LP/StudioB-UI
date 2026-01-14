@@ -153,6 +153,26 @@ func stripTags(in string) string {
 	return s
 }
 
+// parseMoney converts a currency-ish string into a float64.
+//
+// The donations page mixes formats depending on where the number came from:
+//   - "$10,000.00" (visible text)
+//   - "10000" or "10000.00" (data-* attributes / inline JSON)
+//   - sometimes with stray whitespace
+//
+// This helper is intentionally small and boring: strip common decoration and
+// parse as float.
+func parseMoney(s string) (float64, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "$")
+	s = strings.ReplaceAll(s, ",", "")
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty money string")
+	}
+	return strconv.ParseFloat(s, 64)
+}
+
 func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, error) {
 	// Normalize into trimmed, non-empty lines.
 	linesRaw := strings.Split(txt, "\n")
@@ -333,13 +353,6 @@ func parseGoalFromHTML(html string) (float64, error) {
 		html = html[:2<<20]
 	}
 
-	parseMoney := func(s string) (float64, error) {
-		s = strings.ReplaceAll(s, ",", "")
-		s = strings.TrimSpace(s)
-		// Some attributes omit the decimal.
-		return strconv.ParseFloat(s, 64)
-	}
-
 	// 1) Look for explicit data-goal style attributes (common in fundraising widgets).
 	// Examples we try to match:
 	//   data-goal="10000"
@@ -407,11 +420,6 @@ func parseGoalFromText(txt string) (float64, error) {
 	// We intentionally accept a few possible formats, because WordPress/GiveWP
 	// widgets can change markup without changing the visible text.
 	flat := strings.Join(strings.Fields(txt), " ")
-
-	parseMoney := func(s string) (float64, error) {
-		s = strings.ReplaceAll(s, ",", "")
-		return strconv.ParseFloat(s, 64)
-	}
 
 	// 1) If the page contains a progress string like "$X of $Y", use the second value as GOAL.
 	reOf := regexp.MustCompile(`\$([0-9][0-9,]*(?:\.[0-9]{2})?)\s+of\s+\$([0-9][0-9,]*(?:\.[0-9]{2})?)`)

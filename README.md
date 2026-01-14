@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.94
+# STUB Mixer UI (Studio B) — Release 0.3.96
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.3.96: Hotfix: fix install-time `go test` failure (missing `parseMoney` helper used by donations goal parsing).
 
 - v0.3.95: Studio (cosmetic): prevent PIL label wrap; refine AUTO/LIVE alignment; remove Speakers mute button; add WLCB Status card.
 - v0.3.95: Studio (cosmetic): removed Headphones card; moved Speakers next to PlayIt Live; donations panel expands; PIL label updated; AUTO/LIVE button aligned.

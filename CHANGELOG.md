@@ -1,3 +1,8 @@
+## v0.3.96 (2026-01-14)
+
+- Hotfix (engine): fix install-time `go test` failure (`parseMoney` helper was referenced before it existed).
+  - Adds a small shared `parseMoney()` helper and removes accidental shadowed local lambdas.
+
 ## v0.3.95 (2026-01-14)
 
 - Donations: fix "Raised" summary by computing current-year total and publishing it even when goal parsing fails.
