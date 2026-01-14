@@ -99,14 +99,25 @@ type donationsCache struct {
 var donations = &donationsCache{}
 
 // stripTags converts HTML into a conservative plain-text form.
-// We deliberately avoid pulling in heavy HTML parsing libs here.
-// The target page has a stable, repeated text pattern:
 //
-//	###  Name
-//	Month Day, Year
-//	(optional comment line)
-//	Amount Donated
-//	$X.XX
+// IMPORTANT:
+// The WordPress/GiveWP donor wall is rendered as normal HTML headings/divs.
+// When we remove tags, headings become *plain text* (e.g. "Mark Massimo"),
+// NOT markdown like "### Mark Massimo".
+//
+// Therefore, our donation parser must key off of stable textual anchors
+// that survive tag stripping. The most stable anchor on the current page is
+// the literal label:
+//   "Amount Donated"
+// followed by the amount line ("$50.00").
+//
+// Upstream example (after stripping tags into lines):
+//   MM
+//   Mark Massimo
+//   January 3, 2026
+//   Keep it coming !!!
+//   Amount Donated
+//   $50.00
 func stripTags(in string) string {
 	// Remove script/style blocks first (best-effort).
 	reScript := regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
@@ -137,64 +148,100 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 		lines = append(lines, l)
 	}
 
-	// Scan linearly for blocks.
+	// Scan for donation blocks using the "Amount Donated" anchor.
+	// This survives HTML stripping and is less fragile than DOM selectors.
 	items := make([]donationItem, 0, limit)
 	loc, _ := time.LoadLocation("America/Chicago") // best-effort
 
-	for i := 0; i < len(lines); i++ {
-		l := lines[i]
-		if !strings.HasPrefix(l, "###") {
-			continue
-		}
-		name := strings.TrimSpace(strings.TrimPrefix(l, "###"))
-		if name == "" {
+	for k := 0; k < len(lines); k++ {
+		lk := strings.TrimSpace(lines[k])
+		// The stable anchor we expect on the Support page.
+		// Some themes/plugins may add punctuation or extra whitespace, so we match
+		// as a substring rather than requiring an exact line match.
+		if !strings.Contains(strings.ToLower(lk), "amount donated") {
 			continue
 		}
 
-		// Next non-empty line is the date.
-		j := i + 1
-		if j >= len(lines) {
-			break
+		// Amount is usually the *next* line, but some layouts render it on the
+		// same line as the label.
+		amtLine := ""
+		if strings.Contains(lk, "$") {
+			amtLine = lk
+		} else if k+1 < len(lines) {
+			amtLine = strings.TrimSpace(lines[k+1])
+		} else {
+			continue
 		}
-		dateStr := strings.TrimSpace(lines[j])
-		// WordPress page currently uses "January 3, 2026".
-		t, terr := time.ParseInLocation("January 2, 2006", dateStr, loc)
-		if terr != nil {
-			// If parsing fails, keep it as "now" but note in error later.
-			// We don't fail the entire scrape for one bad date.
-			t = time.Now().In(loc)
-		}
-		// We only have a date (no time). Use noon local to avoid DST edge weirdness.
-		t = time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, loc).UTC()
 
-		// Optional comment lines until "Amount Donated".
-		msg := ""
-		k := j + 1
-		for k < len(lines) {
-			if strings.EqualFold(strings.TrimSpace(lines[k]), "Amount Donated") {
-				break
-			}
-			// Some entries have no comment; in that case the next line is "Amount Donated".
-			// If a comment exists, it's usually one line.
-			if msg == "" {
-				msg = strings.TrimSpace(lines[k])
-			}
-			k++
+		// Extract the numeric amount from whichever line we decided is the amount line.
+		amtStr := amtLine
+		if idx := strings.Index(amtStr, "$"); idx >= 0 {
+			amtStr = amtStr[idx+1:]
 		}
-		if k >= len(lines) {
-			continue
-		}
-		// Amount line should follow "Amount Donated".
-		if k+1 >= len(lines) {
-			continue
-		}
-		amtStr := strings.TrimSpace(lines[k+1])
 		amtStr = strings.TrimPrefix(amtStr, "$")
 		amtStr = strings.ReplaceAll(amtStr, ",", "")
 		amt, aerr := strconv.ParseFloat(amtStr, 64)
 		if aerr != nil {
 			continue
 		}
+
+		// Walk backwards to find the date line ("January 3, 2026").
+		dateIdx := -1
+		var t time.Time
+		for b := k - 1; b >= 0 && b >= k-12; b-- {
+			ts := strings.TrimSpace(lines[b])
+			// Be flexible: some donors walls may include extra words after the date.
+			// Example possibilities:
+			//   "January 3, 2026"
+			//   "January 3, 2026 at 5:01 pm"
+			// We parse the first 3 comma-separated tokens that match the date shape.
+			// Best-effort: if we can't parse, we keep scanning.
+			dateCandidate := ts
+			if at := strings.Index(strings.ToLower(dateCandidate), " at "); at > 0 {
+				dateCandidate = strings.TrimSpace(dateCandidate[:at])
+			}
+			pt, terr := time.ParseInLocation("January 2, 2006", dateCandidate, loc)
+			if terr == nil {
+				dateIdx = b
+				t = pt
+				break
+			}
+		}
+		if dateIdx == -1 {
+			// Can't identify this block.
+			continue
+		}
+		// We only have a date (no time). Use noon local to avoid DST edge weirdness.
+		t = time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, loc).UTC()
+
+		// Name is typically the line immediately before the date.
+		name := ""
+		if dateIdx-1 >= 0 {
+			name = strings.TrimSpace(lines[dateIdx-1])
+		}
+		if name == "" {
+			continue
+		}
+		// Ignore obvious non-name lines.
+		if strings.EqualFold(name, "Load more") || strings.EqualFold(name, "Support WLCB") {
+			continue
+		}
+
+		// Message/comment = any lines between dateIdx+1 and k-1.
+		// Join with newlines so multi-line comments survive.
+		msgParts := []string{}
+		for m := dateIdx + 1; m <= k-1; m++ {
+			v := strings.TrimSpace(lines[m])
+			if v == "" {
+				continue
+			}
+			// Defensive: skip repeated labels.
+			if strings.EqualFold(v, "Amount Donated") {
+				continue
+			}
+			msgParts = append(msgParts, v)
+		}
+		msg := strings.Join(msgParts, "\n")
 
 		items = append(items, donationItem{
 			Name:    name,
@@ -206,8 +253,10 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 		if len(items) >= limit {
 			break
 		}
-		// Advance i forward so we don't accidentally match nested "###" elsewhere.
-		i = k + 1
+		// Advance past the amount line if the amount was on the next line.
+		if amtLine != lk {
+			k = k + 1
+		}
 	}
 
 	if len(items) == 0 {

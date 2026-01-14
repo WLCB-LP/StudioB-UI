@@ -1300,7 +1300,7 @@ main{padding:18px}
 .wd-dsp__err{margin-top:6px;padding:6px;border:1px solid rgba(255,255,255,.15);border-radius:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;white-space:pre-wrap}
 
 /* -------------------------------------------------------------------------
-   Latest Donations card (UI v0.3.89)
+   Latest Donations card (UI v0.3.90)
    -------------------------------------------------------------------------
    The card is created dynamically by app.js (donationsBody/donationsList).
    Keep styling minimal so we don't fight the overall mixer layout.

@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.89";
+const UI_BUILD_VERSION = "0.3.90";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -69,7 +69,7 @@ const state = {
   },
 
   // -----------------------------------------------------------------------
-  // Latest Donations (UI v0.3.89)
+  // Latest Donations (UI v0.3.90)
   // -----------------------------------------------------------------------
   // This is populated by the engine endpoint:
   //   GET /api/donations/latest?limit=5
@@ -2903,7 +2903,7 @@ function initPlayItLiveControls(){
 
 
 // ---------------------------------------------------------------------------
-// Latest Donations (UI v0.3.89)
+// Latest Donations (UI v0.3.90)
 // ---------------------------------------------------------------------------
 // The donations card is intentionally empty in index.html (placeholder).
 // We inject a simple list at runtime so future layout updates to index.html
@@ -2911,7 +2911,9 @@ function initPlayItLiveControls(){
 //
 // Poll rate: 60s (operator asked ~30–60s; start conservative).
 // NOTE: This is read-only and safe to call even when the DSP is disconnected.
-const DONATIONS_POLL_MS = 60000;
+// Poll interval for the Latest Donations card.
+// User request (2026-01-13): 60s → 30s.
+const DONATIONS_POLL_MS = 30000;
 
 // Minimal HTML escape (defense-in-depth).
 // Even though our engine is the one scraping/parsing, we still avoid
@@ -3004,7 +3006,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // This is safe, idempotent, and provides an on-screen audit trail.
   repairLegacyStaticLabels();
 
-  // Latest Donations (UI v0.3.89)
+  // Latest Donations (UI v0.3.90)
   // This is informational only; fetch failures fall back to last-known-good.
   ensureDonationsCardBody();
   fetchLatestDonations();

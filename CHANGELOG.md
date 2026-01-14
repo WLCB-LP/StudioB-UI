@@ -8,6 +8,12 @@
     - `Name - Amount` on the first line
     - `Comment` on the second line (when present)
 
+## v0.3.90
+- Latest Donations: fix scrape parser to match real HTML output of the WLCB Support page.
+  - Engine: donation entries are now detected using the stable text anchor **"Amount Donated"** (instead of relying on markdown-like "###" headings, which do not exist in the raw HTML).
+  - Engine: amount parsing is more flexible (supports "$50.00" on the next line **or** on the same line as the label).
+  - UI: poll interval changed from **60s → 30s**.
+
 ## v0.3.88
 - Automute glow: eliminate "blink" while all mics are muted.
   - Engine: on transient DSP UDP poll failure, we now hard-zero **meters only**; we **do not** clobber logic/indicator RCs like **560**.
