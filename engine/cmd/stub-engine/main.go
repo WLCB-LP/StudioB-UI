@@ -339,6 +339,29 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, err
 //
 // This is best-effort and intentionally tolerant of multiple formats.
 func parseGoalFromHTML(html string) (float64, error) {
+	// GiveWP (lakesradio.org) goal widget selector (stable and explicit).
+	// The page source contains paired spans like:
+	//   <span class="givewp-layouts-goal_stats-panel_stat-value">$10,000.00</span>
+	//   <span class="givewp-layouts-goal_stats-panel_stat-label">Goal</span>
+	//
+	// We prefer this over heuristics because it is deterministic and survives
+	// changes to other parts of the page.
+	//
+	// We support both possible orders (value then label, or label then value)
+	// just in case the theme changes markup.
+	reGivewpValueThenLabel := regexp.MustCompile(`(?is)<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-value[^"]*"[^>]*>\s*([^<]+?)\s*</span>\s*<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-label[^"]*"[^>]*>\s*Goal\s*</span>`)
+	if m := reGivewpValueThenLabel.FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+	reGivewpLabelThenValue := regexp.MustCompile(`(?is)<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-label[^"]*"[^>]*>\s*Goal\s*</span>\s*<span[^>]*class="[^"]*givewp-layouts-goal_stats-panel_stat-value[^"]*"[^>]*>\s*([^<]+?)\s*</span>`)
+	if m := reGivewpLabelThenValue.FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
 	// Strong, theme-agnostic capture:
 	// Many donation widgets include a literal "... $10,000.00 Goal ..." string in the HTML.
 	// We capture the first "$X Goal" we find. This is typically the campaign goal.

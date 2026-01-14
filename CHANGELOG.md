@@ -1,3 +1,8 @@
+## v0.3.98 (2026-01-14)
+
+- Donations (engine): scrape campaign GOAL deterministically from the GiveWP goal stats widget (`givewp-layouts-goal_stats-panel_stat-*` spans labeled "Goal") on lakesradio.org.
+- Donations (UI): center the "Raised $X of $Y for YEAR" progress line.
+
 ## v0.3.97 (2026-01-14)
 
 - Donations (UI): render progress in the same visual style as donation rows (matching font size/weight).
