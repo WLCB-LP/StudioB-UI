@@ -2948,6 +2948,9 @@ function escapeHTML(s){
 // for donation data.
 const DONATION_FLASH_MS = 10 * 60 * 1000; // 10 minutes
 const DONATION_SEEN_KEY = 'wlcb_donations_seen_v1';
+// When false, the first successful fetch marks all currently-visible donations as "already seen"
+// (no flashing). Only donations that appear AFTER bootstrap are considered "new".
+const DONATION_BOOTSTRAP_KEY = 'wlcb_donations_bootstrap_v1';
 
 function donationId(it){
   // Prefer time when available; it makes collisions extremely unlikely.
@@ -2983,22 +2986,49 @@ function markDonationsSeen(items){
   const seen = loadSeenMap();
   let changed = false;
 
+  // BOOTSTRAP BEHAVIOR (important):
+  // On the very first successful donations fetch after a browser load (or after
+  // localStorage is cleared), we do NOT want the existing list to flash yellow.
+  // Operators should ONLY see flashing when something is truly new.
+  //
+  // We implement this by:
+  // - If bootstrap flag is not set, mark ALL currently returned items as seen
+  //   *outside* the flash window (so they won't flash).
+  // - Then set the bootstrap flag.
+  //
+  // After bootstrap:
+  // - Any newly observed donation gets a firstSeen timestamp of "now" and will
+  //   flash for DONATION_FLASH_MS.
+  let bootstrapped = false;
+  try{
+    bootstrapped = (localStorage.getItem(DONATION_BOOTSTRAP_KEY) === '1');
+  }catch(_e){
+    // If storage fails, behave as bootstrapped to avoid flashing everything.
+    bootstrapped = true;
+  }
+
+  const initialSeenTs = now - (DONATION_FLASH_MS + 1000); // safely outside flash window
+
   (items||[]).forEach(it=>{
     const id = donationId(it);
     if(!id) return;
     if(!(id in seen)){
-      seen[id] = now;
-      changed = true
+      seen[id] = bootstrapped ? now : initialSeenTs;
+      changed = true;
     }
   });
 
-  // Garbage-collect: remove entries older than 24h to prevent unbounded growth.
+  // Trim old entries so localStorage doesn't grow forever.
   const cutoff = now - (24*60*60*1000);
   for(const k in seen){
     if(seen[k] < cutoff){
       delete seen[k];
       changed = true;
     }
+  }
+
+  if(!bootstrapped){
+    try{ localStorage.setItem(DONATION_BOOTSTRAP_KEY, '1'); }catch(_e){}
   }
 
   if(changed) saveSeenMap(seen);

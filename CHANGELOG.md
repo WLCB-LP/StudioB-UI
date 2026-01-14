@@ -1,3 +1,8 @@
+## v0.3.95 (2026-01-14)
+
+- Donations: fix "Raised" summary by computing current-year total and publishing it even when goal parsing fails.
+- Donations: make goal parsing more robust by capturing "$X Goal" from raw HTML/text.
+- Donations: only flash truly new donations (bootstrap existing list as already-seen).
 ## v0.3.94
 
 - Latest Donations (UI): fix a runtime ReferenceError (`trackNewDonations is not defined`) introduced in v0.3.93.

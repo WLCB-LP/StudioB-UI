@@ -26,62 +26,62 @@ Run:
 
 ## Notes
 
-- v0.3.61: Studio (cosmetic): prevent PIL label wrap; refine AUTO/LIVE alignment; remove Speakers mute button; add WLCB Status card.
-- v0.3.60: Studio (cosmetic): removed Headphones card; moved Speakers next to PlayIt Live; donations panel expands; PIL label updated; AUTO/LIVE button aligned.
-- v0.3.48: Fix: Engine build regression in PlayIt Live proxy handler (compile/tests pass again).
-- v0.3.41: UI-only: Shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
+- v0.3.95: Studio (cosmetic): prevent PIL label wrap; refine AUTO/LIVE alignment; remove Speakers mute button; add WLCB Status card.
+- v0.3.95: Studio (cosmetic): removed Headphones card; moved Speakers next to PlayIt Live; donations panel expands; PIL label updated; AUTO/LIVE button aligned.
+- v0.3.95: Fix: Engine build regression in PlayIt Live proxy handler (compile/tests pass again).
+- v0.3.95: UI-only: Shrink fader strip vertical sizing so both top+bottom rows fit on 1920×1080 without scrolling.
 
-- v0.3.40: Hotfix: Studio page can omit the lower panels without breaking hydration. Guarded missing DOM elements (Reconnect / Test DSP buttons) so the UI doesn't throw and stall on "Connecting".
-- v0.3.39: UI-only: Studio page becomes a dedicated **two-row fader console**. Added a top fader row with placeholders for **PIL / Headphones / Program** and a LIVE **Speakers** fader+mute (RC **160/161**). Removed the lower Studio-page panels (speakers slider, DSP health, meters) to keep the console uncluttered.
-- v0.3.37: UI-only: Mixer layout — all inter-group gaps are now **uniform fixed width** (including PC↔Zoom). Any extra horizontal room is left as unused edge space.
-- v0.3.36: UI-only: Layout polish — tightened inter-group gaps and added a small PC↔Zoom separation while preserving **no scrolling** and **no vertical stacking**.
-- v0.3.34: UI-only: Mixer fader bank regrouped with **elastic gaps** so cards stay in a single row with **no scrolling** and **no vertical stacking**:
+- v0.3.95: Hotfix: Studio page can omit the lower panels without breaking hydration. Guarded missing DOM elements (Reconnect / Test DSP buttons) so the UI doesn't throw and stall on "Connecting".
+- v0.3.95: UI-only: Studio page becomes a dedicated **two-row fader console**. Added a top fader row with placeholders for **PIL / Headphones / Program** and a LIVE **Speakers** fader+mute (RC **160/161**). Removed the lower Studio-page panels (speakers slider, DSP health, meters) to keep the console uncluttered.
+- v0.3.95: UI-only: Mixer layout — all inter-group gaps are now **uniform fixed width** (including PC↔Zoom). Any extra horizontal room is left as unused edge space.
+- v0.3.95: UI-only: Layout polish — tightened inter-group gaps and added a small PC↔Zoom separation while preserving **no scrolling** and **no vertical stacking**.
+- v0.3.95: UI-only: Mixer fader bank regrouped with **elastic gaps** so cards stay in a single row with **no scrolling** and **no vertical stacking**:
   `Mic×4  | gap | CD×2 | gap | AUX | gap | BT | gap | PC+Zoom`.
 
-- v0.3.33: UI-only (superseded by v0.3.34): initial attempt to spread groups; could cause stereo cards to stack vertically.
+- v0.3.95: UI-only (superseded by v0.3.95): initial attempt to spread groups; could cause stereo cards to stack vertically.
 
-- v0.3.32: UI-only: stereo sources now show **dual VU placeholders** (L+R) behind the fader lane; UI build version is kept in sync with `VERSION`.
+- v0.3.95: UI-only: stereo sources now show **dual VU placeholders** (L+R) behind the fader lane; UI build version is kept in sync with `VERSION`.
 
-- v0.3.14: Studio mixer faders updated with a **glass handle** (meters visible through) and added **level markers** on the per-channel VU lanes.
-- v0.3.15: Studio mixer visual **blue neon skin** pass (dark, flashy, high-tech) — scoped to mixer only; no behavior changes.
-- v0.3.22: Installer health checks are **retry-based** (tolerant of slow restarts) and print `systemctl/journalctl` diagnostics on failure.
-- v0.3.23: rc_allowlist repair is **mawk-safe** (POSIX awk) to avoid install-time awk syntax errors.
-- v0.3.26: Studio mixer (historical): fader positions were **persisted in the browser** (localStorage) to survive reloads. (Superseded by v0.3.30 DSP/engine-authoritative hydration.)
-- v0.3.27: Studio mixer: add source channel faders (CD1/CD2 grouped, AUX/Bluetooth/PC/Zoom individual cards).
-- v0.3.20: Installer/update **self-repairs rc_allowlist** to include fader RCs **101–110** so gain writes are not blocked.
-- v0.3.19: Studio mixer: **Host fader now writes gain** to **RC 101** (phased rollout; others remain visual-only).
-- v0.3.18: Studio mixer polish: stronger **muted neon red border** + slightly brighter **live green fill** (visual-only).
-- v0.3.16: Studio mixer **tactile polish**: grabby fader feedback + neon MUTE states (green/live, red/muted) + clearer 0/-12 reference marks.
-- v0.3.13: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **RC-backed MUTE buttons** (operator intent only; faders are visual-only for now).
-- v0.3.12: Engineering now includes a **Recent Runtime Events** UI-only timeline to provide "When did this change?" context (engine connect/disconnect, engine version/mode changes, DSP health transitions, persisted config loads/saves, and runtime override changes).
+- v0.3.95: Studio mixer faders updated with a **glass handle** (meters visible through) and added **level markers** on the per-channel VU lanes.
+- v0.3.95: Studio mixer visual **blue neon skin** pass (dark, flashy, high-tech) — scoped to mixer only; no behavior changes.
+- v0.3.95: Installer health checks are **retry-based** (tolerant of slow restarts) and print `systemctl/journalctl` diagnostics on failure.
+- v0.3.95: rc_allowlist repair is **mawk-safe** (POSIX awk) to avoid install-time awk syntax errors.
+- v0.3.95: Studio mixer (historical): fader positions were **persisted in the browser** (localStorage) to survive reloads. (Superseded by v0.3.95 DSP/engine-authoritative hydration.)
+- v0.3.95: Studio mixer: add source channel faders (CD1/CD2 grouped, AUX/Bluetooth/PC/Zoom individual cards).
+- v0.3.95: Installer/update **self-repairs rc_allowlist** to include fader RCs **101–110** so gain writes are not blocked.
+- v0.3.95: Studio mixer: **Host fader now writes gain** to **RC 101** (phased rollout; others remain visual-only).
+- v0.3.95: Studio mixer polish: stronger **muted neon red border** + slightly brighter **live green fill** (visual-only).
+- v0.3.95: Studio mixer **tactile polish**: grabby fader feedback + neon MUTE states (green/live, red/muted) + clearer 0/-12 reference marks.
+- v0.3.95: Studio page now includes a **touch-first mixer strip prototype** (4 channels) with multitouch-style fader lanes and **RC-backed MUTE buttons** (operator intent only; faders are visual-only for now).
+- v0.3.95: Engineering now includes a **Recent Runtime Events** UI-only timeline to provide "When did this change?" context (engine connect/disconnect, engine version/mode changes, DSP health transitions, persisted config loads/saves, and runtime override changes).
 
-- v0.3.11: Fix: Header **Update** pill tooltip could still claim "Update available" when the system was up to date. The pill is now always visible as a shortcut to Engineering, and its tooltip/styling are driven only by normalized UI version comparisons (ignoring older engine booleans).
+- v0.3.95: Fix: Header **Update** pill tooltip could still claim "Update available" when the system was up to date. The pill is now always visible as a shortcut to Engineering, and its tooltip/styling are driven only by normalized UI version comparisons (ignoring older engine booleans).
 
-- v0.3.10: Fix sticky "Update available" tooltip/pill when backend versions are formatted differently (e.g. `v0.3.09` vs `0.3.09`) or an older engine sets `updateAvailable=true` incorrectly.
-- v0.3.08: Runtime override badge now includes a tooltip explaining likely source (watchdog vs engine/runtime).
-- v0.3.07: Engineering page clarifies persisted vs runtime mode (label + runtime override badge).
-- v0.3.06: Engineering page config loads reliably after refresh; header shows both UI and engine versions.
-- v0.3.04: Fixes a regression where DSP write mode could fail to persist across refresh/restart if a prior release wrote the mode to the deprecated top-level `mode` field (we now migrate it into `dsp.mode`).
-- v0.3.03: Fixes an install-time build failure (`go test`) in the `/api/health` handler (invalid nil check + wrong DSP mode field name).
-- v0.3.01: Fixes a UI refresh issue where Engineering could show `mock (default)` even when the engine's **desired** DSP write mode is `live`. `/api/config` now reports the engine's desired mode, avoiding confusing "flip back to mock" displays after refresh.
-- v0.3.02: Fixes an install-time build failure (`go test`) caused by an unused variable in the config loader warning path.
-- v0.2.99: Fixes a v0.2.98 build failure (missing `DSPHealthSnapshot()` compatibility shim) and keeps deprecated top-level `mode` in sync with `dsp.mode` when saving config to avoid apparent “reverts” after refresh.
+- v0.3.95: Fix sticky "Update available" tooltip/pill when backend versions are formatted differently (e.g. `v0.3.95` vs `0.3.09`) or an older engine sets `updateAvailable=true` incorrectly.
+- v0.3.95: Runtime override badge now includes a tooltip explaining likely source (watchdog vs engine/runtime).
+- v0.3.95: Engineering page clarifies persisted vs runtime mode (label + runtime override badge).
+- v0.3.95: Engineering page config loads reliably after refresh; header shows both UI and engine versions.
+- v0.3.95: Fixes a regression where DSP write mode could fail to persist across refresh/restart if a prior release wrote the mode to the deprecated top-level `mode` field (we now migrate it into `dsp.mode`).
+- v0.3.95: Fixes an install-time build failure (`go test`) in the `/api/health` handler (invalid nil check + wrong DSP mode field name).
+- v0.3.95: Fixes a UI refresh issue where Engineering could show `mock (default)` even when the engine's **desired** DSP write mode is `live`. `/api/config` now reports the engine's desired mode, avoiding confusing "flip back to mock" displays after refresh.
+- v0.3.95: Fixes an install-time build failure (`go test`) caused by an unused variable in the config loader warning path.
+- v0.3.95: Fixes a v0.3.95 build failure (missing `DSPHealthSnapshot()` compatibility shim) and keeps deprecated top-level `mode` in sync with `dsp.mode` when saving config to avoid apparent “reverts” after refresh.
 
-- v0.2.98: Fixes unresponsive UI controls (JS syntax error), keeps “DSP Writes”/active mode accurate after refresh, and loads the effective config into the Engineering form without requiring a PIN.
+- v0.3.95: Fixes unresponsive UI controls (JS syntax error), keeps “DSP Writes”/active mode accurate after refresh, and loads the effective config into the Engineering form without requiring a PIN.
 
-- v0.2.96: Engineering UI hardening — auto-load the saved config into the Engineering → Configuration form after a browser refresh (avoids the misleading "mock (default)" placeholder state).
-- v0.2.94: **Hardening change:** `/api/health` and `/api/version` now derive `desiredWriteMode`/`dspWriteMode` strictly from the loaded YAML config (no DSP-health locks). This prevents curl timeouts/"Empty reply" symptoms in LIVE mode and gives the watchdog a deterministic, fast endpoint.
-- v0.2.92: Fixes a config precedence bug where a stale `~/.StudioB-UI/config.json` could override a newer `config.v1` and keep the engine in `mock` mode. YAML now wins when it is newer, and the engine syncs JSON to match.
-- v0.2.91: Fixes installer build/test failure caused by a `yamlPath` variable typo in `engine/internal/config.go` (no behavior change).
+- v0.3.95: Engineering UI hardening — auto-load the saved config into the Engineering → Configuration form after a browser refresh (avoids the misleading "mock (default)" placeholder state).
+- v0.3.95: **Hardening change:** `/api/health` and `/api/version` now derive `desiredWriteMode`/`dspWriteMode` strictly from the loaded YAML config (no DSP-health locks). This prevents curl timeouts/"Empty reply" symptoms in LIVE mode and gives the watchdog a deterministic, fast endpoint.
+- v0.3.95: Fixes a config precedence bug where a stale `~/.StudioB-UI/config.json` could override a newer `config.v1` and keep the engine in `mock` mode. YAML now wins when it is newer, and the engine syncs JSON to match.
+- v0.3.95: Fixes installer build/test failure caused by a `yamlPath` variable typo in `engine/internal/config.go` (no behavior change).
 - Update UI: When an in-app **Update** completes, the Engineering page now **auto-reloads the UI (cache-busted)**. The “Refresh now” button is still provided as a fallback.
-- v0.2.88: Engineering surfaces **engine restart-required** state more clearly, and provides a
+- v0.3.95: Engineering surfaces **engine restart-required** state more clearly, and provides a
   one-click **Restart engine now** button (admin-only) so you don't have to manually refresh while
   testing mode changes.
 - DSP control protocol is intentionally gated ("mock mode") until Engineering explicitly enables writes.
-- v0.2.86: Speaker Mute is plumbed through the explicit **intent** path:
+- v0.3.95: Speaker Mute is plumbed through the explicit **intent** path:
   UI → intent → engine → (DSP write gate).
   - Intents are append-logged to: `~/.StudioB-UI/state/intents.jsonl`
-- v0.2.76: Speaker Mute can now perform a **real DSP write** when `dsp.mode=live`.
+- v0.3.95: Speaker Mute can now perform a **real DSP write** when `dsp.mode=live`.
 - The engine uses the Symetrix SymNet Composer control protocol (port 48631).
   - Control writes prefer **TCP** (clear ACK/NAK semantics).
   - Meter polling uses **UDP** by default to avoid TCP session resets observed on some DSPs.
@@ -118,7 +118,7 @@ Run:
 This repo is configured to auto-create GitHub Releases using Release Please.
 
 - Merging to `main` updates (or opens) a Release PR.
-- Merging the Release PR tags the repo (e.g. `v0.2.24`) and triggers an Actions workflow that builds and uploads `StudioB-UI_vX.Y.Z.zip` to the GitHub Release.
+- Merging the Release PR tags the repo (e.g. `v0.3.95`) and triggers an Actions workflow that builds and uploads `StudioB-UI_vX.Y.Z.zip` to the GitHub Release.
 
 The StudioB-UI engine can check GitHub once per minute for `releases/latest` and queue the newest ZIP into the watched `tmp/` folder.
 
@@ -140,7 +140,7 @@ Adds inline visibility of watchdog restart reasons tied to systemd service statu
 Shows systemd "Active:" line and SubState for stub-ui-watchdog verbatim in the Engineering UI. Visibility-only.
 
 ### Release 0.2.41
-Fixes a UI JavaScript syntax error that prevented navigation after v0.2.40.
+Fixes a UI JavaScript syntax error that prevented navigation after v0.3.95.
 
 ### Release 0.2.42
 Adds operator-visible DSP connection health detection. The system warns on stale or disconnected DSP links but does not perform automatic reconnects.
@@ -158,13 +158,13 @@ Adds an operator safety gate: if DSP health is Disconnected, DSP control actions
 Adds defense-in-depth: the engine refuses DSP control commands when DSP health is DISCONNECTED (in live mode). Also adds read-only DSP health and an explicit manual DSP connectivity test endpoint. No polling or auto-repair.
 
 ### Release 0.2.47
-Hotfix for v0.2.46 build failure. Restores successful engine compilation and keeps DSP server-side guard behavior unchanged.
+Hotfix for v0.3.95 build failure. Restores successful engine compilation and keeps DSP server-side guard behavior unchanged.
 
 ### Release 0.2.48
 Wires the operator-controlled 'Test DSP Now' to the engine and displays DSP health + a recent timeline. Also adds defense-in-depth: UI and engine both block control commands when DSP is DISCONNECTED. DSP network traffic occurs only on explicit tests.
 
 ### Release 0.2.49
-Hotfix for v0.2.48 build failure (invalid escaped quotes in Go source). No functional changes.
+Hotfix for v0.3.95 build failure (invalid escaped quotes in Go source). No functional changes.
 
 ### Release 0.2.50
 Hotfix for mock-mode workflows: manual 'Test DSP Now' now returns immediately without any network calls. UI also enforces a strict timeout so it never stays stuck on 'Testing…'.
@@ -234,23 +234,23 @@ All actions remain explicit and operator-driven.
 Fixes a mismatch where Engineering config could be saved but the running engine stayed in the old mode until restart. The engine now applies the validated config in-memory after a successful save, and LIVE transition warnings appear immediately when switching to live.
 
 ### Release 0.2.59
-Hotfix for v0.2.58 compilation errors. Keeps the intended behavior: applying saved config to the running engine without restart.
+Hotfix for v0.3.95 compilation errors. Keeps the intended behavior: applying saved config to the running engine without restart.
 
 ### Release 0.2.60
-Hotfix for v0.2.59 compilation errors. Keeps intended behavior: config Save applies immediately to the running engine.
+Hotfix for v0.3.95 compilation errors. Keeps intended behavior: config Save applies immediately to the running engine.
 
 ### Release 0.2.61
 - Adds an always-on, read-only DSP monitor loop so the UI continuously reflects DSP reachability.
 - Saving config.yml hot-reloads the engine and API endpoints now reflect the active config immediately.
 
 ### Release 0.2.62
-Hotfix for v0.2.61 build failure. Adds the missing always-on DSP monitor loop implementation and removes an unused import so the engine builds cleanly.
+Hotfix for v0.3.95 build failure. Adds the missing always-on DSP monitor loop implementation and removes an unused import so the engine builds cleanly.
 
 ### Release 0.2.63
-Hotfix for v0.2.62 compilation issue. The DSP monitor loop now receives the engine context when started.
+Hotfix for v0.3.95 compilation issue. The DSP monitor loop now receives the engine context when started.
 
 ### Release 0.2.64
-Hotfix for v0.2.63 compilation error (undefined ctx). The DSP monitor loop no longer depends on a context and runs for the lifetime of the engine process under systemd.
+Hotfix for v0.3.95 compilation error (undefined ctx). The DSP monitor loop no longer depends on a context and runs for the lifetime of the engine process under systemd.
 
 ### Release 0.2.65
 Fixes a UI regression where DSP connectivity did not appear to update because the UI only refreshed DSP health on manual actions. The UI now polls /api/dsp/health on a short interval so the continuously updated engine-side DSP monitor status is visible.
@@ -262,7 +262,7 @@ Adds an explicit 'Enter LIVE Mode' action that enables DSP control writes only a
 Implements Option 1: the system connects/monitors DSP on startup and allows DSP control writes immediately when config dsp.mode is set to 'live' (no additional operator arming step).
 
 ### Release 0.2.68
-Hotfix for v0.2.67: fixes a JavaScript syntax error that prevented the UI from initializing (buttons unresponsive). Option 1 behavior remains unchanged.
+Hotfix for v0.3.95: fixes a JavaScript syntax error that prevented the UI from initializing (buttons unresponsive). Option 1 behavior remains unchanged.
 
 ### Release 0.2.69
 UI clarity update. The header now shows Engine mode separately from DSP connectivity state and DSP write mode, so operators can distinguish simulation state from real DSP connection/controls.

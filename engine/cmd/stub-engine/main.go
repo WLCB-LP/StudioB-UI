@@ -319,6 +319,15 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, err
 //
 // This is best-effort and intentionally tolerant of multiple formats.
 func parseGoalFromHTML(html string) (float64, error) {
+	// Strong, theme-agnostic capture:
+	// Many donation widgets include a literal "... $10,000.00 Goal ..." string in the HTML.
+	// We capture the first "$X Goal" we find. This is typically the campaign goal.
+	if m := regexp.MustCompile(`\$\s*([0-9][0-9,]*\.?[0-9]{0,2})\s*Goal`).FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
 	// Keep the search space reasonable.
 	if len(html) > 2<<20 {
 		html = html[:2<<20]
@@ -383,6 +392,14 @@ func parseGoalFromHTML(html string) (float64, error) {
 // - If it fails, we still return the donations list.
 // - The cache preserves the last-known-good summary.
 func parseGoalFromText(txt string) (float64, error) {
+	// Strong capture for the common plain-text pattern:
+	//   "$10,000.00 Goal"
+	if m := regexp.MustCompile(`\$\s*([0-9][0-9,]*\.?[0-9]{0,2})\s*Goal`).FindStringSubmatch(txt); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
 	// We only need the GOAL from the campaign widget/page.
 	// The "Raised" number will be computed as the sum of current-year donations
 	// from the donor wall list itself (see parseDonationsFromText).
@@ -476,6 +493,11 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 	}
 	if goalErr != nil {
 		log.Printf("donations: goal parse failed: %v", goalErr)
+		// Still publish RAISED if we were able to compute it.
+		// The UI will show "Raised $X" when Goal is missing/zero.
+		if raisedThisYear > 0 {
+			summary = &donationSummary{Raised: raisedThisYear, Goal: 0, Currency: "USD"}
+		}
 	} else {
 		summary = &donationSummary{Raised: raisedThisYear, Goal: goal, Currency: "USD"}
 	}
