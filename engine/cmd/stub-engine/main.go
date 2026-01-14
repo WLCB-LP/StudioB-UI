@@ -388,6 +388,46 @@ func parseGoalFromHTML(html string) (float64, error) {
 	return 0, fmt.Errorf("goal not found in html")
 }
 
+// parseGoalByMaxDollar is a LAST-RESORT heuristic to recover the campaign GOAL
+// when the widget stores it in an unexpected format.
+//
+// Why this exists:
+// - WordPress fundraising plugins sometimes change markup without warning.
+// - We already have several "exact" parsers (data-* fields, JSON-ish fields,
+//   "$X Goal" text).
+// - If all of those fail, operators still want to see "Raised $X of $Y".
+//
+// Heuristic:
+// - Scan the raw HTML for all "$<number>" occurrences.
+// - Pick the *largest* value that is >= minExpected.
+// - Also require it to be reasonably large (>= $100) so a single generous
+//   donation doesn't accidentally become the "goal".
+//
+// This is intentionally conservative. If it can't find a plausible goal,
+// it returns an error and the UI falls back to showing only "Raised $X".
+func parseGoalByMaxDollar(html string, minExpected float64) (float64, error) {
+	re := regexp.MustCompile(`\$\s*([0-9][0-9,]*(?:\.[0-9]{2})?)`)
+	matches := re.FindAllStringSubmatch(html, -1)
+	max := 0.0
+	for _, m := range matches {
+		if len(m) != 2 {
+			continue
+		}
+		v, err := parseMoney(m[1])
+		if err != nil {
+			continue
+		}
+		if v > max {
+			max = v
+		}
+	}
+	// Require a plausible size so we don't treat a $100 donation as the "goal".
+	if max >= 100 && max >= minExpected {
+		return max, nil
+	}
+	return 0, fmt.Errorf("no plausible goal found (max=$%.2f, minExpected=$%.2f)", max, minExpected)
+}
+
 // parseGoalFromText extracts the campaign GOAL amount from the website text.
 // shown near the donation form.
 //
@@ -498,6 +538,12 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if goalErr != nil {
 		// Fall back to stripped-text parsing (older themes may render the goal as plain text).
 		goal, goalErr = parseGoalFromText(text)
+	}
+	if goalErr != nil {
+		// Final fallback: heuristic scan for the largest "$X" value in the raw HTML.
+		// We constrain it by the computed raisedThisYear so we don't accidentally
+		// treat a single donation as the goal.
+		goal, goalErr = parseGoalByMaxDollar(string(b), raisedThisYear)
 	}
 	if goalErr != nil {
 		log.Printf("donations: goal parse failed: %v", goalErr)

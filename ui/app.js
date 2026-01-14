@@ -3071,26 +3071,33 @@ function renderLatestDonations(){
   if(!meta || !list) return;
 
   // Operator request (2026-01-13): remove the "Updated" timestamp and replace
-  // it with the fundraiser progress that is shown on the website.
-  // Example:
-  //   Raised $5,295.85 of $10,000.00
-  // We still append STALE and error diagnostics when applicable.
+  // it with fundraiser progress.
+  // Requested format (2026-01-13):
+  //   Raised $<raised_amount> of $<goal_amount> for <current_year>
+  //
+  // Notes:
+  // - raised/goal come from the engine's scrape/compute summary
+  // - current_year is derived client-side for display (simple + stable)
+  // - we still append STALE and error diagnostics when applicable.
   let summaryText = '';
+  const currentYear = (new Date()).getFullYear();
   const s = state.donations.summary;
   if(s && typeof s.raised === 'number'){
     // Use Intl if available (it is on modern browsers); fallback to fixed.
     try{
       const fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: (s.currency || 'USD') });
       if(typeof s.goal === 'number' && s.goal > 0){
-        summaryText = `Raised ${fmt.format(s.raised)} of ${fmt.format(s.goal)}`;
+        summaryText = `Raised ${fmt.format(s.raised)} of ${fmt.format(s.goal)} for ${currentYear}`;
       }else{
-        summaryText = `Raised ${fmt.format(s.raised)}`;
+        // If goal is temporarily unavailable, still show the raised number
+        // so operators have *some* fundraising feedback.
+        summaryText = `Raised ${fmt.format(s.raised)} for ${currentYear}`;
       }
     }catch(_e){
       if(typeof s.goal === 'number' && s.goal > 0){
-        summaryText = `Raised $${s.raised.toFixed(2)} of $${s.goal.toFixed(2)}`;
+        summaryText = `Raised $${s.raised.toFixed(2)} of $${s.goal.toFixed(2)} for ${currentYear}`;
       }else{
-        summaryText = `Raised $${s.raised.toFixed(2)}`;
+        summaryText = `Raised $${s.raised.toFixed(2)} for ${currentYear}`;
       }
     }
   }

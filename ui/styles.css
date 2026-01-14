@@ -1306,7 +1306,9 @@ main{padding:18px}
    Keep styling minimal so we don't fight the overall mixer layout.
 */
 #donationsCard .donationsBody{padding:10px 12px}
-#donationsCard .donationsMeta{opacity:.8;font-size:12px;margin-bottom:8px}
+/* Make the progress line look like "real" data (same weight/size as names/amounts)
+   instead of a small metadata timestamp. (UI v0.3.97) */
+#donationsCard .donationsMeta{opacity:1;font-size:inherit;font-weight:600;line-height:1.2;margin-bottom:8px}
 #donationsCard .donationsList{display:flex;flex-direction:column;gap:8px}
 #donationsCard .donationRow{padding:8px;border:1px solid rgba(255,255,255,.10);border-radius:10px}
 #donationsCard .donationRow--empty{opacity:.7;text-align:center}

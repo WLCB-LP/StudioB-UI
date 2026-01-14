@@ -1,3 +1,9 @@
+## v0.3.97 (2026-01-14)
+
+- Donations (UI): render progress in the same visual style as donation rows (matching font size/weight).
+- Donations (UI): requested string format now includes the year: `Raised $X of $Y for YEAR` (falls back to `Raised $X for YEAR` if goal is unavailable).
+- Donations (engine): add a conservative last-resort goal parser that selects the largest "$X" in raw HTML constrained by the computed raised total (helps recover the campaign goal when the widget markup changes).
+
 ## v0.3.96 (2026-01-14)
 
 - Hotfix (engine): fix install-time `go test` failure (`parseMoney` helper was referenced before it existed).

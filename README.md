@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.3.96
+# STUB Mixer UI (Studio B) — Release 0.3.97
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -26,7 +26,7 @@ Run:
 
 ## Notes
 
-- v0.3.96: Hotfix: fix install-time `go test` failure (missing `parseMoney` helper used by donations goal parsing).
+- v0.3.97: Donations UI polish: make the "Raised" line visually match donation rows, and show "Raised $X of $Y for YEAR" when goal is available (with a conservative goal-scrape heuristic fallback).
 
 - v0.3.95: Studio (cosmetic): prevent PIL label wrap; refine AUTO/LIVE alignment; remove Speakers mute button; add WLCB Status card.
 - v0.3.95: Studio (cosmetic): removed Headphones card; moved Speakers next to PlayIt Live; donations panel expands; PIL label updated; AUTO/LIVE button aligned.
