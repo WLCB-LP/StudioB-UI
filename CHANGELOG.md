@@ -1,3 +1,14 @@
+## v0.3.91
+- Latest Donations: replace the "Updated" timestamp line with fundraiser progress.
+  - Engine: scrape + return `summary.raised` and `summary.goal` (USD) from the same Support WLCB page.
+  - UI: render `Raised $X of $Y` (and still append `STALE` + `error` when applicable).
+
+## v0.3.90
+- Latest Donations: fix scrape parser to match real HTML output of the WLCB Support page.
+  - Engine: donation entries are now detected using the stable text anchor **"Amount Donated"** (instead of relying on markdown-like "###" headings, which do not exist in the raw HTML).
+  - Engine: amount parsing is more flexible (supports "$50.00" on the next line **or** on the same line as the label).
+  - UI: poll interval changed from **60s → 30s**.
+
 ## v0.3.89
 - Latest Donations: populate the Studio page "Latest Donations" card from a server-side scrape.
   - Engine: add `GET /api/donations/latest?limit=5`.
@@ -7,12 +18,6 @@
   - UI: poll the engine endpoint every 60s and render:
     - `Name - Amount` on the first line
     - `Comment` on the second line (when present)
-
-## v0.3.90
-- Latest Donations: fix scrape parser to match real HTML output of the WLCB Support page.
-  - Engine: donation entries are now detected using the stable text anchor **"Amount Donated"** (instead of relying on markdown-like "###" headings, which do not exist in the raw HTML).
-  - Engine: amount parsing is more flexible (supports "$50.00" on the next line **or** on the same line as the label).
-  - UI: poll interval changed from **60s → 30s**.
 
 ## v0.3.88
 - Automute glow: eliminate "blink" while all mics are muted.

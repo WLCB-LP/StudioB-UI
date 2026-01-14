@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.3.90";
+const UI_BUILD_VERSION = "0.3.91";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -69,7 +69,7 @@ const state = {
   },
 
   // -----------------------------------------------------------------------
-  // Latest Donations (UI v0.3.90)
+  // Latest Donations (UI v0.3.91)
   // -----------------------------------------------------------------------
   // This is populated by the engine endpoint:
   //   GET /api/donations/latest?limit=5
@@ -80,6 +80,9 @@ const state = {
   // - Provides a stable JSON contract even if the website HTML changes
   donations: {
     items: [],
+    // Optional campaign progress numbers (Raised / Goal) from the engine.
+    // When present, the UI shows: "Raised $X of $Y".
+    summary: null,
     updatedAt: "",
     stale: false,
     lastErr: "",
@@ -2903,7 +2906,7 @@ function initPlayItLiveControls(){
 
 
 // ---------------------------------------------------------------------------
-// Latest Donations (UI v0.3.90)
+// Latest Donations (UI v0.3.91)
 // ---------------------------------------------------------------------------
 // The donations card is intentionally empty in index.html (placeholder).
 // We inject a simple list at runtime so future layout updates to index.html
@@ -2955,10 +2958,29 @@ function renderLatestDonations(){
   const list = document.querySelector('#donationsList');
   if(!meta || !list) return;
 
-  const updated = state.donations.updatedAt ? `Updated ${new Date(state.donations.updatedAt).toLocaleString()}` : 'Not yet loaded';
-  const stale = state.donations.stale ? ' · STALE' : '';
-  const err = state.donations.lastErr ? ` · ${state.donations.lastErr}` : '';
-  meta.textContent = `${updated}${stale}${err}`;
+  // Operator request (2026-01-13): remove the "Updated" timestamp and replace
+  // it with the fundraiser progress that is shown on the website.
+  // Example:
+  //   Raised $5,295.85 of $10,000.00
+  // We still append STALE and error diagnostics when applicable.
+  let summaryText = '';
+  const s = state.donations.summary;
+  if(s && typeof s.raised === 'number' && typeof s.goal === 'number'){
+    // Use Intl if available (it is on modern browsers); fallback to fixed.
+    try{
+      const fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: (s.currency || 'USD') });
+      summaryText = `Raised ${fmt.format(s.raised)} of ${fmt.format(s.goal)}`;
+    }catch(_e){
+      summaryText = `Raised $${s.raised.toFixed(2)} of $${s.goal.toFixed(2)}`;
+    }
+  }
+
+  // Build meta line using simple parts so separators are never doubled.
+  const parts = [];
+  if(summaryText) parts.push(summaryText);
+  if(state.donations.stale) parts.push('STALE');
+  if(state.donations.lastErr) parts.push(state.donations.lastErr);
+  meta.textContent = parts.join(' · ');
 
   if(!state.donations.items || state.donations.items.length === 0){
     list.innerHTML = `<div class="donationRow donationRow--empty">No donations to display.</div>`;
@@ -2986,6 +3008,9 @@ function fetchLatestDonations(){
     .then(r=>r.json())
     .then(j=>{
       state.donations.items = Array.isArray(j.items) ? j.items : [];
+      // Optional campaign progress (Raised/Goal). Keep it as-is; rendering
+      // code performs numeric checks.
+      state.donations.summary = j.summary || null;
       state.donations.updatedAt = j.updated_at || '';
       state.donations.stale = !!j.stale;
       state.donations.lastErr = j.error || '';
@@ -3006,7 +3031,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // This is safe, idempotent, and provides an on-screen audit trail.
   repairLegacyStaticLabels();
 
-  // Latest Donations (UI v0.3.90)
+  // Latest Donations (UI v0.3.91)
   // This is informational only; fetch failures fall back to last-known-good.
   ensureDonationsCardBody();
   fetchLatestDonations();

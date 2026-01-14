@@ -76,12 +76,27 @@ type donationItem struct {
 	Time    string  `json:"time"` // RFC3339
 }
 
+// donationSummary exposes the campaign progress numbers shown on the website
+// (e.g. "$5,295.85 of $10,000.00").
+//
+// IMPORTANT:
+//   - The UI should NEVER compute totals itself. The engine remains the single
+//     source of truth for what we scraped and how we interpreted it.
+//   - This is informational-only operator UX, so it follows the same
+//     last-known-good caching rules as the donations list.
+type donationSummary struct {
+	Raised   float64 `json:"raised"`
+	Goal     float64 `json:"goal"`
+	Currency string  `json:"currency"` // "USD" for now
+}
+
 type donationsResponse struct {
-	Source    string         `json:"source"`          // "scrape"
-	UpdatedAt string         `json:"updated_at"`      // RFC3339
-	Stale     bool           `json:"stale"`           // true when returning cached last-good
-	Error     string         `json:"error,omitempty"` // human-readable scrape/parse error
-	Items     []donationItem `json:"items"`           // newest first
+	Source    string           `json:"source"`            // "scrape"
+	UpdatedAt string           `json:"updated_at"`        // RFC3339
+	Stale     bool             `json:"stale"`             // true when returning cached last-good
+	Error     string           `json:"error,omitempty"`   // human-readable scrape/parse error
+	Summary   *donationSummary `json:"summary,omitempty"` // optional campaign progress
+	Items     []donationItem   `json:"items"`             // newest first
 }
 
 // donationsCache holds the last-known-good scrape.
@@ -108,16 +123,19 @@ var donations = &donationsCache{}
 // Therefore, our donation parser must key off of stable textual anchors
 // that survive tag stripping. The most stable anchor on the current page is
 // the literal label:
-//   "Amount Donated"
+//
+//	"Amount Donated"
+//
 // followed by the amount line ("$50.00").
 //
 // Upstream example (after stripping tags into lines):
-//   MM
-//   Mark Massimo
-//   January 3, 2026
-//   Keep it coming !!!
-//   Amount Donated
-//   $50.00
+//
+//	MM
+//	Mark Massimo
+//	January 3, 2026
+//	Keep it coming !!!
+//	Amount Donated
+//	$50.00
 func stripTags(in string) string {
 	// Remove script/style blocks first (best-effort).
 	reScript := regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
@@ -265,6 +283,69 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, error) {
 	return items, nil
 }
 
+// parseCampaignProgressFromText extracts the "Raised" and "Goal" dollar amounts
+// shown near the donation form.
+//
+// Upstream currently renders both of these as plain text, for example:
+//
+//	"$5,295.85 Raised; 39 Donations; $10,000.00 Goal. $5,295.85 of $10,000.00 amount."
+//
+// We prefer the most direct pattern first:
+//
+//	"$RAISED of $GOAL"
+//
+// and fall back to independent "Raised" / "Goal" captures if necessary.
+//
+// This function is BEST-EFFORT:
+// - If it fails, we still return the donations list.
+// - The cache preserves the last-known-good summary.
+func parseCampaignProgressFromText(txt string) (*donationSummary, error) {
+	// Flatten whitespace to make regex simpler and less fragile across line breaks.
+	flat := strings.Join(strings.Fields(txt), " ")
+
+	parseMoney := func(s string) (float64, error) {
+		s = strings.ReplaceAll(s, ",", "")
+		return strconv.ParseFloat(s, 64)
+	}
+
+	// 1) Preferred: "$X of $Y" (this appears on the page as a progress string).
+	// Example: "$5,295.85 of $10,000.00"
+	reOf := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+of\s+\$([0-9][0-9,]*\.[0-9]{2})`)
+	if m := reOf.FindStringSubmatch(flat); len(m) == 3 {
+		raised, err1 := parseMoney(m[1])
+		goal, err2 := parseMoney(m[2])
+		if err1 == nil && err2 == nil {
+			return &donationSummary{Raised: raised, Goal: goal, Currency: "USD"}, nil
+		}
+		// If one parse fails, keep looking via fallbacks.
+	}
+
+	// 2) Fallback: "$X Raised" and "$Y Goal" somewhere in the text.
+	reRaised := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+Raised`)
+	reGoal := regexp.MustCompile(`\$([0-9][0-9,]*\.[0-9]{2})\s+Goal`)
+
+	var (
+		raisedStr string
+		goalStr   string
+	)
+	if m := reRaised.FindStringSubmatch(flat); len(m) == 2 {
+		raisedStr = m[1]
+	}
+	if m := reGoal.FindStringSubmatch(flat); len(m) == 2 {
+		goalStr = m[1]
+	}
+	if raisedStr != "" && goalStr != "" {
+		raised, err1 := parseMoney(raisedStr)
+		goal, err2 := parseMoney(goalStr)
+		if err1 == nil && err2 == nil {
+			return &donationSummary{Raised: raised, Goal: goal, Currency: "USD"}, nil
+		}
+		return nil, fmt.Errorf("raised/goal parse failed: raised=%v goal=%v", err1, err2)
+	}
+
+	return nil, fmt.Errorf("campaign progress not found")
+}
+
 func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if limit <= 0 {
 		limit = 5
@@ -309,10 +390,19 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 		return c.fallback(err, limit)
 	}
 
+	// Best-effort: campaign progress (Raised/Goal). If this fails we still
+	// return the donation list. The UI prefers this summary, but it must never
+	// block operator visibility of the latest donations.
+	summary, sumErr := parseCampaignProgressFromText(text)
+	if sumErr != nil {
+		log.Printf("donations: progress parse failed: %v", sumErr)
+	}
+
 	out := donationsResponse{
 		Source:    "scrape",
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Stale:     false,
+		Summary:   summary,
 		Items:     items,
 	}
 
