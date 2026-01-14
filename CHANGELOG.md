@@ -1,3 +1,9 @@
+## v0.3.94
+
+- Latest Donations (UI): fix a runtime ReferenceError (`trackNewDonations is not defined`) introduced in v0.3.93.
+  - The donations fetch loop no longer trips into STALE mode due to that error.
+  - New-donation flashing continues to work via the existing `markDonationsSeen()` + `isDonationFlashing()` logic.
+
 ## v0.3.93
 
 - Donations progress (engine): scrape GOAL from raw HTML (data-* / JSON / label patterns) and fall back to stripped text; fixes cases where goal was not present after tag stripping.

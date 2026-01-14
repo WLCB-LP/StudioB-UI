@@ -3101,7 +3101,14 @@ function fetchLatestDonations(){
     .then(j=>{
       state.donations.items = Array.isArray(j.items) ? j.items : [];
       // Mark newly-seen donations so we can flash them for 10 minutes.
-      trackNewDonations(state.donations.items);
+      // NOTE: v0.3.93 mistakenly referenced a helper named
+      // `trackNewDonations()` which never existed. The real implementation is
+      // `markDonationsSeen()` (it loads the persisted map, adds unseen items
+      // with a first-seen timestamp, garbage-collects, then saves).
+      //
+      // Keeping this single function makes the behavior easy to reason about:
+      // - First time we see an item → it gets a timestamp (now)
+      // - For the next 10 minutes → `isDonationFlashing()` returns true
       state.donations.seenMap = markDonationsSeen(state.donations.items);
       // Optional campaign progress (Raised/Goal). Keep it as-is; rendering
       // code performs numeric checks.
