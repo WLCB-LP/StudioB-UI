@@ -1312,3 +1312,17 @@ main{padding:18px}
 #donationsCard .donationRow--empty{opacity:.7;text-align:center}
 #donationsCard .donationLine1{font-weight:600;line-height:1.2}
 #donationsCard .donationComment{margin-top:4px;opacity:.9;font-size:13px;white-space:pre-wrap}
+
+
+/* Flash new donations (UI v0.3.93)
+   Operator request: flash new donation rows yellow for 10 minutes.
+   We keep it subtle: a soft yellow tint + gentle pulsing border/inner glow.
+*/
+#donationsCard .donationRow--new{
+  animation: donationFlash 1.2s ease-in-out infinite;
+}
+@keyframes donationFlash{
+  0%   { background: rgba(255, 215, 0, 0.00); box-shadow: none; }
+  50%  { background: rgba(255, 215, 0, 0.18); box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35), 0 0 18px rgba(255, 215, 0, 0.18) inset; }
+  100% { background: rgba(255, 215, 0, 0.00); box-shadow: none; }
+}

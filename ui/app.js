@@ -89,6 +89,8 @@ const state = {
     updatedAt: "",
     stale: false,
     lastErr: "",
+    // Internal: map of donationId -> firstSeenEpochMs (for flash effect).
+    seenMap: {},
   },
   // meter smoothing
   meters: {
@@ -2933,6 +2935,83 @@ function escapeHTML(s){
     .replaceAll("'", '&#39;');
 }
 
+// --- New donation flash logic (UI v0.3.93) ---------------------------------
+// Operator request: flash the background of NEW donations yellow for 10 minutes.
+//
+// Implementation notes:
+// - We treat each donation item as immutable content (name+amount+message+time).
+// - When we first see a donation, we store its "firstSeen" timestamp in localStorage.
+// - For the next 10 minutes, we render that row with a flashing CSS class.
+// - This survives page reloads (since localStorage is persisted on the console PC).
+//
+// IMPORTANT: this is purely a UI affordance; the engine remains source-of-truth
+// for donation data.
+const DONATION_FLASH_MS = 10 * 60 * 1000; // 10 minutes
+const DONATION_SEEN_KEY = 'wlcb_donations_seen_v1';
+
+function donationId(it){
+  // Prefer time when available; it makes collisions extremely unlikely.
+  // Fall back to content-only if older cached items lack time.
+  const t = (it && it.time) ? String(it.time) : '';
+  const n = (it && it.name) ? String(it.name) : '';
+  const a = (it && typeof it.amount === 'number') ? String(it.amount) : String(it && it.amount || '');
+  const m = (it && it.message) ? String(it.message) : '';
+  return `${t}|${n}|${a}|${m}`;
+}
+
+function loadSeenMap(){
+  try{
+    const raw = localStorage.getItem(DONATION_SEEN_KEY);
+    if(!raw) return {};
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === 'object') ? obj : {};
+  }catch(_e){
+    return {};
+  }
+}
+
+function saveSeenMap(map){
+  try{
+    localStorage.setItem(DONATION_SEEN_KEY, JSON.stringify(map||{}));
+  }catch(_e){
+    // Ignore storage errors; worst case is we don't persist highlight state.
+  }
+}
+
+function markDonationsSeen(items){
+  const now = Date.now();
+  const seen = loadSeenMap();
+  let changed = false;
+
+  (items||[]).forEach(it=>{
+    const id = donationId(it);
+    if(!id) return;
+    if(!(id in seen)){
+      seen[id] = now;
+      changed = true
+    }
+  });
+
+  // Garbage-collect: remove entries older than 24h to prevent unbounded growth.
+  const cutoff = now - (24*60*60*1000);
+  for(const k in seen){
+    if(seen[k] < cutoff){
+      delete seen[k];
+      changed = true;
+    }
+  }
+
+  if(changed) saveSeenMap(seen);
+  return seen;
+}
+
+function isDonationFlashing(it, seenMap){
+  const id = donationId(it);
+  if(!id || !seenMap || !(id in seenMap)) return false;
+  const age = Date.now() - Number(seenMap[id]||0);
+  return age >= 0 && age < DONATION_FLASH_MS;
+}
+
 function ensureDonationsCardBody(){
   const card = document.querySelector('#donationsCard');
   if(!card) return null;
@@ -2968,13 +3047,21 @@ function renderLatestDonations(){
   // We still append STALE and error diagnostics when applicable.
   let summaryText = '';
   const s = state.donations.summary;
-  if(s && typeof s.raised === 'number' && typeof s.goal === 'number'){
+  if(s && typeof s.raised === 'number'){
     // Use Intl if available (it is on modern browsers); fallback to fixed.
     try{
       const fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: (s.currency || 'USD') });
-      summaryText = `Raised ${fmt.format(s.raised)} of ${fmt.format(s.goal)}`;
+      if(typeof s.goal === 'number' && s.goal > 0){
+        summaryText = `Raised ${fmt.format(s.raised)} of ${fmt.format(s.goal)}`;
+      }else{
+        summaryText = `Raised ${fmt.format(s.raised)}`;
+      }
     }catch(_e){
-      summaryText = `Raised $${s.raised.toFixed(2)} of $${s.goal.toFixed(2)}`;
+      if(typeof s.goal === 'number' && s.goal > 0){
+        summaryText = `Raised $${s.raised.toFixed(2)} of $${s.goal.toFixed(2)}`;
+      }else{
+        summaryText = `Raised $${s.raised.toFixed(2)}`;
+      }
     }
   }
 
@@ -2991,11 +3078,13 @@ function renderLatestDonations(){
   }
 
   const rows = state.donations.items.map(it=>{
+    const flashing = isDonationFlashing(it, state.donations.seenMap);
+    const rowClass = flashing ? 'donationRow donationRow--new' : 'donationRow';
     const amt = (typeof it.amount === 'number') ? it.amount.toFixed(2) : String(it.amount || '');
     const msg = (it.message || '').trim();
     const msgHTML = msg ? `<div class="donationComment">${escapeHTML(msg)}</div>` : '';
     return `
-      <div class="donationRow">
+      <div class="${rowClass}">
         <div class="donationLine1"><span class="donationName">${escapeHTML(it.name||'')}</span> - <span class="donationAmt">$${escapeHTML(amt)}</span></div>
         ${msgHTML}
       </div>
@@ -3011,6 +3100,9 @@ function fetchLatestDonations(){
     .then(r=>r.json())
     .then(j=>{
       state.donations.items = Array.isArray(j.items) ? j.items : [];
+      // Mark newly-seen donations so we can flash them for 10 minutes.
+      trackNewDonations(state.donations.items);
+      state.donations.seenMap = markDonationsSeen(state.donations.items);
       // Optional campaign progress (Raised/Goal). Keep it as-is; rendering
       // code performs numeric checks.
       state.donations.summary = j.summary || null;

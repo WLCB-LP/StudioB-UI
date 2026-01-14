@@ -166,30 +166,27 @@ func parseDonationsFromText(txt string, limit int) ([]donationItem, float64, err
 		lines = append(lines, l)
 	}
 
-	
-// Also compute a "Raised this year" total from the same donor wall.
-// The user asked to simplify progress parsing by:
-//   - scraping GOAL from the page
-//   - computing RAISED as the sum of donations in the current year
-//
-// This avoids fragile "Raised $X of $Y" widget text parsing, while still
-// staying truthful (derived directly from the displayed donations list).
-// Scan for donation blocks using the "Amount Donated" anchor.
+	// Also compute a "Raised this year" total from the same donor wall.
+	// The user asked to simplify progress parsing by:
+	//   - scraping GOAL from the page
+	//   - computing RAISED as the sum of donations in the current year
+	//
+	// This avoids fragile "Raised $X of $Y" widget text parsing, while still
+	// staying truthful (derived directly from the displayed donations list).
+	// Scan for donation blocks using the "Amount Donated" anchor.
 	// This survives HTML stripping and is less fragile than DOM selectors.
 	items := make([]donationItem, 0, limit)
 	loc, _ := time.LoadLocation("America/Chicago") // best-effort
 
-
-// Also compute a "Raised this year" total from the same donor wall.
-// The user asked to simplify progress parsing by:
-//   - scraping GOAL from the page
-//   - computing RAISED as the sum of donations in the current year
-//
-// This avoids fragile "Raised $X of $Y" widget text parsing, while still
-// staying truthful (derived directly from the displayed donations list).
-currentYear := time.Now().In(loc).Year()
-yearTotal := 0.0
-
+	// Also compute a "Raised this year" total from the same donor wall.
+	// The user asked to simplify progress parsing by:
+	//   - scraping GOAL from the page
+	//   - computing RAISED as the sum of donations in the current year
+	//
+	// This avoids fragile "Raised $X of $Y" widget text parsing, while still
+	// staying truthful (derived directly from the displayed donations list).
+	currentYear := time.Now().In(loc).Year()
+	yearTotal := 0.0
 
 	for k := 0; k < len(lines); k++ {
 		lk := strings.TrimSpace(lines[k])
@@ -282,21 +279,21 @@ yearTotal := 0.0
 		msg := strings.Join(msgParts, "\n")
 
 		// Add to yearTotal when we have a parsed date in the current year.
-// If date parsing failed (t is zero), we skip it for the year total.
-if dateIdx != -1 && t.Year() == currentYear {
-	yearTotal += amt
-}
+		// If date parsing failed (t is zero), we skip it for the year total.
+		if dateIdx != -1 && t.Year() == currentYear {
+			yearTotal += amt
+		}
 
-// Only keep the newest N items for the UI list, but keep scanning
-// the whole page to compute the yearly total.
-if len(items) < limit {
-	items = append(items, donationItem{
-		Name:    name,
-		Amount:  amt,
-		Message: msg,
-		Time:    t.Format(time.RFC3339),
-	})
-}
+		// Only keep the newest N items for the UI list, but keep scanning
+		// the whole page to compute the yearly total.
+		if len(items) < limit {
+			items = append(items, donationItem{
+				Name:    name,
+				Amount:  amt,
+				Message: msg,
+				Time:    t.Format(time.RFC3339),
+			})
+		}
 
 		// Advance past the amount line if the amount was on the next line.
 		if amtLine != lk {
@@ -308,6 +305,65 @@ if len(items) < limit {
 		return nil, 0, fmt.Errorf("no donation blocks found")
 	}
 	return items, yearTotal, nil
+}
+
+// parseGoalFromHTML extracts the campaign GOAL amount from the *raw HTML*.
+//
+// Why HTML instead of stripped text?
+// - The donor wall list is plain text after stripping tags (great!)
+// - The campaign goal/progress widget is often rendered as:
+//   - data-* attributes, or
+//   - inline JSON, or
+//   - aria-label text
+//     which may be lost or rearranged by naive tag stripping.
+//
+// This is best-effort and intentionally tolerant of multiple formats.
+func parseGoalFromHTML(html string) (float64, error) {
+	// Keep the search space reasonable.
+	if len(html) > 2<<20 {
+		html = html[:2<<20]
+	}
+
+	parseMoney := func(s string) (float64, error) {
+		s = strings.ReplaceAll(s, ",", "")
+		s = strings.TrimSpace(s)
+		// Some attributes omit the decimal.
+		return strconv.ParseFloat(s, 64)
+	}
+
+	// 1) Look for explicit data-goal style attributes (common in fundraising widgets).
+	// Examples we try to match:
+	//   data-goal="10000"
+	//   data-goal-amount="10000.00"
+	//   data-goal_amount="10000"
+	reDataGoal := regexp.MustCompile(`(?i)data-goal(?:-amount)?\s*=\s*"?([0-9][0-9,]*(?:\.[0-9]{2})?)"?`)
+	if m := reDataGoal.FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
+	// 2) Look for JSON-ish goal fields.
+	// Examples:
+	//   "goal":10000
+	//   "goal_amount":"10000.00"
+	reJSONGoal := regexp.MustCompile(`(?i)"goal(?:_amount|Amount)?"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]{2})?)"?`)
+	if m := reJSONGoal.FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
+	// 3) As a last resort, search for a visible "Goal" label near a currency amount.
+	// This works even if the goal is only present in the rendered HTML (not in stripped text).
+	reGoalLabel := regexp.MustCompile(`(?is)\bgoal\b[^$]{0,120}\$\s*([0-9][0-9,]*(?:\.[0-9]{2})?)`)
+	if m := reGoalLabel.FindStringSubmatch(html); len(m) == 2 {
+		if v, err := parseMoney(m[1]); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+
+	return 0, fmt.Errorf("goal not found in html")
 }
 
 // parseGoalFromText extracts the campaign GOAL amount from the website text.
@@ -366,7 +422,6 @@ func parseGoalFromText(txt string) (float64, error) {
 	return 0, fmt.Errorf("goal not found")
 }
 
-
 func (c *donationsCache) getLatest(limit int) donationsResponse {
 	if limit <= 0 {
 		limit = 5
@@ -414,7 +469,11 @@ func (c *donationsCache) getLatest(limit int) donationsResponse {
 	// Best-effort: campaign progress summary.
 	// We scrape GOAL from the page and compute RAISED as the sum of current-year donations.
 	summary := (*donationSummary)(nil)
-	goal, goalErr := parseGoalFromText(text)
+	goal, goalErr := parseGoalFromHTML(string(b))
+	if goalErr != nil {
+		// Fall back to stripped-text parsing (older themes may render the goal as plain text).
+		goal, goalErr = parseGoalFromText(text)
+	}
 	if goalErr != nil {
 		log.Printf("donations: goal parse failed: %v", goalErr)
 	} else {

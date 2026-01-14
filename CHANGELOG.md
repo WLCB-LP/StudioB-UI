@@ -1,3 +1,9 @@
+## v0.3.93
+
+- Donations progress (engine): scrape GOAL from raw HTML (data-* / JSON / label patterns) and fall back to stripped text; fixes cases where goal was not present after tag stripping.
+- Donations progress (UI): if GOAL is missing/0, still show "Raised $X" (instead of showing nothing).
+- Donations UX (UI): highlight newly-seen donations by flashing the row background yellow for 10 minutes (persists across reloads via localStorage).
+
 ## v0.3.92
 
 - Latest Donations: card title now reads "Latest Donations at lakesradio.org".
