@@ -1,3 +1,9 @@
+## v0.4.06 (2026-01-14)
+
+### Fixes
+- Donations: prevent already-known donations from re-flashing after upgrades by migrating legacy donation IDs (older builds didn't include the RFC3339 time field). Added safety net: only flash donations dated "today".
+- WLCB Status: improve Icecast parsing by deriving the mount path from `listenurl` when the `mount` field is missing (fixes Transmitter (/STL) and Stream (/stream) detection on Icecast variants).
+
 ## v0.4.04 (2026-01-14)
 
 ### Fixes

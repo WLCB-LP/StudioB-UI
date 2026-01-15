@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.05";
+const UI_BUILD_VERSION = "0.4.06";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -95,7 +95,7 @@ const state = {
   },
 
   // -----------------------------------------------------------------------
-  // WLCB Status (UI v0.4.05)
+  // WLCB Status (UI v0.4.06)
   // -----------------------------------------------------------------------
   // Intent:
   // - Provide high-level station/system health in one glance.
@@ -2982,6 +2982,36 @@ function donationId(it){
   const m = (it && it.message) ? String(it.message) : '';
   return `${t}|${n}|${a}|${m}`;
 }
+// donationIdLegacy matches older UI versions that did NOT include the RFC3339
+// time field in the ID. We keep this for migration so upgrades don't cause
+// already-known donations to flash yellow.
+function donationIdLegacy(it){
+  const n = (it && it.name) ? String(it.name) : '';
+  const a = (it && typeof it.amount === 'number') ? String(it.amount) : String(it && it.amount || '');
+  const m = (it && it.message) ? String(it.message) : '';
+  return `${n}|${a}|${m}`;
+}
+
+// Some historical rows had no message; support that older key too.
+function donationIdLegacyNoMsg(it){
+  const n = (it && it.name) ? String(it.name) : '';
+  const a = (it && typeof it.amount === 'number') ? String(it.amount) : String(it && it.amount || '');
+  return `${n}|${a}`;
+}
+
+function isTodayRFC3339(rfc3339){
+  // Best-effort: if parsing fails, return true so we don't accidentally
+  // suppress flashes for genuinely-new items.
+  try{
+    const d = new Date(String(rfc3339||''));
+    if(isNaN(d.getTime())) return true;
+    const now = new Date();
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+  }catch(_e){
+    return true;
+  }
+}
+
 
 function loadSeenMap(){
   try{
@@ -3033,6 +3063,22 @@ function markDonationsSeen(items){
   (items||[]).forEach(it=>{
     const id = donationId(it);
     if(!id) return;
+
+    // Migration: if this donation was seen under an older key format (no time),
+    // carry the original timestamp forward so it will NOT re-flash after upgrades.
+    const legacyId = donationIdLegacy(it);
+    const legacyId2 = donationIdLegacyNoMsg(it);
+    if(!(id in seen) && (legacyId in seen)){
+      seen[id] = seen[legacyId];
+      changed = true;
+      return;
+    }
+    if(!(id in seen) && (legacyId2 in seen)){
+      seen[id] = seen[legacyId2];
+      changed = true;
+      return;
+    }
+
     if(!(id in seen)){
       seen[id] = bootstrapped ? now : initialSeenTs;
       changed = true;
@@ -3060,7 +3106,13 @@ function isDonationFlashing(it, seenMap){
   const id = donationId(it);
   if(!id || !seenMap || !(id in seenMap)) return false;
   const age = Date.now() - Number(seenMap[id]||0);
-  return age >= 0 && age < DONATION_FLASH_MS;
+  if(!(age >= 0 && age < DONATION_FLASH_MS)) return false;
+
+  // Safety net: only flash donations dated "today".
+  // This prevents old donations from flashing if the ID format changes or
+  // localStorage is lost.
+  if(it && it.time && !isTodayRFC3339(it.time)) return false;
+  return true;
 }
 
 function ensureDonationsCardBody(){
@@ -3185,7 +3237,7 @@ function fetchLatestDonations(){
 
 
 // ---------------------------------------------------------------------------
-// WLCB Status (UI v0.4.05)
+// WLCB Status (UI v0.4.06)
 // ---------------------------------------------------------------------------
 // Polling philosophy:
 // - This is a *summary* card; it does not need to update at mixer rates.
@@ -3334,7 +3386,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   fetchLatestDonations();
   setInterval(fetchLatestDonations, DONATIONS_POLL_MS);
 
-  // WLCB Status (UI v0.4.05)
+  // WLCB Status (UI v0.4.06)
   // High-level station/system status.
   // NOTE: This uses ONLY engine-provided status (no external probing in the browser).
   ensureWLCBStatusCardBody();

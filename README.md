@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.05
+# STUB Mixer UI (Studio B) — Release 0.4.06
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -26,7 +26,7 @@ Run:
 
 ## Notes
 
-- v0.4.05: WLCB Status card build fix (go test pass). No functional changes.
+- v0.4.06: WLCB Status card build fix (go test pass). No functional changes.
 
 - v0.4.01: Donations: fix GOAL parsing by consulting GiveWP's public form-grid endpoint ("of $GOAL"), which is available even when the goal widget is rendered client-side on the donor-wall page.
 

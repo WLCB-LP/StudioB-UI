@@ -330,6 +330,35 @@ type icecastMount struct {
 	ListenerPeak int    `json:"listener_peak"`
 }
 
+// normalizeIcecastMount fills in missing fields from other provided fields.
+//
+// Why this exists:
+// Some Icecast builds/themes omit the "mount" JSON field, but they do provide
+// a listen URL like:
+//
+//	"listenurl": "http://host:8000/stream"
+//
+// The operator requirements reference mounts by path ("/STL", "/stream"), so
+// we derive Mount from ListenURL when needed.
+func normalizeIcecastMount(m *icecastMount) {
+	if m == nil {
+		return
+	}
+	if strings.TrimSpace(m.Mount) != "" {
+		return
+	}
+	if strings.TrimSpace(m.ListenURL) == "" {
+		return
+	}
+	u, err := url.Parse(m.ListenURL)
+	if err != nil {
+		return
+	}
+	if strings.TrimSpace(u.Path) != "" {
+		m.Mount = u.Path
+	}
+}
+
 func fetchIcecastStatus(baseURL string) ([]icecastMount, error) {
 	// Icecast commonly exposes this endpoint.
 	// Example: http(s)://host:port/status-json.xsl
@@ -376,6 +405,7 @@ func fetchIcecastStatus(baseURL string) ([]icecastMount, error) {
 				b, _ := json.Marshal(item)
 				var m icecastMount
 				if err := json.Unmarshal(b, &m); err == nil {
+					normalizeIcecastMount(&m)
 					out = append(out, m)
 				}
 			}
@@ -383,6 +413,7 @@ func fetchIcecastStatus(baseURL string) ([]icecastMount, error) {
 			b, _ := json.Marshal(v)
 			var m icecastMount
 			if err := json.Unmarshal(b, &m); err == nil {
+				normalizeIcecastMount(&m)
 				out = append(out, m)
 			}
 		default:
