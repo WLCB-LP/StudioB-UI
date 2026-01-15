@@ -123,8 +123,20 @@ main{padding:18px}
   overflow-y:visible;
 }
 
-/* Keep the bottom fader row pinned toward the bottom of the Studio page */
-#page-studio .studioBottomFaders{margin-top:auto;}
+/*
+  Studio layout spacing (UI v0.4.07)
+
+  Operator request (2026-01-15):
+    - Bring the bottom console row up.
+    - Maintain a consistent ~40px gap between the TOP row and BOTTOM row.
+
+  Older builds used `margin-top:auto` to pin the bottom row toward the
+  bottom of the viewport. That created a large, "wasted" empty band between
+  the top row cards and the fader console.
+
+  We now use a fixed gap to keep the console visually cohesive.
+*/
+#page-studio .studioBottomFaders{margin-top:40px;}
 
 /* Bottom fader row styling */
 #page-studio .mixerRoot--bottom{
@@ -448,7 +460,8 @@ main{padding:18px}
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 6px 8px;
+  /* Slightly larger tap target + readability (UI v0.4.07) */
+  padding: 8px 10px;
   border-radius: 12px;
   background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.06);
@@ -464,8 +477,9 @@ main{padding:18px}
   opacity: .75;
 }
 .wlcbDot{
-  width: 10px;
-  height: 10px;
+  /* Larger dot for at-a-glance visibility (UI v0.4.07) */
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
   display: inline-block;
   box-shadow: 0 0 10px rgba(255,255,255,.05);
@@ -511,14 +525,14 @@ main{padding:18px}
 }
 
 .wlcbName{
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
   letter-spacing: .2px;
   flex: 1 1 auto;
 }
 
 .wlcbDetail{
-  font-size: 12px;
+  font-size: 13px;
   opacity: .88;
   white-space: nowrap;
   overflow: hidden;
@@ -526,8 +540,8 @@ main{padding:18px}
 }
 .wlcbPill{
   margin-left: auto;
-  font-size: 12px;
-  padding: 3px 8px;
+  font-size: 13px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: rgba(60,255,170,.14);
   border: 1px solid rgba(60,255,170,.45);
@@ -576,8 +590,20 @@ main{padding:18px}
   grid-template-columns: var(--pilColWidth) var(--topRightColWidth) 1fr var(--wlcbStatusColWidth) var(--topRightColWidth);
   grid-template-rows: auto;
   gap: 24px;
-  align-items: start;
+  /*
+    UI v0.4.07
+
+    Operator request:
+      - Make ALL top-row cards match the height of the tallest card
+        (normally PlayIt Live).
+
+    In CSS grid, we get this by stretching the items to the row height.
+  */
+  align-items: stretch;
 }
+
+/* Ensure the cards themselves accept the grid stretch (height:100%). */
+#page-studio #topMixerRoot.mixerRoot--top > .mixerCard{ height: 100%; }
 
 /*
   v0.3.26+: Hide mixer until JS has restored/positioned faders.
@@ -638,6 +664,19 @@ main{padding:18px}
 .strip__title--pil,
 .strip__title--wlcb{
   white-space: nowrap;
+  /*
+    UI v0.4.07
+
+    Operator request:
+      - Make the title pills (PlayIt Live / WLCB Status) feel fully enclosed
+        around the text (roomy, centered, and unmistakably "pill" shaped).
+
+    We keep width-to-content, but use inline-flex and a larger radius so the
+    rounded ends never look clipped.
+  */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   /* Allow the pill to size to its content while remaining centered. */
   width: max-content;
   max-width: none;
@@ -650,8 +689,11 @@ main{padding:18px}
     v0.3.63: Make them a bit wider still so "PlayIt Live" and "WLCB Status"
     have comfortable breathing room.
   */
-  padding-left: 26px;
-  padding-right: 26px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 28px;
+  padding-right: 28px;
+  border-radius: 999px;
 }
 
 .strip__title--host{

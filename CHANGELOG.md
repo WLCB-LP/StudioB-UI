@@ -1,3 +1,11 @@
+## v0.4.07 (2026-01-15)
+
+### UI
+- Studio: make all top-row cards match the height of the tallest card (PlayIt Live) for a cleaner console line.
+- Studio: tighten the gap between the top row and bottom fader row to ~40px (removes the large “wasted” band).
+- PlayIt Live + WLCB Status: title pills are roomier and more clearly “fully enclosed” around the label.
+- WLCB Status: increased row text size and slightly enlarged status dots for improved at-a-glance readability.
+
 ## v0.4.06 (2026-01-14)
 
 ### Fixes
