@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -138,153 +139,325 @@ var donations = &donationsCache{}
 // ---------------------------------------------------------------------
 // WLCB Status (high-level station/system status)
 // ---------------------------------------------------------------------
+// WLCB Status (station/system summary)
+// ---------------------------------------------------------------------
 // Design contract:
 // - Engine is the single source of truth.
 // - The UI does NOT probe external services directly.
-// - On transient failures, return last-known-good with stale=true.
+// - Each check is best-effort and returns (ok/detail).
+// - "Peak listeners" is tracked locally by the engine and persisted so it
+//   survives service restarts.
+//
+// Requested checks (v0.4.03):
+//   - Internet connectivity
+//   - lakesradio.org reachability
+//   - Icecast "Transmitter" (mount /STL has >= 1 listener)
+//   - Icecast "Stream" (mount /stream exists) + current listeners + local peak
+
+// wlcbStatusCheck is a small, UI-friendly row.
 //
 // NOTE:
-// This is intentionally conservative. We start with a small set of checks we
-// can validate reliably *today*:
-//   - Engine process uptime
-//   - DSP link health (engine's always-on monitor)
-//   - PlayIt Live reachability + automation state
-//   - Website reachability (lakesradio.org)
-
+// We keep this intentionally boring and explicit.
+// The UI renders a green/red dot for Ok and shows Detail as hover text.
+//
+// Only Stream uses Listeners/Peak; other checks omit them.
 type wlcbStatusCheck struct {
-	Name      string `json:"name"`
-	Ok        bool   `json:"ok"`
-	Detail    string `json:"detail"`
-	CheckedAt string `json:"checkedAt"`
+    Name      string `json:"name"`
+    Ok        bool   `json:"ok"`
+    Detail    string `json:"detail"`
+    CheckedAt string `json:"checkedAt"`
+
+    // Optional (Stream only)
+    Listeners int `json:"listeners,omitempty"`
+    Peak      int `json:"peak,omitempty"`
 }
 
 type wlcbStatusResponse struct {
-	UpdatedAt       string            `json:"updatedAt"`
-	EngineVersion   string            `json:"engineVersion"`
-	EngineUptimeSec int64             `json:"engineUptimeSec"`
-	Stale           bool              `json:"stale"`
-	Error           string            `json:"error,omitempty"`
-	Checks          []wlcbStatusCheck `json:"checks"`
+    UpdatedAt string            `json:"updatedAt"`
+    Stale     bool              `json:"stale"`
+    Error     string            `json:"error,omitempty"`
+    Checks    []wlcbStatusCheck `json:"checks"`
 }
 
 type wlcbStatusCache struct {
-	mu        sync.Mutex
-	lastGood  wlcbStatusResponse
-	hasLast   bool
-	lastFetch time.Time
+    mu        sync.Mutex
+    lastGood  wlcbStatusResponse
+    hasLast   bool
+    lastFetch time.Time
 }
 
 var wlcbStatus = &wlcbStatusCache{}
 
+// A small, conservative HTTP client for station health checks.
 var wlcbHTTP = &http.Client{Timeout: 3 * time.Second}
 
+// --- Peak persistence -------------------------------------------------
+
+type wlcbPeakStore struct {
+    mu   sync.Mutex
+    path string
+    // Currently we only need one persisted value.
+    StreamPeak int `json:"stream_peak"`
+}
+
+func newWLCBPeakStore() *wlcbPeakStore {
+    // Prefer XDG state location when available.
+    // This survives code deployments because it's outside the repo tree.
+    home, _ := os.UserHomeDir()
+    base := os.Getenv("XDG_STATE_HOME")
+    if strings.TrimSpace(base) == "" {
+        if home != "" {
+            base = filepath.Join(home, ".local", "state")
+        } else {
+            // Last resort: working directory (still better than nothing).
+            base = "."
+        }
+    }
+    dir := filepath.Join(base, "stub-engine")
+    _ = os.MkdirAll(dir, 0o755)
+
+    ps := &wlcbPeakStore{path: filepath.Join(dir, "wlcb_status.json")}
+    ps.load()
+    return ps
+}
+
+func (ps *wlcbPeakStore) load() {
+    ps.mu.Lock()
+    defer ps.mu.Unlock()
+
+    b, err := os.ReadFile(ps.path)
+    if err != nil {
+        return
+    }
+    var tmp wlcbPeakStore
+    if err := json.Unmarshal(b, &tmp); err != nil {
+        return
+    }
+    ps.StreamPeak = tmp.StreamPeak
+}
+
+func (ps *wlcbPeakStore) maybeBumpStreamPeak(current int) int {
+    ps.mu.Lock()
+    defer ps.mu.Unlock()
+
+    if current > ps.StreamPeak {
+        ps.StreamPeak = current
+        // Best-effort persistence.
+        // If we can't write, we still return the updated value for this process.
+        b, _ := json.MarshalIndent(struct{ StreamPeak int `json:"stream_peak"` }{ps.StreamPeak}, "", "  ")
+        _ = os.WriteFile(ps.path, b, 0o644)
+    }
+    return ps.StreamPeak
+}
+
+var wlcbPeaks = newWLCBPeakStore()
+
+// --- Check helpers ----------------------------------------------------
+
+func checkInternet() (bool, string, error) {
+    // This endpoint is intentionally tiny and widely used for "am I online".
+    // Any successful TCP+TLS+HTTP round trip is enough for our purposes.
+    u := "https://clients3.google.com/generate_204"
+    req, err := http.NewRequest(http.MethodGet, u, nil)
+    if err != nil {
+        return false, "build failed", err
+    }
+    req.Header.Set("Cache-Control", "no-store")
+    resp, err := wlcbHTTP.Do(req)
+    if err != nil {
+        return false, "offline", err
+    }
+    defer resp.Body.Close()
+    io.CopyN(io.Discard, resp.Body, 64) //nolint:errcheck
+    if resp.StatusCode == 204 || (resp.StatusCode >= 200 && resp.StatusCode < 400) {
+        return true, fmt.Sprintf("HTTP %d", resp.StatusCode), nil
+    }
+    return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
+}
+
 func checkWebsite(url string) (bool, string, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return false, "build failed", err
-	}
-	// Avoid caches (best-effort). We want a real reachability signal.
-	req.Header.Set("Cache-Control", "no-store")
-	resp, err := wlcbHTTP.Do(req)
-	if err != nil {
-		return false, "unreachable", err
-	}
-	defer resp.Body.Close()
-	// We don't need body; just consume a tiny amount to allow connection reuse.
-	io.CopyN(io.Discard, resp.Body, 256) //nolint:errcheck
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		return true, fmt.Sprintf("HTTP %d", resp.StatusCode), nil
-	}
-	return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
+    req, err := http.NewRequest(http.MethodGet, url, nil)
+    if err != nil {
+        return false, "build failed", err
+    }
+    req.Header.Set("Cache-Control", "no-store")
+    resp, err := wlcbHTTP.Do(req)
+    if err != nil {
+        return false, "unreachable", err
+    }
+    defer resp.Body.Close()
+    io.CopyN(io.Discard, resp.Body, 256) //nolint:errcheck
+    if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+        return true, fmt.Sprintf("HTTP %d", resp.StatusCode), nil
+    }
+    return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
 }
 
-func checkPILAutomation() (bool, string, error) {
-	// We call PIL directly from the engine so the browser never has to deal with
-	// CORS or self-signed TLS.
-	u := pilBaseURL + "/api/control/liveAssist/playoutMode"
-	if strings.Contains(u, "?") {
-		u = u + "&apiKey=" + pilAPIKey
-	} else {
-		u = u + "?apiKey=" + pilAPIKey
-	}
-	req, err := http.NewRequest(http.MethodGet, u, nil)
-	if err != nil {
-		return false, "build failed", err
-	}
-	resp, err := pilHTTP.Do(req)
-	if err != nil {
-		return false, "unreachable", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
-	}
-	var j struct {
-		AutomationOn bool `json:"automationOn"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
-		return false, "bad JSON", err
-	}
-	if j.AutomationOn {
-		return true, "AUTO", nil
-	}
-	// Reachable, but automation OFF.
-	return true, "LIVE", nil
+// icecastStatus mirrors the subset of Icecast JSON we care about.
+type icecastStatus struct {
+    IceStats struct {
+        Source any `json:"source"` // can be object or array
+    } `json:"icestats"`
 }
 
-func buildWLCBStatus(engine *app.Engine, engineVersion string) wlcbStatusResponse {
-	now := time.Now().UTC()
-	resp := wlcbStatusResponse{
-		UpdatedAt:       now.Format(time.RFC3339),
-		EngineVersion:   engineVersion,
-		EngineUptimeSec: int64(time.Since(processStart).Seconds()),
-		Checks:          []wlcbStatusCheck{},
-	}
+type icecastMount struct {
+    Mount        string `json:"mount"`
+    Listeners    int    `json:"listeners"`
+    ListenURL    string `json:"listenurl"`
+    ListenerPeak int    `json:"listener_peak"`
+}
 
-	add := func(name string, ok bool, detail string) {
-		resp.Checks = append(resp.Checks, wlcbStatusCheck{
-			Name:      name,
-			Ok:        ok,
-			Detail:    detail,
-			CheckedAt: now.Format(time.RFC3339),
-		})
-	}
+func fetchIcecastStatus(baseURL string) ([]icecastMount, error) {
+    // Icecast commonly exposes this endpoint.
+    // Example: http(s)://host:port/status-json.xsl
+    u := strings.TrimRight(baseURL, "/") + "/status-json.xsl"
 
-	// Engine itself is always "reachable" if this handler is running.
-	add("Engine", true, fmt.Sprintf("v%s", engineVersion))
+    // Try HTTPS first (user requested https). If it fails, fallback to HTTP.
+    try := []string{u}
+    if strings.HasPrefix(u, "https://") {
+        try = append(try, "http://"+strings.TrimPrefix(u, "https://"))
+    }
 
-	// DSP link health (engine internal monitor)
-	d := engine.DSPHealthSnapshot()
-	if d.Connected && d.State == "OK" {
-		add("DSP", true, "OK")
-	} else {
-		// Provide the most useful, short detail we have.
-		det := string(d.State)
-		if d.LastError != "" {
-			det = det + ": " + d.LastError
-		}
-		add("DSP", false, det)
-	}
+    var lastErr error
+    for _, uu := range try {
+        req, err := http.NewRequest(http.MethodGet, uu, nil)
+        if err != nil {
+            lastErr = err
+            continue
+        }
+        req.Header.Set("Cache-Control", "no-store")
+        resp, err := wlcbHTTP.Do(req)
+        if err != nil {
+            lastErr = err
+            continue
+        }
+        if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+            resp.Body.Close()
+            lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+            continue
+        }
+        var st icecastStatus
+        decErr := json.NewDecoder(resp.Body).Decode(&st)
+        resp.Body.Close()
+        if decErr != nil {
+            lastErr = decErr
+            continue
+        }
 
-	// PlayIt Live reachability + automation state
-	pilOK, pilDetail, pilErr := checkPILAutomation()
-	if pilErr == nil {
-		add("PlayIt Live", true, pilDetail)
-	} else {
-		add("PlayIt Live", false, pilDetail)
-		_ = pilOK
-	}
+        // Normalize source into []icecastMount.
+        src := st.IceStats.Source
+        out := []icecastMount{}
+        switch v := src.(type) {
+        case []any:
+            for _, item := range v {
+                b, _ := json.Marshal(item)
+                var m icecastMount
+                if err := json.Unmarshal(b, &m); err == nil {
+                    out = append(out, m)
+                }
+            }
+        case map[string]any:
+            b, _ := json.Marshal(v)
+            var m icecastMount
+            if err := json.Unmarshal(b, &m); err == nil {
+                out = append(out, m)
+            }
+        default:
+            // No mounts.
+        }
+        return out, nil
+    }
+    return nil, lastErr
+}
 
-	// Website reachability (lakesradio.org)
-	webOK, webDetail, webErr := checkWebsite(donationsSourceURL)
-	if webErr == nil {
-		add("lakesradio.org", true, webDetail)
-	} else {
-		add("lakesradio.org", false, webDetail)
-		_ = webOK
-	}
+func findMount(mounts []icecastMount, mount string) *icecastMount {
+    for i := range mounts {
+        if mounts[i].Mount == mount {
+            return &mounts[i]
+        }
+        // Sometimes Icecast omits leading slash in some UIs; be tolerant.
+        if strings.TrimPrefix(mounts[i].Mount, "/") == strings.TrimPrefix(mount, "/") {
+            return &mounts[i]
+        }
+    }
+    return nil
+}
 
-	return resp
+func buildWLCBStatus() wlcbStatusResponse {
+    now := time.Now().UTC()
+    resp := wlcbStatusResponse{
+        UpdatedAt: now.Format(time.RFC3339),
+        Checks:    []wlcbStatusCheck{},
+    }
+
+    add := func(name string, ok bool, detail string) {
+        resp.Checks = append(resp.Checks, wlcbStatusCheck{
+            Name:      name,
+            Ok:        ok,
+            Detail:    detail,
+            CheckedAt: now.Format(time.RFC3339),
+        })
+    }
+
+    addStream := func(ok bool, detail string, listeners int, peak int) {
+        resp.Checks = append(resp.Checks, wlcbStatusCheck{
+            Name:      "Stream",
+            Ok:        ok,
+            Detail:    detail,
+            CheckedAt: now.Format(time.RFC3339),
+            Listeners: listeners,
+            Peak:      peak,
+        })
+    }
+
+    // Internet
+    inetOK, inetDetail, inetErr := checkInternet()
+    if inetErr == nil {
+        add("Internet", true, inetDetail)
+    } else {
+        add("Internet", false, inetDetail)
+        _ = inetOK
+    }
+
+    // Web site
+    webOK, webDetail, webErr := checkWebsite("https://lakesradio.org")
+    if webErr == nil {
+        add("Web Site", true, webDetail)
+    } else {
+        add("Web Site", false, webDetail)
+        _ = webOK
+    }
+
+    // Icecast
+    iceBase := "https://seahorse.juststreamwith.us:8006"
+    mounts, iceErr := fetchIcecastStatus(iceBase)
+    if iceErr != nil {
+        add("Transmitter", false, "unreachable")
+        addStream(false, "unreachable", 0, wlcbPeaks.StreamPeak)
+        return resp
+    }
+
+    // Transmitter: /STL must have >= 1 listener
+    stl := findMount(mounts, "/STL")
+    if stl == nil {
+        add("Transmitter", false, "mount missing")
+    } else if stl.Listeners >= 1 {
+        add("Transmitter", true, fmt.Sprintf("%d listener(s)", stl.Listeners))
+    } else {
+        add("Transmitter", false, "0 listeners")
+    }
+
+    // Stream: /stream must exist (active mount). We also report listeners + peak.
+    stream := findMount(mounts, "/stream")
+    if stream == nil {
+        addStream(false, "mount missing", 0, wlcbPeaks.StreamPeak)
+        return resp
+    }
+
+    peak := wlcbPeaks.maybeBumpStreamPeak(stream.Listeners)
+    addStream(true, "OK", stream.Listeners, peak)
+
+    return resp
 }
 
 // stripTags converts HTML into a conservative plain-text form.
@@ -1210,12 +1383,10 @@ func main() {
 
 		// No cached value: return a minimal stale response.
 		_ = json.NewEncoder(w).Encode(wlcbStatusResponse{
-			UpdatedAt:       time.Now().UTC().Format(time.RFC3339),
-			EngineVersion:   engine.Version(),
-			EngineUptimeSec: int64(time.Since(processStart).Seconds()),
-			Stale:           true,
-			Error:           buildErr.Error(),
-			Checks:          []wlcbStatusCheck{},
+			UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+			Stale:     true,
+			Error:     buildErr.Error(),
+			Checks:    []wlcbStatusCheck{},
 		})
 	})
 

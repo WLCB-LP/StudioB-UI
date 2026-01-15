@@ -1,3 +1,12 @@
+## v0.4.03 (2026-01-14)
+
+### Changed
+- WLCB Status card:
+  - Removed uptime and all non-requested items.
+  - Implemented operator-facing checks: Internet, Web Site, Transmitter, Stream.
+  - Stream row includes a right-justified green pill: "X Listeners / Y Peak".
+  - Peak listeners are tracked and persisted locally by the engine so they survive engine/server restarts.
+
 ## v0.4.02 (2026-01-14)
 
 ### Added

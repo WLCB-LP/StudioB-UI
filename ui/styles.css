@@ -443,9 +443,9 @@ main{padding:18px}
   flex-direction: column;
   gap: 6px;
 }
+
 .wlcbStatusRow{
-  display: grid;
-  grid-template-columns: 12px 140px 1fr;
+  display: flex;
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
@@ -454,12 +454,12 @@ main{padding:18px}
   border: 1px solid rgba(255,255,255,.06);
 }
 .wlcbStatusRow--bad{
+
   background: rgba(255, 60, 60, .06);
   border-color: rgba(255, 60, 60, .18);
 }
 .wlcbStatusRow--empty{
   justify-content: center;
-  grid-template-columns: 1fr;
   text-align: center;
   opacity: .75;
 }
@@ -481,10 +481,12 @@ main{padding:18px}
   border-color: rgba(255, 60, 60, .50);
   box-shadow: 0 0 14px rgba(255, 60, 60, .12);
 }
+
 .wlcbName{
   font-size: 13px;
   font-weight: 650;
   letter-spacing: .2px;
+  flex: 1 1 auto;
 }
 .wlcbDetail{
   font-size: 12px;
@@ -492,6 +494,16 @@ main{padding:18px}
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.wlcbPill{
+  margin-left: auto;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(60,255,170,.14);
+  border: 1px solid rgba(60,255,170,.45);
+  box-shadow: 0 0 14px rgba(60,255,170,.10);
+  white-space: nowrap;
 }
 /*
   Mixer (Studio page) – touch-first fader lanes with WideOrbit-style button.

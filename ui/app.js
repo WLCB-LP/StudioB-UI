@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.02";
+const UI_BUILD_VERSION = "0.4.03";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -94,7 +94,7 @@ const state = {
   },
 
   // -----------------------------------------------------------------------
-  // WLCB Status (UI v0.4.02)
+  // WLCB Status (UI v0.4.03)
   // -----------------------------------------------------------------------
   // Intent:
   // - Provide high-level station/system health in one glance.
@@ -105,7 +105,6 @@ const state = {
   //   GET /api/wlcb/status
   wlcbStatus: {
     updatedAt: "",
-    engineUptimeSec: 0,
     // The engine provides an ordered list of checks.
     // Each item is: { name, ok, detail, checkedAt }
     checks: [],
@@ -3184,7 +3183,7 @@ function fetchLatestDonations(){
 
 
 // ---------------------------------------------------------------------------
-// WLCB Status (UI v0.4.02)
+// WLCB Status (UI v0.4.03)
 // ---------------------------------------------------------------------------
 // Polling philosophy:
 // - This is a *summary* card; it does not need to update at mixer rates.
@@ -3222,15 +3221,7 @@ function ensureWLCBStatusCardBody(){
   return body;
 }
 
-function _fmtUptime(sec){
-  sec = Math.max(0, Number(sec||0));
-  const d = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400) / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if(d > 0) return `${d}d ${h}h ${m}m`;
-  if(h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
+
 
 function renderWLCBStatus(){
   ensureWLCBStatusCardBody();
@@ -3239,9 +3230,6 @@ function renderWLCBStatus(){
   if(!meta || !list) return;
 
   const parts = [];
-  if(state.wlcbStatus.engineUptimeSec){
-    parts.push(`Uptime ${_fmtUptime(state.wlcbStatus.engineUptimeSec)}`);
-  }
   if(state.wlcbStatus.stale) parts.push('STALE');
   if(state.wlcbStatus.lastErr) parts.push(state.wlcbStatus.lastErr);
   meta.textContent = parts.join(' · ');
@@ -3256,13 +3244,28 @@ function renderWLCBStatus(){
     const ok = (ch && ch.ok === true);
     const name = escapeHTML(String(ch && ch.name ? ch.name : '—'));
     const detail = escapeHTML(String(ch && ch.detail ? ch.detail : ''));
+
     const dotClass = ok ? 'wlcbDot wlcbDot--ok' : 'wlcbDot wlcbDot--bad';
     const rowClass = ok ? 'wlcbStatusRow' : 'wlcbStatusRow wlcbStatusRow--bad';
+
+    // Special-case: Stream row shows a right-justified green pill:
+    //   "x Listeners / x Peak"
+    // Peak is maintained by the engine so it survives server restarts.
+    let pillHTML = '';
+    if(String(ch && ch.name || '') === 'Stream' && ok){
+      const listeners = Number(ch.listeners || 0);
+      const peak = Number(ch.peak || 0);
+      pillHTML = `<span class="wlcbSpacer"></span><span class="wlcbPill">${listeners} Listeners / ${peak} Peak</span>`;
+    }
+
+    // Per requirements, keep the row visually simple: dot + label.
+    // We keep detail as a tooltip so operators can still see HTTP codes
+    // during troubleshooting without cluttering the card.
     return `
       <div class="${rowClass}" title="${detail}">
         <span class="${dotClass}" aria-hidden="true"></span>
         <span class="wlcbName">${name}</span>
-        <span class="wlcbDetail">${detail}</span>
+        ${pillHTML}
       </div>
     `;
   }).join('');
@@ -3273,7 +3276,6 @@ function fetchWLCBStatus(){
     .then(r=>r.json())
     .then(j=>{
       state.wlcbStatus.updatedAt = String(j.updatedAt || '');
-      state.wlcbStatus.engineUptimeSec = Number(j.engineUptimeSec || 0);
       state.wlcbStatus.checks = Array.isArray(j.checks) ? j.checks : [];
       state.wlcbStatus.stale = !!j.stale;
       state.wlcbStatus.lastErr = String(j.error || '');
@@ -3301,7 +3303,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   fetchLatestDonations();
   setInterval(fetchLatestDonations, DONATIONS_POLL_MS);
 
-  // WLCB Status (UI v0.4.02)
+  // WLCB Status (UI v0.4.03)
   // High-level station/system status.
   // NOTE: This uses ONLY engine-provided status (no external probing in the browser).
   ensureWLCBStatusCardBody();
