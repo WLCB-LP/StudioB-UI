@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.03";
+const UI_BUILD_VERSION = "0.4.04";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -94,7 +94,7 @@ const state = {
   },
 
   // -----------------------------------------------------------------------
-  // WLCB Status (UI v0.4.03)
+  // WLCB Status (UI v0.4.04)
   // -----------------------------------------------------------------------
   // Intent:
   // - Provide high-level station/system health in one glance.
@@ -3183,7 +3183,7 @@ function fetchLatestDonations(){
 
 
 // ---------------------------------------------------------------------------
-// WLCB Status (UI v0.4.03)
+// WLCB Status (UI v0.4.04)
 // ---------------------------------------------------------------------------
 // Polling philosophy:
 // - This is a *summary* card; it does not need to update at mixer rates.
@@ -3303,7 +3303,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   fetchLatestDonations();
   setInterval(fetchLatestDonations, DONATIONS_POLL_MS);
 
-  // WLCB Status (UI v0.4.03)
+  // WLCB Status (UI v0.4.04)
   // High-level station/system status.
   // NOTE: This uses ONLY engine-provided status (no external probing in the browser).
   ensureWLCBStatusCardBody();

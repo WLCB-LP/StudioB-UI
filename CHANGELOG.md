@@ -1,3 +1,8 @@
+## v0.4.04 (2026-01-14)
+
+### Fixes
+- Engine build: remove unused import and fix WLCB status handler calling signature so `go test ./...` passes.
+
 ## v0.4.03 (2026-01-14)
 
 ### Changed

@@ -9,7 +9,6 @@ import (
 	"html"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -1358,7 +1357,9 @@ func main() {
 					buildErr = fmt.Errorf("panic: %v", rec)
 				}
 			}()
-			snap = buildWLCBStatus(engine, engine.Version())
+			 // NOTE: The WLCB Status snapshot is intentionally self-contained.
+			 // It performs its own probes and does not depend on engine internals.
+			 snap = buildWLCBStatus()
 		}()
 
 		wlcbStatus.mu.Lock()

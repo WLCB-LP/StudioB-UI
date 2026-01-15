@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.03
+# STUB Mixer UI (Studio B) — Release 0.4.04
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -26,7 +26,7 @@ Run:
 
 ## Notes
 
-- v0.4.03: WLCB Status card: now shows ONLY: Internet, lakesradio.org, Transmitter (/STL has ≥1 listener), and Stream (/stream mount exists). Stream row shows a right-justified green pill: "X Listeners / Y Peak" where Peak is persisted locally by the engine so it survives restarts.
+- v0.4.04: WLCB Status card build fix (go test pass). No functional changes.
 
 - v0.4.01: Donations: fix GOAL parsing by consulting GiveWP's public form-grid endpoint ("of $GOAL"), which is available even when the goal widget is rendered client-side on the donor-wall page.
 
