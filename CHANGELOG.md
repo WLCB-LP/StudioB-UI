@@ -180,6 +180,13 @@
 
 
 
+
+## v0.4.05
+- WLCB Status: reorder rows (Transmitter above Web Site) and add RDS line from playingnow.txt (blue dot).
+- WLCB Status: grey out dependent checks when Internet is down.
+- WLCB Status: alarm rows blink bright red when in alarm.
+- Icecast parsing: make mount matching case-insensitive; Stream pill shows listeners/peak when mount is active.
+
 ## v0.3.74 (2026-01-11)
 - FIX (DSP type): Engine DSP control is now implemented for **Symetrix** (SymNet Composer control protocol) instead of Q-SYS.
   - Controller Set uses `CS <id> <0..65535><CR>` (used for speaker mute writes).

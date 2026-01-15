@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.04";
+const UI_BUILD_VERSION = "0.4.05";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -89,12 +89,13 @@ const state = {
     updatedAt: "",
     stale: false,
     lastErr: "",
+    internetOk: true,
     // Internal: map of donationId -> firstSeenEpochMs (for flash effect).
     seenMap: {},
   },
 
   // -----------------------------------------------------------------------
-  // WLCB Status (UI v0.4.04)
+  // WLCB Status (UI v0.4.05)
   // -----------------------------------------------------------------------
   // Intent:
   // - Provide high-level station/system health in one glance.
@@ -110,6 +111,7 @@ const state = {
     checks: [],
     stale: false,
     lastErr: "",
+    internetOk: true,
   },
   // meter smoothing
   meters: {
@@ -3183,7 +3185,7 @@ function fetchLatestDonations(){
 
 
 // ---------------------------------------------------------------------------
-// WLCB Status (UI v0.4.04)
+// WLCB Status (UI v0.4.05)
 // ---------------------------------------------------------------------------
 // Polling philosophy:
 // - This is a *summary* card; it does not need to update at mixer rates.
@@ -3235,32 +3237,60 @@ function renderWLCBStatus(){
   meta.textContent = parts.join(' · ');
 
   const checks = Array.isArray(state.wlcbStatus.checks) ? state.wlcbStatus.checks : [];
+  const internetOk = (state.wlcbStatus.internetOk !== false);
+
   if(checks.length === 0){
     list.innerHTML = `<div class="wlcbStatusRow wlcbStatusRow--empty">No status yet.</div>`;
     return;
   }
 
   list.innerHTML = checks.map(ch=>{
-    const ok = (ch && ch.ok === true);
-    const name = escapeHTML(String(ch && ch.name ? ch.name : '—'));
+    const nameRaw = String(ch && ch.name ? ch.name : '—');
+    const name = escapeHTML(nameRaw);
     const detail = escapeHTML(String(ch && ch.detail ? ch.detail : ''));
 
-    const dotClass = ok ? 'wlcbDot wlcbDot--ok' : 'wlcbDot wlcbDot--bad';
-    const rowClass = ok ? 'wlcbStatusRow' : 'wlcbStatusRow wlcbStatusRow--bad';
+    const isInternetRow = (nameRaw === 'Internet');
+    const disabled = (!internetOk && !isInternetRow);
 
-    // Special-case: Stream row shows a right-justified green pill:
+    // Dot color:
+    // - When disabled, force grey.
+    // - Otherwise honor engine override ("ok"|"bad"|"info") when present.
+    // - Else derive from ok/bad.
+    const ok = (ch && ch.ok === true);
+    const dotOverride = String((ch && ch.dot) || '');
+    let dotClass = '';
+    if(disabled){
+      dotClass = 'wlcbDot wlcbDot--off';
+    }else if(dotOverride === 'info'){
+      dotClass = 'wlcbDot wlcbDot--info';
+    }else if(dotOverride === 'ok'){
+      dotClass = 'wlcbDot wlcbDot--ok';
+    }else if(dotOverride === 'bad'){
+      dotClass = 'wlcbDot wlcbDot--bad';
+    }else{
+      dotClass = ok ? 'wlcbDot wlcbDot--ok' : 'wlcbDot wlcbDot--bad';
+    }
+
+    // Alarm blinking:
+    // - Only when Internet is up (otherwise everything is greyed out).
+    // - Do NOT blink informational rows.
+    const isInfo = (dotOverride === 'info');
+    const alarm = (!disabled && !isInfo && !ok);
+
+    let rowClass = 'wlcbStatusRow';
+    if(disabled) rowClass += ' wlcbStatusRow--disabled';
+    if(alarm) rowClass += ' wlcbStatusRow--alarm';
+
+    // Stream row shows a right-justified green pill:
     //   "x Listeners / x Peak"
     // Peak is maintained by the engine so it survives server restarts.
     let pillHTML = '';
-    if(String(ch && ch.name || '') === 'Stream' && ok){
+    if(nameRaw === 'Stream' && !disabled && (dotOverride === 'ok' || ok)){
       const listeners = Number(ch.listeners || 0);
       const peak = Number(ch.peak || 0);
       pillHTML = `<span class="wlcbSpacer"></span><span class="wlcbPill">${listeners} Listeners / ${peak} Peak</span>`;
     }
 
-    // Per requirements, keep the row visually simple: dot + label.
-    // We keep detail as a tooltip so operators can still see HTTP codes
-    // during troubleshooting without cluttering the card.
     return `
       <div class="${rowClass}" title="${detail}">
         <span class="${dotClass}" aria-hidden="true"></span>
@@ -3276,6 +3306,7 @@ function fetchWLCBStatus(){
     .then(r=>r.json())
     .then(j=>{
       state.wlcbStatus.updatedAt = String(j.updatedAt || '');
+      state.wlcbStatus.internetOk = (j.internetOk === undefined) ? true : !!j.internetOk;
       state.wlcbStatus.checks = Array.isArray(j.checks) ? j.checks : [];
       state.wlcbStatus.stale = !!j.stale;
       state.wlcbStatus.lastErr = String(j.error || '');
@@ -3303,7 +3334,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   fetchLatestDonations();
   setInterval(fetchLatestDonations, DONATIONS_POLL_MS);
 
-  // WLCB Status (UI v0.4.04)
+  // WLCB Status (UI v0.4.05)
   // High-level station/system status.
   // NOTE: This uses ONLY engine-provided status (no external probing in the browser).
   ensureWLCBStatusCardBody();

@@ -476,10 +476,38 @@ main{padding:18px}
   border-color: rgba(60,255,170,.55);
   box-shadow: 0 0 14px rgba(60,255,170,.12);
 }
+
 .wlcbDot--bad{
   background: rgba(255, 60, 60, .22);
   border-color: rgba(255, 60, 60, .50);
   box-shadow: 0 0 14px rgba(255, 60, 60, .12);
+}
+.wlcbDot--info{
+  background: rgba(80, 160, 255, .22);
+  border-color: rgba(80, 160, 255, .55);
+  box-shadow: 0 0 14px rgba(80, 160, 255, .12);
+}
+.wlcbDot--off{
+  background: rgba(200,200,200,.10);
+  border-color: rgba(200,200,200,.22);
+  box-shadow: none;
+}
+
+.wlcbStatusRow--disabled{
+  opacity: .35;
+  filter: grayscale(1);
+}
+
+@keyframes wlcbAlarmBlink {
+  0%   { background: rgba(255, 0, 0, .42); border-color: rgba(255, 0, 0, .85); }
+  50%  { background: rgba(255, 0, 0, .12); border-color: rgba(255, 0, 0, .45); }
+  100% { background: rgba(255, 0, 0, .42); border-color: rgba(255, 0, 0, .85); }
+}
+
+/* Bright, attention-getting alarm state for any row in alarm.
+   NOTE: UI suppresses this when Internet is down (everything greys out). */
+.wlcbStatusRow--alarm{
+  animation: wlcbAlarmBlink 1s linear infinite;
 }
 
 .wlcbName{
@@ -488,6 +516,7 @@ main{padding:18px}
   letter-spacing: .2px;
   flex: 1 1 auto;
 }
+
 .wlcbDetail{
   font-size: 12px;
   opacity: .88;
