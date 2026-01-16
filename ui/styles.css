@@ -663,37 +663,22 @@ main{padding:18px}
 */
 .strip__title--pil,
 .strip__title--wlcb{
-  white-space: nowrap;
   /*
-    UI v0.4.08
+    UI v0.4.09
 
     Operator request:
-      - Make the title pills (PlayIt Live / WLCB Status) feel fully enclosed
-        around the text (roomy, centered, and unmistakably "pill" shaped).
+      - Center the PlayIt Live and WLCB Status title pills.
+      - Style them the same as Speakers/Program (full-width pill across the strip).
+      - Keep the text on one line.
 
-    We keep width-to-content, but use inline-flex and a larger radius so the
-    rounded ends never look clipped.
+    Note:
+      In v0.4.08 these used inline-flex + width:max-content (width-to-content).
+      That made the pill's centering depend on inline formatting. We revert to a
+      normal block element so the layout is stable and matches the other cards.
   */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Allow the pill to size to its content while remaining centered. */
-  width: max-content;
-  max-width: none;
-  margin-left: auto;
-  margin-right: auto;
-  /*
-    v0.3.62: Make these pills feel "roomier" so longer labels don't look cramped.
-    (This is purely cosmetic; we still keep width-to-content + no-wrap.)
-
-    v0.3.63: Make them a bit wider still so "PlayIt Live" and "WLCB Status"
-    have comfortable breathing room.
-  */
-  padding-top: 10px;
-  padding-bottom: 10px;
-  padding-left: 28px;
-  padding-right: 28px;
-  border-radius: 999px;
+  white-space: nowrap;
+  display: block;
+  width: 100%;
 }
 
 .strip__title--host{

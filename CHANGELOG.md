@@ -1,3 +1,8 @@
+## v0.4.09 (2026-01-15)
+
+### UI
+- Studio: re-center the PlayIt Live and WLCB Status title pills and style them to match Speakers/Program (full-width, centered, no-wrap).
+
 ## v0.4.08 (2026-01-15)
 
 ### UI

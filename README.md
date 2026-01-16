@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.08
+# STUB Mixer UI (Studio B) — Release 0.4.09
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -27,7 +27,7 @@ Run:
 ## Notes
 
 - v0.4.06: WLCB Status card build fix (go test pass). No functional changes.
-- v0.4.08: UI polish: consistent top-row card height, improved title pills, larger WLCB Status text, and tighter top↔bottom row spacing.
+- v0.4.09: UI polish: re-centered PlayIt Live and WLCB Status title pills to match Speakers/Program styling.
 
 - v0.4.01: Donations: fix GOAL parsing by consulting GiveWP's public form-grid endpoint ("of $GOAL"), which is available even when the goal widget is rendered client-side on the donor-wall page.
 
