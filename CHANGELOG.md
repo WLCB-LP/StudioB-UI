@@ -1,3 +1,8 @@
+## v0.4.10 (2026-01-16)
+
+### UI
+- Studio: widen the PlayIt Live and WLCB Status title pills (override the normal fader-width nameplate constraint) so they have the same visual presence as other top-row cards.
+
 ## v0.4.09 (2026-01-15)
 
 ### UI

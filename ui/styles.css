@@ -1031,6 +1031,38 @@ main{padding:18px}
     0 0 18px rgba(70,160,255,.08);
 }
 
+/*
+  UI v0.4.10
+
+  Operator request:
+    "The pills encompassing 'PlayIt Live' and 'WLCB Status' need to be wider."
+  Context:
+    Most strip titles intentionally match the fader lane width (var(--mixerFaderW))
+    so each channel strip feels like a single hardware module.
+
+    PlayIt Live and WLCB Status are *not* channel strips in that sense — they are
+    status/control panels — so their nameplates should read like the other top-row
+    cards (Speakers/Program): wider, centered, and comfortably padded.
+*/
+.mixerCard .strip__title--pil,
+.mixerCard .strip__title--wlcb{
+  /* Break out of the fader-width constraint used for normal channel strips */
+  width: auto;
+
+  /* Make the pill visibly wider than the text, without forcing full-width */
+  min-width: 160px;
+  max-width: calc(100% - 24px);
+
+  /* Center the pill within its strip */
+  margin-left: auto;
+  margin-right: auto;
+
+  /* Extra horizontal padding for a "nameplate" feel */
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+
 /* Host gets a little extra identity */
 .mixerCard .strip__title--host{
   background:
