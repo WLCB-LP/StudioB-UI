@@ -167,6 +167,14 @@ type wlcbStatusCheck struct {
 	// Keep it short; the UI will ellipsize long labels.
 	Name string `json:"name"`
 
+	// Key is a stable identifier for this row.
+	//
+	// Why this exists:
+	// The Recording row label changes continuously (filename/time).
+	// The UI can poll recording more frequently than other checks and
+	// update the correct row by Key without guessing by name.
+	Key string `json:"key,omitempty"`
+
 	// Ok controls whether this check is considered "in alarm".
 	// The UI renders a green/red dot for Ok unless DotOverride is set.
 	Ok bool `json:"ok"`
@@ -603,8 +611,9 @@ func buildWLCBStatus() wlcbStatusResponse {
 		Checks:     []wlcbStatusCheck{},
 	}
 
-	add := func(name string, ok bool, dot string, detail string, suppressAlarm bool) {
+	add := func(key string, name string, ok bool, dot string, detail string, suppressAlarm bool) {
 		resp.Checks = append(resp.Checks, wlcbStatusCheck{
+			Key:         key,
 			Name:        name,
 			Ok:          ok,
 			DotOverride: dot,
@@ -616,6 +625,7 @@ func buildWLCBStatus() wlcbStatusResponse {
 
 	addStream := func(ok bool, dot string, detail string, listeners int, peak int) {
 		resp.Checks = append(resp.Checks, wlcbStatusCheck{
+			Key:        "stream",
 			Name:        "Stream",
 			Ok:          ok,
 			DotOverride: dot,
@@ -632,10 +642,10 @@ func buildWLCBStatus() wlcbStatusResponse {
 	inetOK, inetDetail, inetErr := checkInternet()
 	if inetErr == nil && inetOK {
 		resp.InternetOk = true
-		add("Internet", true, "ok", inetDetail, false)
+		add("internet","Internet", true, "ok", inetDetail, false)
 	} else {
 		resp.InternetOk = false
-		add("Internet", false, "bad", inetDetail, false)
+		add("internet","Internet", false, "bad", inetDetail, false)
 	}
 
 	// ------------------------------------------------------------
@@ -649,7 +659,7 @@ func buildWLCBStatus() wlcbStatusResponse {
 	//   - Ok=true   => green dot + "<FILENAME> (<TIME>)"
 	recOK, recLabel, recDetail := getWLCBRecordingDisplay(now)
 	// Recording: never blink the background, regardless of Ok.
-	add(recLabel, recOK, "", recDetail, true)
+	add("recording", recLabel, recOK, "", recDetail, true)
 
 	// ------------------------------------------------------------
 	// 2) Transmitter + Stream (Icecast)
@@ -667,18 +677,18 @@ func buildWLCBStatus() wlcbStatusResponse {
 	iceBase := "https://seahorse.juststreamwith.us:8006"
 	mounts, iceErr := fetchIcecastStatus(iceBase)
 	if iceErr != nil {
-		add("Transmitter", false, "bad", "unreachable", false)
+		add("transmitter","Transmitter", false, "bad", "unreachable", false)
 		// If Icecast is unreachable, Stream can't be determined either.
 		addStream(false, "bad", "unreachable", 0, wlcbPeaks.StreamPeak)
 	} else {
 		// Transmitter (/STL): at least one listener.
 		stl := findMount(mounts, "/STL")
 		if stl == nil {
-			add("Transmitter", false, "bad", "mount missing", false)
+			add("transmitter","Transmitter", false, "bad", "mount missing", false)
 		} else if stl.Listeners >= 1 {
-			add("Transmitter", true, "ok", fmt.Sprintf("%d listener(s)", stl.Listeners), false)
+			add("transmitter","Transmitter", true, "ok", fmt.Sprintf("%d listener(s)", stl.Listeners), false)
 		} else {
-			add("Transmitter", false, "bad", "0 listeners", false)
+			add("transmitter","Transmitter", false, "bad", "0 listeners", false)
 		}
 
 		// Stream (/stream): mount exists = OK (even if listeners == 0).
@@ -706,9 +716,9 @@ func buildWLCBStatus() wlcbStatusResponse {
 		if strings.TrimSpace(rdsText) == "" {
 			rdsText = "unavailable"
 		}
-		add("RDS: "+rdsText, true, "info", rdsDetail, false)
+		add("rds","RDS: "+rdsText, true, "info", rdsDetail, false)
 	} else {
-		add("RDS: "+rdsText, true, "info", rdsDetail, false)
+		add("rds","RDS: "+rdsText, true, "info", rdsDetail, false)
 	}
 
 	// ------------------------------------------------------------
@@ -716,9 +726,9 @@ func buildWLCBStatus() wlcbStatusResponse {
 	// ------------------------------------------------------------
 	webOK, webDetail, webErr := checkWebsite("https://lakesradio.org")
 	if webErr == nil && webOK {
-		add("Web Site", true, "ok", webDetail, false)
+		add("website","Web Site", true, "ok", webDetail, false)
 	} else {
-		add("Web Site", false, "bad", webDetail, false)
+		add("website","Web Site", false, "bad", webDetail, false)
 	}
 
 	// Reorder to match UI intent:
@@ -729,48 +739,39 @@ func buildWLCBStatus() wlcbStatusResponse {
 	//   Stream
 	//   Recording (bottom)
 	//
-	// We built checks in a slightly different order above for readability,
-	// so we now sort them into the operator-facing order.
+	// IMPORTANT:
+	// Recording updates more frequently than other rows, so the UI depends on
+	// a stable Key ("recording") to patch the correct row.
 	order := map[string]int{
-		"Internet":    0,
-		"Transmitter": 1,
-		"RDS:":        2, // prefix match
-		"Web Site":    3,
-		"Stream":      4,
-		"Recording":   5, // special-case match (see below)
+		"internet":    0,
+		"transmitter": 1,
+		"rds":         2,
+		"website":     3,
+		"stream":      4,
+		"recording":   5,
 	}
 	sort.SliceStable(resp.Checks, func(i, j int) bool {
-		a := resp.Checks[i].Name
-		b := resp.Checks[j].Name
+		a := resp.Checks[i]
+		b := resp.Checks[j]
 
-		ai, okA := order[a]
-		bi, okB := order[b]
+		ai, okA := order[a.Key]
+		bi, okB := order[b.Key]
 
-		// Recording row match:
-		// - "Not Recording"
-		// - "<FILENAME> (<TIME>)"
-		// We intentionally do not prefix the label with "Recording:" (operator UX).
-		// So we infer it by shape.
+		// Back-compat: older rows may not set Key (or future experimental rows).
+		// Fall back to name-based classification for determinism.
 		if !okA {
-			if a == "Not Recording" || (strings.Contains(a, " (") && strings.HasSuffix(a, ")") && !strings.HasPrefix(a, "RDS:")) {
-				ai = order["Recording"]
-				okA = true
+			name := a.Name
+			if strings.HasPrefix(name, "RDS:") {
+				ai, okA = order["rds"], true
 			}
 		}
 		if !okB {
-			if b == "Not Recording" || (strings.Contains(b, " (") && strings.HasSuffix(b, ")") && !strings.HasPrefix(b, "RDS:")) {
-				bi = order["Recording"]
-				okB = true
+			name := b.Name
+			if strings.HasPrefix(name, "RDS:") {
+				bi, okB = order["rds"], true
 			}
 		}
-		if !okA && strings.HasPrefix(a, "RDS:") {
-			ai = order["RDS:"]
-			okA = true
-		}
-		if !okB && strings.HasPrefix(b, "RDS:") {
-			bi = order["RDS:"]
-			okB = true
-		}
+
 		if okA && okB {
 			return ai < bi
 		}
@@ -780,7 +781,7 @@ func buildWLCBStatus() wlcbStatusResponse {
 		if okB {
 			return false
 		}
-		return a < b
+		return a.Name < b.Name
 	})
 
 	return resp
@@ -1732,6 +1733,42 @@ func main() {
 			Stale:     true,
 			Error:     buildErr.Error(),
 			Checks:    []wlcbStatusCheck{},
+		})
+	})
+
+
+	// ------------------------------------------------------------
+	// WLCB Recording status (fast path)
+	// ------------------------------------------------------------
+	// Endpoint:
+	//   GET /api/wlcb/recording
+	//
+	// Why this exists:
+	// The main /api/wlcb/status endpoint is intentionally polled slowly (5s)
+	// because it performs external network probes (Internet, website, Icecast).
+	//
+	// Recording telemetry, however, is LOCAL UDP from Node-RED and updates
+	// continuously (timecode). Operators requested a smoother UI update cadence
+	// for the recording row without increasing the probe cadence for the other
+	// rows.
+	//
+	// Therefore:
+	// - This endpoint does NOT perform any external I/O.
+	// - It is safe to poll at 500ms.
+	mux.HandleFunc("/api/wlcb/recording", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "GET required")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		now := time.Now().UTC()
+		ok, label, detail := getWLCBRecordingDisplay(now)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"updatedAt": now.Format(time.RFC3339),
+			"key":       "recording",
+			"ok":        ok,
+			"label":     label,
+			"detail":    detail,
 		})
 	})
 

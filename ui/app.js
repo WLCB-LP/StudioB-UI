@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.12";
+const UI_BUILD_VERSION = "0.4.13";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -3244,6 +3244,11 @@ function fetchLatestDonations(){
 // - We keep the poll interval conservative to avoid adding load.
 // - The engine owns external probing / normalization.
 const WLCB_STATUS_POLL_MS = 5000;
+// Recording status updates more frequently (operator requested smoother timecode).
+// This polls ONLY a lightweight local endpoint and does NOT increase
+// the cadence of Internet/website/Icecast probes.
+const WLCB_RECORDING_POLL_MS = 500;
+
 
 function ensureWLCBStatusCardBody(){
   const card = document.querySelector('#wlcbStatusCard');
@@ -3373,6 +3378,58 @@ function fetchWLCBStatus(){
     });
 }
 
+// ------------------------------------------------------------
+// WLCB Recording (fast poll)
+// ------------------------------------------------------------
+// This updates ONLY the Recording row inside WLCB Status.
+// The rest of WLCB Status remains on the 5s cadence to avoid
+// hammering external probes (Internet/website/Icecast).
+function upsertWLCBRecordingRow(label, ok, detail, updatedAt){
+  if(!Array.isArray(state.wlcbStatus.checks)) state.wlcbStatus.checks = [];
+
+  const rec = {
+    key: 'recording',
+    name: String(label || 'Not Recording'),
+    ok: !!ok,
+    dot: '',
+    detail: String(detail || ''),
+    checkedAt: String(updatedAt || ''),
+    suppressAlarm: true
+  };
+
+  // Prefer stable key match (engine v0.4.13+).
+  let idx = state.wlcbStatus.checks.findIndex(c => String(c && c.key ? c.key : '') === 'recording');
+
+  // Back-compat: if key is missing (older engine), fall back to label shape.
+  if(idx < 0){
+    idx = state.wlcbStatus.checks.findIndex(c => {
+      const n = String(c && c.name ? c.name : '');
+      return n === 'Not Recording' || (n.includes(' (') && n.endsWith(')') && !n.startsWith('RDS:'));
+    });
+  }
+
+  if(idx >= 0){
+    state.wlcbStatus.checks[idx] = rec;
+  }else{
+    state.wlcbStatus.checks.push(rec);
+  }
+
+  renderWLCBStatus();
+}
+
+function fetchWLCBRecording(){
+  fetch('/api/wlcb/recording', { cache: 'no-store' })
+    .then(r=>r.json())
+    .then(j=>{
+      upsertWLCBRecordingRow(j.label, j.ok, j.detail, j.updatedAt);
+    })
+    .catch(()=>{
+      // Silence errors: recording is a convenience indicator.
+      // Keep last-known value. Broader connectivity issues are surfaced by
+      // /api/health and the 5s WLCB status poll.
+    });
+}
+
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
@@ -3393,6 +3450,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
   ensureWLCBStatusCardBody();
   fetchWLCBStatus();
   setInterval(fetchWLCBStatus, WLCB_STATUS_POLL_MS);
+
+  // Recording status fast poll (UI v0.4.13)
+  fetchWLCBRecording();
+  setInterval(fetchWLCBRecording, WLCB_RECORDING_POLL_MS);
 
 
   // Mixer hydration (v0.3.30): connect to RC WebSocket and wait for an

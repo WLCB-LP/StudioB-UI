@@ -1,3 +1,10 @@
+## v0.4.13 (2026-01-16)
+
+### Engine + UI
+- WLCB Recording: add lightweight endpoint `GET /api/wlcb/recording` (no external I/O) so the UI can poll the recording timecode smoothly.
+- UI: poll recording status every 500ms without changing the 5s cadence for the rest of WLCB Status.
+- WLCB Status API: add optional `key` field per row (stable identifiers) so the UI can update the Recording row reliably even though its label changes.
+
 ## v0.4.12 (2026-01-16)
 
 ### Engine + UI
