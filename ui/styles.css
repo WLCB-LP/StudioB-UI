@@ -124,7 +124,7 @@ main{padding:18px}
 }
 
 /*
-  Studio layout spacing (UI v0.4.07)
+  Studio layout spacing (UI v0.4.08)
 
   Operator request (2026-01-15):
     - Bring the bottom console row up.
@@ -136,7 +136,7 @@ main{padding:18px}
 
   We now use a fixed gap to keep the console visually cohesive.
 */
-#page-studio .studioBottomFaders{margin-top:40px;}
+#page-studio .studioBottomFaders{margin-top:auto;}
 
 /* Bottom fader row styling */
 #page-studio .mixerRoot--bottom{
@@ -460,7 +460,7 @@ main{padding:18px}
   display: flex;
   gap: 8px;
   align-items: center;
-  /* Slightly larger tap target + readability (UI v0.4.07) */
+  /* Slightly larger tap target + readability (UI v0.4.08) */
   padding: 8px 10px;
   border-radius: 12px;
   background: rgba(255,255,255,.03);
@@ -477,7 +477,7 @@ main{padding:18px}
   opacity: .75;
 }
 .wlcbDot{
-  /* Larger dot for at-a-glance visibility (UI v0.4.07) */
+  /* Larger dot for at-a-glance visibility (UI v0.4.08) */
   width: 12px;
   height: 12px;
   border-radius: 999px;
@@ -591,7 +591,7 @@ main{padding:18px}
   grid-template-rows: auto;
   gap: 24px;
   /*
-    UI v0.4.07
+    UI v0.4.08
 
     Operator request:
       - Make ALL top-row cards match the height of the tallest card
@@ -665,7 +665,7 @@ main{padding:18px}
 .strip__title--wlcb{
   white-space: nowrap;
   /*
-    UI v0.4.07
+    UI v0.4.08
 
     Operator request:
       - Make the title pills (PlayIt Live / WLCB Status) feel fully enclosed

@@ -1,3 +1,8 @@
+## v0.4.08 (2026-01-15)
+
+### UI
+- Studio: revert the bottom-row spacing change (restore the prior layout behavior) so bottom-row mute buttons are not clipped when the mixer is not fullscreen.
+
 ## v0.4.07 (2026-01-15)
 
 ### UI
