@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -275,6 +276,92 @@ func (ps *wlcbPeakStore) maybeBumpStreamPeak(current int) int {
 
 var wlcbPeaks = newWLCBPeakStore()
 
+// ---------------------------------------------------------------------
+// Recording indicator (UDP from Node-RED)
+// ---------------------------------------------------------------------
+// Operator requirement:
+// - Node-RED sends UDP packets while a program is being recorded.
+// - Payload format: <FILENAME>,<TIME>
+//   Example: "WLCB_Show_2026-01-16.mp3,00:12:34"
+// - If the engine receives data recently (within 5 seconds), the UI shows:
+//     green dot + "<FILENAME> (<TIME>)"
+// - If no data has been received within 5 seconds, the UI shows:
+//     red dot + "Not Recording"
+//
+// IMPORTANT:
+// - This is intentionally UDP (connectionless).
+// - We do not attempt to validate filename/time formats; we display what we get.
+
+type wlcbRecordingState struct {
+	mu sync.Mutex
+
+	lastSeen time.Time
+	filename string
+	timecode string
+	lastAddr string
+}
+
+var wlcbRecording = &wlcbRecordingState{}
+
+func startWLCBRecordingUDPListener(port int) {
+	addr := &net.UDPAddr{IP: net.IPv4zero, Port: port}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		log.Printf("recording: ERROR: listen udp :%d failed: %v", port, err)
+		return
+	}
+	log.Printf("recording: listening for Node-RED UDP on :%d (payload: <FILENAME>,<TIME>)", port)
+
+	go func() {
+		defer conn.Close()
+		buf := make([]byte, 2048)
+		for {
+			n, remote, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				// UDP read errors can happen during shutdown; keep this non-fatal.
+				log.Printf("recording: WARN: udp read failed: %v", err)
+				time.Sleep(250 * time.Millisecond)
+				continue
+			}
+			msg := strings.TrimSpace(string(buf[:n]))
+			if msg == "" {
+				continue
+			}
+			// Parse "filename,time" (only split on the first comma so filenames
+			// containing commas are still handled reasonably).
+			parts := strings.SplitN(msg, ",", 2)
+			if len(parts) != 2 {
+				log.Printf("recording: WARN: bad payload (expected <FILENAME>,<TIME>): %q", msg)
+				continue
+			}
+			fn := strings.TrimSpace(parts[0])
+			tc := strings.TrimSpace(parts[1])
+			if fn == "" || tc == "" {
+				log.Printf("recording: WARN: bad payload (empty field): %q", msg)
+				continue
+			}
+
+			wlcbRecording.mu.Lock()
+			wlcbRecording.lastSeen = time.Now()
+			wlcbRecording.filename = fn
+			wlcbRecording.timecode = tc
+			wlcbRecording.lastAddr = remote.String()
+			wlcbRecording.mu.Unlock()
+		}
+	}()
+}
+
+func getWLCBRecordingDisplay(now time.Time) (ok bool, label string, detail string) {
+	wlcbRecording.mu.Lock()
+	defer wlcbRecording.mu.Unlock()
+
+	// 5 second timeout (requirement)
+	if wlcbRecording.lastSeen.IsZero() || now.Sub(wlcbRecording.lastSeen) > 5*time.Second {
+		return false, "Not Recording", "no recent UDP"
+	}
+	return true, fmt.Sprintf("%s (%s)", wlcbRecording.filename, wlcbRecording.timecode), "udp from " + wlcbRecording.lastAddr
+}
+
 // --- Check helpers ----------------------------------------------------
 
 func checkInternet() (bool, string, error) {
@@ -517,6 +604,18 @@ func buildWLCBStatus() wlcbStatusResponse {
 	}
 
 	// ------------------------------------------------------------
+	// 1b) Recording (local UDP from Node-RED)
+	// ------------------------------------------------------------
+	// This check is intentionally independent of Internet connectivity.
+	// It reflects whether we have received recording telemetry recently.
+	//
+	// UI behavior is driven purely by Ok + Name:
+	//   - Ok=false  => red dot + "Not Recording" (and blink alarm)
+	//   - Ok=true   => green dot + "<FILENAME> (<TIME>)"
+	recOK, recLabel, recDetail := getWLCBRecordingDisplay(now)
+	add(recLabel, recOK, "", recDetail)
+
+	// ------------------------------------------------------------
 	// 2) Transmitter + Stream (Icecast)
 	// ------------------------------------------------------------
 	//
@@ -588,6 +687,7 @@ func buildWLCBStatus() wlcbStatusResponse {
 
 	// Reorder to match UI intent:
 	//   Internet
+	//   Recording
 	//   Transmitter
 	//   RDS
 	//   Web Site
@@ -597,10 +697,11 @@ func buildWLCBStatus() wlcbStatusResponse {
 	// so we now sort them into the operator-facing order.
 	order := map[string]int{
 		"Internet":    0,
-		"Transmitter": 1,
-		"RDS:":        2, // prefix match
-		"Web Site":    3,
-		"Stream":      4,
+		"Recording":   1, // special-case match (see below)
+		"Transmitter": 2,
+		"RDS:":        3, // prefix match
+		"Web Site":    4,
+		"Stream":      5,
 	}
 	sort.SliceStable(resp.Checks, func(i, j int) bool {
 		a := resp.Checks[i].Name
@@ -608,6 +709,24 @@ func buildWLCBStatus() wlcbStatusResponse {
 
 		ai, okA := order[a]
 		bi, okB := order[b]
+
+		// Recording row match:
+		// - "Not Recording"
+		// - "<FILENAME> (<TIME>)"
+		// We intentionally do not prefix the label with "Recording:" (operator UX).
+		// So we infer it by shape.
+		if !okA {
+			if a == "Not Recording" || (strings.Contains(a, " (") && strings.HasSuffix(a, ")") && !strings.HasPrefix(a, "RDS:")) {
+				ai = order["Recording"]
+				okA = true
+			}
+		}
+		if !okB {
+			if b == "Not Recording" || (strings.Contains(b, " (") && strings.HasSuffix(b, ")") && !strings.HasPrefix(b, "RDS:")) {
+				bi = order["Recording"]
+				okB = true
+			}
+		}
 		if !okA && strings.HasPrefix(a, "RDS:") {
 			ai = order["RDS:"]
 			okA = true
@@ -1312,6 +1431,23 @@ func main() {
 	}
 
 	engine := app.NewEngine(cfg, version, cfgPath)
+
+	// ------------------------------------------------------------
+	// Recording indicator UDP listener (Node-RED -> Engine)
+	// ------------------------------------------------------------
+	// Default port: 55123
+	// Override via env:
+	//   WLCB_RECORDING_UDP_PORT=55123
+	// NOTE: We start this even in mock mode; it is independent of DSP writes.
+	udpPort := 55123
+	if s := strings.TrimSpace(os.Getenv("WLCB_RECORDING_UDP_PORT")); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 && v < 65536 {
+			udpPort = v
+		} else {
+			log.Printf("recording: WARN: invalid WLCB_RECORDING_UDP_PORT=%q; using %d", s, udpPort)
+		}
+	}
+	startWLCBRecordingUDPListener(udpPort)
 
 	mux := http.NewServeMux()
 

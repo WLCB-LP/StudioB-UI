@@ -1,3 +1,8 @@
+## v0.4.11 (2026-01-16)
+
+### Engine + UI
+- WLCB Status: add a Recording indicator sourced from UDP telemetry (Node-RED -> engine). Engine listens on UDP port 55123 by default (override with WLCB_RECORDING_UDP_PORT). If no packets arrive for 5 seconds, WLCB Status shows "Not Recording" (red); while receiving packets it shows "<FILENAME> (<TIME>)" (green).
+
 ## v0.4.10 (2026-01-16)
 
 ### UI
