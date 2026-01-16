@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.10";
+const UI_BUILD_VERSION = "0.4.12";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -3327,7 +3327,8 @@ function renderWLCBStatus(){
     // - Only when Internet is up (otherwise everything is greyed out).
     // - Do NOT blink informational rows.
     const isInfo = (dotOverride === 'info');
-    const alarm = (!disabled && !isInfo && !ok);
+    const suppressAlarm = !!ch.suppressAlarm;
+    const alarm = (!disabled && !isInfo && !suppressAlarm && !ok);
 
     let rowClass = 'wlcbStatusRow';
     if(disabled) rowClass += ' wlcbStatusRow--disabled';

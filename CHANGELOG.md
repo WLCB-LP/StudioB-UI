@@ -1,3 +1,13 @@
+## v0.4.12 (2026-01-16)
+
+### Engine + UI
+- Recording (UDP -> engine): accept both payload formats:
+  - "<FILENAME>,<TIME>" (spec)
+  - "<FILENAME>(<TIME>)" (common Node-RED concatenation)
+- Recording: tolerate missing/"undefined" filename by substituting "Recording".
+- WLCB Status ordering: move Recording row to the bottom of the stack.
+- WLCB Status alarm behavior: Recording row never blinks red (dot still reflects state).
+
 ## v0.4.11 (2026-01-16)
 
 ### Engine + UI

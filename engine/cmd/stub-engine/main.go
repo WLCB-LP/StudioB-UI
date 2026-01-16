@@ -184,6 +184,15 @@ type wlcbStatusCheck struct {
 	Detail    string `json:"detail"`
 	CheckedAt string `json:"checkedAt"`
 
+	// SuppressAlarm prevents the UI from applying the red blinking "alarm"
+	// background to this row even when Ok=false.
+	//
+	// Operator requirement:
+	// - Recording status MUST show a red/green dot, but MUST NOT flash the row
+	//   background red when not recording. The operator wants the default row
+	//   background regardless of recording state.
+	SuppressAlarm bool `json:"suppressAlarm,omitempty"`
+
 	// Optional (Stream only)
 	Listeners int `json:"listeners,omitempty"`
 	Peak      int `json:"peak,omitempty"`
@@ -303,6 +312,10 @@ type wlcbRecordingState struct {
 
 var wlcbRecording = &wlcbRecordingState{}
 
+// Accept fallback payloads shaped like "name(time)".
+// Compiled once so we don't recompile it on every UDP packet.
+var reRecordingParen = regexp.MustCompile(`^(.*)\(([^()]*)\)$`)
+
 func startWLCBRecordingUDPListener(port int) {
 	addr := &net.UDPAddr{IP: net.IPv4zero, Port: port}
 	conn, err := net.ListenUDP("udp", addr)
@@ -327,17 +340,38 @@ func startWLCBRecordingUDPListener(port int) {
 			if msg == "" {
 				continue
 			}
-			// Parse "filename,time" (only split on the first comma so filenames
-			// containing commas are still handled reasonably).
+			// Parse payload.
+			// Primary required format (operator spec):
+			//   <FILENAME>,<TIME>
+			// But Node-RED flows in the wild sometimes emit:
+			//   <FILENAME>(<TIME>)
+			// (no comma) — usually from string concatenation.
+			// We accept BOTH formats to reduce operator friction.
+			var fn, tc string
 			parts := strings.SplitN(msg, ",", 2)
-			if len(parts) != 2 {
-				log.Printf("recording: WARN: bad payload (expected <FILENAME>,<TIME>): %q", msg)
-				continue
+			if len(parts) == 2 {
+				fn = strings.TrimSpace(parts[0])
+				tc = strings.TrimSpace(parts[1])
+			} else {
+				// Fallback: "name(time)"
+				// Examples:
+				//   Show.wav(04:50)
+				//   undefined(04:50)
+				if m := reRecordingParen.FindStringSubmatch(msg); len(m) == 3 {
+					fn = strings.TrimSpace(m[1])
+					tc = strings.TrimSpace(m[2])
+				} else {
+					log.Printf("recording: WARN: bad payload (expected <FILENAME>,<TIME> or <FILENAME>(<TIME>)): %q", msg)
+					continue
+				}
 			}
-			fn := strings.TrimSpace(parts[0])
-			tc := strings.TrimSpace(parts[1])
-			if fn == "" || tc == "" {
-				log.Printf("recording: WARN: bad payload (empty field): %q", msg)
+
+			// Tolerate missing/placeholder filename (common Node-RED bug).
+			if fn == "" || strings.EqualFold(fn, "undefined") || strings.EqualFold(fn, "null") {
+				fn = "Recording"
+			}
+			if tc == "" {
+				log.Printf("recording: WARN: bad payload (empty time): %q", msg)
 				continue
 			}
 
@@ -569,13 +603,14 @@ func buildWLCBStatus() wlcbStatusResponse {
 		Checks:     []wlcbStatusCheck{},
 	}
 
-	add := func(name string, ok bool, dot string, detail string) {
+	add := func(name string, ok bool, dot string, detail string, suppressAlarm bool) {
 		resp.Checks = append(resp.Checks, wlcbStatusCheck{
 			Name:        name,
 			Ok:          ok,
 			DotOverride: dot,
 			Detail:      detail,
 			CheckedAt:   now.Format(time.RFC3339),
+			SuppressAlarm: suppressAlarm,
 		})
 	}
 
@@ -597,10 +632,10 @@ func buildWLCBStatus() wlcbStatusResponse {
 	inetOK, inetDetail, inetErr := checkInternet()
 	if inetErr == nil && inetOK {
 		resp.InternetOk = true
-		add("Internet", true, "ok", inetDetail)
+		add("Internet", true, "ok", inetDetail, false)
 	} else {
 		resp.InternetOk = false
-		add("Internet", false, "bad", inetDetail)
+		add("Internet", false, "bad", inetDetail, false)
 	}
 
 	// ------------------------------------------------------------
@@ -613,7 +648,8 @@ func buildWLCBStatus() wlcbStatusResponse {
 	//   - Ok=false  => red dot + "Not Recording" (and blink alarm)
 	//   - Ok=true   => green dot + "<FILENAME> (<TIME>)"
 	recOK, recLabel, recDetail := getWLCBRecordingDisplay(now)
-	add(recLabel, recOK, "", recDetail)
+	// Recording: never blink the background, regardless of Ok.
+	add(recLabel, recOK, "", recDetail, true)
 
 	// ------------------------------------------------------------
 	// 2) Transmitter + Stream (Icecast)
@@ -631,18 +667,18 @@ func buildWLCBStatus() wlcbStatusResponse {
 	iceBase := "https://seahorse.juststreamwith.us:8006"
 	mounts, iceErr := fetchIcecastStatus(iceBase)
 	if iceErr != nil {
-		add("Transmitter", false, "bad", "unreachable")
+		add("Transmitter", false, "bad", "unreachable", false)
 		// If Icecast is unreachable, Stream can't be determined either.
 		addStream(false, "bad", "unreachable", 0, wlcbPeaks.StreamPeak)
 	} else {
 		// Transmitter (/STL): at least one listener.
 		stl := findMount(mounts, "/STL")
 		if stl == nil {
-			add("Transmitter", false, "bad", "mount missing")
+			add("Transmitter", false, "bad", "mount missing", false)
 		} else if stl.Listeners >= 1 {
-			add("Transmitter", true, "ok", fmt.Sprintf("%d listener(s)", stl.Listeners))
+			add("Transmitter", true, "ok", fmt.Sprintf("%d listener(s)", stl.Listeners), false)
 		} else {
-			add("Transmitter", false, "bad", "0 listeners")
+			add("Transmitter", false, "bad", "0 listeners", false)
 		}
 
 		// Stream (/stream): mount exists = OK (even if listeners == 0).
@@ -670,9 +706,9 @@ func buildWLCBStatus() wlcbStatusResponse {
 		if strings.TrimSpace(rdsText) == "" {
 			rdsText = "unavailable"
 		}
-		add("RDS: "+rdsText, true, "info", rdsDetail)
+		add("RDS: "+rdsText, true, "info", rdsDetail, false)
 	} else {
-		add("RDS: "+rdsText, true, "info", rdsDetail)
+		add("RDS: "+rdsText, true, "info", rdsDetail, false)
 	}
 
 	// ------------------------------------------------------------
@@ -680,28 +716,28 @@ func buildWLCBStatus() wlcbStatusResponse {
 	// ------------------------------------------------------------
 	webOK, webDetail, webErr := checkWebsite("https://lakesradio.org")
 	if webErr == nil && webOK {
-		add("Web Site", true, "ok", webDetail)
+		add("Web Site", true, "ok", webDetail, false)
 	} else {
-		add("Web Site", false, "bad", webDetail)
+		add("Web Site", false, "bad", webDetail, false)
 	}
 
 	// Reorder to match UI intent:
 	//   Internet
-	//   Recording
 	//   Transmitter
 	//   RDS
 	//   Web Site
 	//   Stream
+	//   Recording (bottom)
 	//
 	// We built checks in a slightly different order above for readability,
 	// so we now sort them into the operator-facing order.
 	order := map[string]int{
 		"Internet":    0,
-		"Recording":   1, // special-case match (see below)
-		"Transmitter": 2,
-		"RDS:":        3, // prefix match
-		"Web Site":    4,
-		"Stream":      5,
+		"Transmitter": 1,
+		"RDS:":        2, // prefix match
+		"Web Site":    3,
+		"Stream":      4,
+		"Recording":   5, // special-case match (see below)
 	}
 	sort.SliceStable(resp.Checks, func(i, j int) bool {
 		a := resp.Checks[i].Name

@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.11
+# STUB Mixer UI (Studio B) — Release 0.4.12
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -26,6 +26,11 @@ Run:
 
 ## Notes
 
+- v0.4.12: Recording UX + robustness:
+  - Accept UDP payloads as either "<FILENAME>,<TIME>" (spec) OR "<FILENAME>(<TIME>)" (common Node-RED concatenation).
+  - Treat missing/"undefined" filename as "Recording".
+  - Move Recording row to the bottom of WLCB Status.
+  - Recording row never blinks red (dot still shows red/green).
 - v0.4.11: Add "Recording" telemetry input (UDP) for Node-RED: engine listens on UDP port 55123 (override: WLCB_RECORDING_UDP_PORT). WLCB Status shows "Not Recording" after 5s idle, or "<FILENAME> (<TIME>)" while packets arrive.
 - v0.4.06: WLCB Status card build fix (go test pass). No functional changes.
 - v0.4.10: UI polish: widen PlayIt Live and WLCB Status title pills for stronger visual presence.
