@@ -1,3 +1,9 @@
+## v0.4.17 (2026-01-16)
+
+### UI
+- VU meters: replace the single full-height gradient fill with threshold-based segmented fills (blue/green/yellow/red). This prevents low-level meters from showing traces of green/yellow/red before reaching the -12 dB mark.
+- Peak attention: on meters that have faders (bottom row strips + Speakers), briefly flash a bright yellow or red glow when levels cross into the yellow/red ranges.
+
 ## v0.4.16 (2026-01-16)
 
 ### UI

@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.16";
+const UI_BUILD_VERSION = "0.4.17";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -561,6 +561,145 @@ function vuDisplay(v){
   return clamp01(x * _VU_TO_FADER_SCALE);
 }
 
+// ---------------------------------------------------------------------------
+// Segmented VU meter fill (UI v0.4.17)
+//
+// Problem we are solving:
+// The old VU fill used a single full-height gradient (blue→green→yellow→red).
+// When the fill was low, you could still see traces of green/yellow/red because
+// the gradient existed throughout the entire height.
+//
+// Fix:
+// We render threshold-based *segments*:
+//   Blue   : -72 .. -12
+//   Green  : -12 ..  -6
+//   Yellow :  -6 ..  -3
+//   Red    :  -3 ..   0
+//
+// Each segment is a fixed-color block whose inner fill grows only when the
+// meter crosses into that segment. This eliminates “color leakage” and reads
+// more like a broadcast console meter.
+// ---------------------------------------------------------------------------
+
+// Convert a dB value in [-72..0] into the normalized meter value (0..1) that
+// the engine publishes, then apply our display mapping (vuDisplay).
+function _dbToVuDisplayNorm(db){
+  // meter normalized 0..1 where 0 = -72 dB, 1 = 0 dB
+  const n = clamp01((db + 72) / 72);
+  return vuDisplay(n);
+}
+
+// Segment boundaries in the *display* domain (0..1 after vuDisplay).
+// These numbers intentionally mirror the CSS constants in styles.css.
+const VU_SEG_B1 = _dbToVuDisplayNorm(-12); // ~0.7142857
+const VU_SEG_B2 = _dbToVuDisplayNorm(-6);  // ~0.7857143
+const VU_SEG_B3 = _dbToVuDisplayNorm(-3);  // ~0.8214286
+const VU_SEG_B4 = _dbToVuDisplayNorm(0);   // ~0.8571429 (top of displayed meter)
+
+// “Producer attention” peak glow thresholds (only for meters that have faders).
+// Yellow warns “getting hot”, Red warns “very hot”.
+const VU_PEAK_YELLOW = VU_SEG_B2; // -6 dB
+const VU_PEAK_RED    = VU_SEG_B3; // -3 dB
+
+// Track peak-glow timers so repeated peaks extend the glow instead of stacking.
+const _vuPeakTimers = Object.create(null);
+
+function _meterEnsureSegmented(el){
+  if(!el || el.classList.contains('vuSegWrap')) return;
+
+  // Turn the old fill element into a *wrapper* that spans the whole lane.
+  // The actual colored fill is inside the segment children.
+  el.classList.add('vuSegWrap');
+  el.style.height = '100%';
+
+  // NOTE: This is safe even if called multiple times; we gate above.
+  el.innerHTML = `
+    <div class="vuSeg vuSeg--blue"   data-seg="blue"><div class="vuSeg__fill"></div></div>
+    <div class="vuSeg vuSeg--green"  data-seg="green"><div class="vuSeg__fill"></div></div>
+    <div class="vuSeg vuSeg--yellow" data-seg="yellow"><div class="vuSeg__fill"></div></div>
+    <div class="vuSeg vuSeg--red"    data-seg="red"><div class="vuSeg__fill"></div></div>
+  `;
+}
+
+function _meterSetSeg(el, segName, ratio){
+  const seg = el.querySelector(`.vuSeg[data-seg="${segName}"] .vuSeg__fill`);
+  if(!seg) return;
+  seg.style.height = (clamp01(ratio) * 100).toFixed(1) + '%';
+}
+
+function _meterApplySegmented(el, v){
+  const x = clamp01(v);
+
+  // Blue segment (0..B1)
+  _meterSetSeg(el, 'blue', (Math.min(x, VU_SEG_B1) - 0) / (VU_SEG_B1 - 0));
+
+  // Green segment (B1..B2)
+  _meterSetSeg(el, 'green', (Math.min(x, VU_SEG_B2) - VU_SEG_B1) / (VU_SEG_B2 - VU_SEG_B1));
+
+  // Yellow segment (B2..B3)
+  _meterSetSeg(el, 'yellow', (Math.min(x, VU_SEG_B3) - VU_SEG_B2) / (VU_SEG_B3 - VU_SEG_B2));
+
+  // Red segment (B3..B4)
+  _meterSetSeg(el, 'red', (Math.min(x, VU_SEG_B4) - VU_SEG_B3) / (VU_SEG_B4 - VU_SEG_B3));
+}
+
+function _findFaderOwnerForMeterId(id){
+  // Bottom row strips (have faders)
+  if(id.startsWith('m_vu_')){
+    const strip = id.replace('m_vu_', '');
+    return document.querySelector(`.studioBottomFaders .strip[data-strip="${strip}"]`);
+  }
+
+  // Speakers card has a fader + meters
+  if(id === 'm_spkL' || id === 'm_spkR'){
+    return document.getElementById('speakersCard');
+  }
+
+  // PlayIt Live meters do *not* have faders; do not glow.
+  return null;
+}
+
+function _applyPeakGlowIfNeeded(meterId, v){
+  const owner = _findFaderOwnerForMeterId(meterId);
+  if(!owner) return;
+
+  const x = clamp01(v);
+  let klass = '';
+  if(x >= VU_PEAK_RED) klass = 'vuPeak--red';
+  else if(x >= VU_PEAK_YELLOW) klass = 'vuPeak--yellow';
+  else return;
+
+  // Red overrides yellow.
+  if(klass === 'vuPeak--yellow' && owner.classList.contains('vuPeak--red')){
+    return;
+  }
+
+  owner.classList.add(klass);
+  if(klass === 'vuPeak--red') owner.classList.remove('vuPeak--yellow');
+
+  // Hold for a few seconds to grab attention.
+  const key = owner.id ? `#${owner.id}` : (owner.getAttribute('data-strip') || meterId);
+  if(_vuPeakTimers[key]) clearTimeout(_vuPeakTimers[key]);
+  _vuPeakTimers[key] = setTimeout(()=>{
+    owner.classList.remove('vuPeak--yellow');
+    owner.classList.remove('vuPeak--red');
+    _vuPeakTimers[key] = null;
+  }, 2500);
+}
+
+function ensureSegmentedMeters(){
+  // Convert any legacy .fader__meterFill elements into segmented meters.
+  // This includes:
+  //   - PlayIt Live (m_pilL/m_pilR)  [no peak glow]
+  //   - Speakers (m_spkL/m_spkR)     [peak glow]
+  //   - Bottom row strips (dynamic m_vu_*)
+  try{
+    document.querySelectorAll('.fader__meterFill').forEach(_meterEnsureSegmented);
+  }catch(e){
+    console.warn('[ensureSegmentedMeters] failed', e);
+  }
+}
+
 // Ensure each bottom-row strip has a .fader__meterFill we can drive.
 // The markup renders an empty .fader__meter lane; we attach the inner fill
 // element dynamically so we can keep HTML clean and stable.
@@ -579,6 +718,8 @@ function ensureBottomRowVUMeterFills(){
       const fill = document.createElement("div");
       fill.className = "fader__meterFill";
       fill.id = `m_vu_${id}`;
+      // v0.4.17: meters are segmented (threshold-based) to avoid color leakage.
+      _meterEnsureSegmented(fill);
       meterLane.appendChild(fill);
     });
   }catch(e){
@@ -1222,6 +1363,18 @@ function setMeterFill(id, v){
 function setMeterFillV(id, v){
   const el = document.getElementById(id);
   if(!el) return;
+
+  // v0.4.17: segmented meters
+  // If this meter has been upgraded to the segmented wrapper style, we do NOT
+  // set its own height. Instead, we drive the inner segment fills.
+  if(el.classList.contains('vuSegWrap')){
+    const x = clamp01(v);
+    _meterApplySegmented(el, x);
+    _applyPeakGlowIfNeeded(id, x);
+    return;
+  }
+
+  // Legacy single-gradient fallback (should be rare once ensureSegmentedMeters runs)
   el.style.height = (clamp01(v) * 100).toFixed(1) + "%";
 }
 
@@ -3500,6 +3653,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Safe to call even if the Studio page is not visible yet.
   initMixerFaders();
   ensureBottomRowVUMeterFills();
+  // v0.4.17: upgrade all VU fills to segmented (threshold-based) rendering.
+  // This must run AFTER ensureBottomRowVUMeterFills so the dynamic elements exist.
+  ensureSegmentedMeters();
 
   fetchDSPModeStatus();
   setInterval(fetchDSPModeStatus, 5000);
