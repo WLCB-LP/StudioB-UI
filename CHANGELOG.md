@@ -1,3 +1,9 @@
+## v0.4.19 (2026-01-16)
+
+### UI
+- VU meters: fix segment threshold alignment so the blue->green transition occurs exactly at the printed -12 dB mark (and green spans -12..-6 as intended). The segmented fill now follows the same non-linear scale used by the on-lane meter markings.
+- Header: replace the top-right pill stack with a local date/time readout.
+
 ## v0.4.18 (2026-01-16)
 
 ### UI

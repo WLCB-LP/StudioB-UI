@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.18
+# STUB Mixer UI (Studio B) — Release 0.4.19
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,10 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.4.19:
+  - VU meters: align segmented thresholds to the printed scale (blue->green at -12; green spans -12..-6).
+  - Header: replace the top-right pill stack with date/time.
 
 - v0.4.18: VU meters: make the entire -12 to -6 dB range solid green (operator-friendly "target" zone).
 

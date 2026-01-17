@@ -84,6 +84,24 @@ body{
 .pill.ok{border-color:rgba(55,214,122,.5); background:rgba(55,214,122,.10)}
 .pill.bad{border-color:rgba(255,90,122,.5); background:rgba(255,90,122,.10)}
 
+/* -------------------------------------------------------------------------
+   Header date/time (UI v0.4.19)
+
+   The operator requested removing the right-hand pill stack and replacing it
+   with a single date/time readout.
+------------------------------------------------------------------------- */
+.dateTime{
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.02);
+  color: rgba(220,245,255,.88);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+
 /* Layout */
 main{padding:18px}
 .page{max-width: 1860px; margin:0 auto}
@@ -768,13 +786,26 @@ main{padding:18px}
 ------------------------------------------------------------------------- */
 
 /* Constants that match app.js's computed VU_SEG_B* values.
-   These numbers are the vuDisplay() output for -12/-6/-3/0 dB.
-   (They are stable fractions in our current mapping: 5/7, 11/14, 23/28, 6/7.) */
+
+   IMPORTANT:
+   These are NOT “mathy” fractions anymore — they are deliberately aligned to
+   the printed meter marks authored in index.html:
+
+     0 dB  : top: 0%   -> from-bottom: 1.00
+    -3 dB  : top: 10%  -> from-bottom: 0.90
+    -6 dB  : top: 20%  -> from-bottom: 0.80
+   -12 dB  : top: 40%  -> from-bottom: 0.60
+
+   If you change the mark percentages in index.html, you MUST update:
+     - VU_MARK_POINTS in ui/app.js
+     - these CSS vars
+   so the color boundaries still line up with the scale the operator sees.
+*/
 :root{
-  --vu-b1: 0.7142857; /* -12 dB */
-  --vu-b2: 0.7857143; /*  -6 dB */
-  --vu-b3: 0.8214286; /*  -3 dB */
-  --vu-b4: 0.8571429; /*   0 dB (top of displayed meter) */
+  --vu-b1: 0.60; /* -12 dB */
+  --vu-b2: 0.80; /*  -6 dB */
+  --vu-b3: 0.90; /*  -3 dB */
+  --vu-b4: 1.00; /*   0 dB (top of meter) */
 }
 
 .fader__meterFill.vuSegWrap{

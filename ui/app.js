@@ -10,7 +10,33 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.18";
+const UI_BUILD_VERSION = "0.4.19";
+
+// ---------------------------------------------------------------------------
+// Top-right date/time (UI v0.4.19)
+//
+// Operator request:
+// Replace the header pill cluster with a simple local date/time display.
+// ---------------------------------------------------------------------------
+function updateHeaderDateTime(){
+  const el = document.getElementById('dateTime');
+  if(!el) return;
+
+  const d = new Date();
+  const dateStr = d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const timeStr = d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  // Use a visible spacer between date and time (matches operator example).
+  el.textContent = `${dateStr}   ${timeStr}`;
+}
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -536,29 +562,67 @@ const STRIP_VU_RC = {
 };
 
 // ---------------------------------------------------------------------------
-// VU display scaling
+// VU display mapping (IMPORTANT: aligns to the *printed* meter marks)
 //
-// DSP facts (Studio B):
-//   - Fader range:  -72 dB .. +12 dB
-//   - Meter range:  -72 dB .. 0 dB
+// The meter lanes in this UI include "hardware-like" reference marks that are
+// intentionally NOT linear.
 //
-// The engine publishes normalized 0..1 values for meter RCs.
-// When those normalized values represent a -72..0 dB meter, the top of the
-// meter corresponds to 0 dB, not the fader's +12 dB headroom.
+// Those marks are authored in index.html as fixed percentages from the TOP:
+//   0 dB  : 0%
+//  -3 dB  : 10%
+//  -6 dB  : 20%
+// -12 dB  : 40%
+// -20 dB  : 65%
+// -30 dB  : 80%
+//  -∞     : 100%
 //
-// To make meter travel visually consistent with the fader travel, we map the
-// -72..0 span into the -72..+12 span.
+// Therefore, the correct thing to do is:
+//   1) Convert the engine's normalized meter value (0..1 representing -72..0 dB)
+//      back into dB.
+//   2) Map that dB value into a *display position* that matches those marks.
 //
-// This is DISPLAY-ONLY. It does not change truth; it only changes how tall the
-// meter looks.
+// This makes BOTH:
+//   - the meter height
+//   - and our segmented color thresholds
+// line up with the markings the operator actually sees.
 // ---------------------------------------------------------------------------
-const VU_MATCH_FADER_RANGE = true;
-const _VU_TO_FADER_SCALE = 72 / 84; // 0.857...
+
+// Piecewise-linear mapping points: [dB, displayNormFromBottom]
+// displayNormFromBottom is 0..1 where 0 = bottom, 1 = top.
+// These match the authored mark positions above.
+const VU_MARK_POINTS = [
+  [-72, 0.00], // bottom ("-∞" region)
+  [-30, 0.20],
+  [-20, 0.35],
+  [-12, 0.60],
+  [ -6, 0.80],
+  [ -3, 0.90],
+  [  0, 1.00],
+];
+
+function _lerp(a,b,t){ return a + (b-a)*t; }
 
 function vuDisplay(v){
+  // Engine publishes 0..1 for -72..0 dB.
   const x = clamp01(v);
-  if(!VU_MATCH_FADER_RANGE) return x;
-  return clamp01(x * _VU_TO_FADER_SCALE);
+  const db = -72 + (72 * x);
+
+  // Clamp below/above our mapping table.
+  if(db <= VU_MARK_POINTS[0][0]) return VU_MARK_POINTS[0][1];
+  if(db >= VU_MARK_POINTS[VU_MARK_POINTS.length-1][0]) return VU_MARK_POINTS[VU_MARK_POINTS.length-1][1];
+
+  // Find the two points the value falls between and interpolate.
+  for(let i=0;i<VU_MARK_POINTS.length-1;i++){
+    const [dbA, yA] = VU_MARK_POINTS[i];
+    const [dbB, yB] = VU_MARK_POINTS[i+1];
+    if(db >= dbA && db <= dbB){
+      const t = (db - dbA) / (dbB - dbA);
+      return clamp01(_lerp(yA, yB, t));
+    }
+  }
+
+  // Should never happen, but be safe.
+  return clamp01(x);
 }
 
 // ---------------------------------------------------------------------------
@@ -590,11 +654,17 @@ function _dbToVuDisplayNorm(db){
 }
 
 // Segment boundaries in the *display* domain (0..1 after vuDisplay).
-// These numbers intentionally mirror the CSS constants in styles.css.
-const VU_SEG_B1 = _dbToVuDisplayNorm(-12); // ~0.7142857
-const VU_SEG_B2 = _dbToVuDisplayNorm(-6);  // ~0.7857143
-const VU_SEG_B3 = _dbToVuDisplayNorm(-3);  // ~0.8214286
-const VU_SEG_B4 = _dbToVuDisplayNorm(0);   // ~0.8571429 (top of displayed meter)
+// These MUST match the authored mark positions in index.html (and the CSS vars
+// in styles.css), so the color boundaries align with the printed scale.
+// With the current mark layout, these map to:
+//   -12 dB -> ~0.60
+//    -6 dB -> ~0.80
+//    -3 dB -> ~0.90
+//     0 dB ->  1.00
+const VU_SEG_B1 = _dbToVuDisplayNorm(-12);
+const VU_SEG_B2 = _dbToVuDisplayNorm(-6);
+const VU_SEG_B3 = _dbToVuDisplayNorm(-3);
+const VU_SEG_B4 = _dbToVuDisplayNorm(0);
 
 // “Producer attention” peak glow thresholds (only for meters that have faders).
 // Yellow warns “getting hot”, Red warns “very hot”.
@@ -1214,6 +1284,9 @@ function clamp01(x){
 
 function setConn(ok){
   const el = $("#connStatus");
+  // UI v0.4.19: header pill cluster removed. In that layout, connStatus does
+  // not exist and we simply skip updating it.
+  if(!el) return;
   if(ok){
     el.textContent = "Connected";
     el.classList.remove("bad");
@@ -1226,12 +1299,19 @@ function setConn(ok){
 }
 
 function setPills(){
+  // UI v0.4.19: header pill cluster removed (replaced by date/time).
+  // This function is still called by legacy paths, so it must be a no-op when
+  // the pill elements are not present.
+  const verPill = $("#verPill");
+  if(!verPill) return;
+
   // Engine runtime identity
   // Show UI + engine versions separately so it's obvious what updated.
   const uiVerPill = $("#uiVerPill");
   if (uiVerPill) uiVerPill.textContent = `ui v${UI_BUILD_VERSION}`;
-  $("#verPill").textContent = "engine v" + (state.version || "—");
-  $("#modePill").textContent = "engine: " + (state.mode || "—");
+  verPill.textContent = "engine v" + (state.version || "—");
+  const modePill = $("#modePill");
+  if(modePill) modePill.textContent = "engine: " + (state.mode || "—");
 
   // DSP connectivity (status/monitoring) — always-on.
   const dspConn = $("#dspConnPill");
@@ -3617,6 +3697,10 @@ function fetchWLCBRecording(){
 document.addEventListener("DOMContentLoaded", ()=>{
   // Runtime event timeline (v0.3.12)
   addRuntimeEvent(`UI loaded (v${UI_BUILD_VERSION})`);
+
+  // Header clock (UI v0.4.19)
+  updateHeaderDateTime();
+  setInterval(updateHeaderDateTime, 1000);
 
   // v0.3.64: repair known legacy labels when index.html is stale.
   // This is safe, idempotent, and provides an on-screen audit trail.
