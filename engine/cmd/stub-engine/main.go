@@ -593,6 +593,12 @@ func checkPlayingNow(url string) (string, string, error) {
 	// Collapse any remaining newlines to a readable single line.
 	txt = strings.Join(strings.Fields(txt), " ")
 
+	// playingnow.txt is served from WordPress and may include HTML entities
+	// (e.g. "Brick&#8217;s" for the apostrophe). The UI renders text as text
+	// (it should never inject HTML), so we normalize to clean UTF-8 here.
+	// This avoids operator-facing "&#8217;" artifacts.
+	txt = html.UnescapeString(txt)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return txt, fmt.Sprintf("HTTP %d", resp.StatusCode), fmt.Errorf("bad status")
 	}

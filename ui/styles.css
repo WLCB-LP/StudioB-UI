@@ -482,29 +482,42 @@ main{padding:18px}
   height: 12px;
   border-radius: 999px;
   display: inline-block;
-  box-shadow: 0 0 10px rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.12);
+  /* Make the indicator *much* brighter (UI v0.4.14)
+     Operators rely on these at a glance across the room. */
+  box-shadow: 0 0 18px rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.22);
 }
 .wlcbDot--ok{
-  background: rgba(60,255,170,.28);
-  border-color: rgba(60,255,170,.55);
-  box-shadow: 0 0 14px rgba(60,255,170,.12);
+  background: rgba(60,255,170,.62);
+  border-color: rgba(60,255,170,.95);
+  box-shadow: 0 0 22px rgba(60,255,170,.60);
 }
 
 .wlcbDot--bad{
-  background: rgba(255, 60, 60, .22);
-  border-color: rgba(255, 60, 60, .50);
-  box-shadow: 0 0 14px rgba(255, 60, 60, .12);
+  background: rgba(255, 60, 60, .55);
+  border-color: rgba(255, 60, 60, .92);
+  box-shadow: 0 0 22px rgba(255, 60, 60, .55);
 }
 .wlcbDot--info{
-  background: rgba(80, 160, 255, .22);
-  border-color: rgba(80, 160, 255, .55);
-  box-shadow: 0 0 14px rgba(80, 160, 255, .12);
+  background: rgba(80, 160, 255, .55);
+  border-color: rgba(80, 160, 255, .92);
+  box-shadow: 0 0 22px rgba(80, 160, 255, .55);
 }
 .wlcbDot--off{
   background: rgba(200,200,200,.10);
   border-color: rgba(200,200,200,.22);
   box-shadow: none;
+}
+
+@keyframes wlcbRecordingPulse {
+  0%   { opacity: 1;   transform: scale(1);   box-shadow: 0 0 26px rgba(60,255,170,.70); }
+  50%  { opacity: .35; transform: scale(.92); box-shadow: 0 0 10px rgba(60,255,170,.25); }
+  100% { opacity: 1;   transform: scale(1);   box-shadow: 0 0 26px rgba(60,255,170,.70); }
+}
+
+/* Recording indicator: pulse the DOT only (not the row background). */
+.wlcbDot--recording{
+  animation: wlcbRecordingPulse 1s ease-in-out infinite;
 }
 
 .wlcbStatusRow--disabled{

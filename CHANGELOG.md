@@ -1,3 +1,10 @@
+## v0.4.14 (2026-01-16)
+
+### Engine + UI
+- RDS/Now Playing: decode HTML entities in `playingnow.txt` (e.g. "Brick&#8217;s" -> "Brick's") so operators never see entity codes.
+- WLCB Status: make status indicators (dots) significantly brighter for better across-the-room visibility.
+- Recording: pulse the green dot while actively recording (row background stays neutral).
+
 ## v0.4.13 (2026-01-16)
 
 ### Engine + UI

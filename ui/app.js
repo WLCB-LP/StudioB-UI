@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.13";
+const UI_BUILD_VERSION = "0.4.14";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -3326,6 +3326,13 @@ function renderWLCBStatus(){
       dotClass = 'wlcbDot wlcbDot--bad';
     }else{
       dotClass = ok ? 'wlcbDot wlcbDot--ok' : 'wlcbDot wlcbDot--bad';
+    }
+
+    // Recording: flash the DOT while actively recording (UI v0.4.14).
+    // The row background stays normal; operators get an unmistakable pulse.
+    const key = String(ch && ch.key ? ch.key : '');
+    if(!disabled && key === 'recording' && (dotOverride === 'ok' || ok)){
+      dotClass += ' wlcbDot--recording';
     }
 
     // Alarm blinking:
