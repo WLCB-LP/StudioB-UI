@@ -1,3 +1,8 @@
+## v0.4.18 (2026-01-16)
+
+### UI
+- VU meters: adjust the target-zone coloring so the entire -12 dB to -6 dB range is solid green.
+
 ## v0.4.17 (2026-01-16)
 
 ### UI

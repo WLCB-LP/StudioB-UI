@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.17
+# STUB Mixer UI (Studio B) — Release 0.4.18
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.4.18: VU meters: make the entire -12 to -6 dB range solid green (operator-friendly "target" zone).
 
 - v0.4.16: Prevent WLCB Status 5s poll from overwriting the fast (500ms) Recording row (fixes brief timecode back-jumps).
 - v0.4.17: Replace single-gradient VU fills with threshold-based segmented meters (prevents color leakage at low levels) + add brief yellow/red peak glow on fader meters.

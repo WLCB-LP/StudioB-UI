@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.17";
+const UI_BUILD_VERSION = "0.4.18";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -562,7 +562,7 @@ function vuDisplay(v){
 }
 
 // ---------------------------------------------------------------------------
-// Segmented VU meter fill (UI v0.4.17)
+// Segmented VU meter fill (UI v0.4.18)
 //
 // Problem we are solving:
 // The old VU fill used a single full-height gradient (blue→green→yellow→red).
@@ -718,7 +718,7 @@ function ensureBottomRowVUMeterFills(){
       const fill = document.createElement("div");
       fill.className = "fader__meterFill";
       fill.id = `m_vu_${id}`;
-      // v0.4.17: meters are segmented (threshold-based) to avoid color leakage.
+      // v0.4.18: meters are segmented (threshold-based) to avoid color leakage.
       _meterEnsureSegmented(fill);
       meterLane.appendChild(fill);
     });
@@ -1364,7 +1364,7 @@ function setMeterFillV(id, v){
   const el = document.getElementById(id);
   if(!el) return;
 
-  // v0.4.17: segmented meters
+  // v0.4.18: segmented meters
   // If this meter has been upgraded to the segmented wrapper style, we do NOT
   // set its own height. Instead, we drive the inner segment fills.
   if(el.classList.contains('vuSegWrap')){
@@ -3653,7 +3653,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Safe to call even if the Studio page is not visible yet.
   initMixerFaders();
   ensureBottomRowVUMeterFills();
-  // v0.4.17: upgrade all VU fills to segmented (threshold-based) rendering.
+  // v0.4.18: upgrade all VU fills to segmented (threshold-based) rendering.
   // This must run AFTER ensureBottomRowVUMeterFills so the dynamic elements exist.
   ensureSegmentedMeters();
 
