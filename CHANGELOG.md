@@ -1,3 +1,8 @@
+## v0.4.16 (2026-01-16)
+
+### UI
+- Recording: prevent the 5s `GET /api/wlcb/status` poll from overwriting the fast (500ms) Recording row. This fixes brief timecode back-jumps caused by mixing slow + fast update sources.
+
 ## v0.4.15 (2026-01-16)
 
 ### Engine

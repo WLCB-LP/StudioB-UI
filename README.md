@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.15
+# STUB Mixer UI (Studio B) — Release 0.4.16
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.4.16: Prevent WLCB Status 5s poll from overwriting the fast (500ms) Recording row (fixes brief timecode back-jumps).
 
 - v0.4.13: Recording status can be polled at 500ms without increasing external WLCB probes (new /api/wlcb/recording).
 - v0.4.15: Smooth recording timecode to prevent tiny backwards jumps caused by out-of-order UDP packets.

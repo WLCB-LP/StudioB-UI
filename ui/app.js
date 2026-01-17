@@ -10,7 +10,7 @@ const POLL_MS = 250;
 // NOTE: The UI and engine can update/restart independently, so the header shows
 // BOTH the UI build version (this value) and the engine version (from /api/studio/status).
 // NOTE: Keep in sync with ../VERSION (release packaging checks rely on this).
-const UI_BUILD_VERSION = "0.4.15";
+const UI_BUILD_VERSION = "0.4.16";
 
 // ---------------------------------------------------------------------------
 // Cache / stale-HTML self-repair (v0.3.64)
@@ -3370,9 +3370,29 @@ function fetchWLCBStatus(){
   fetch('/api/wlcb/status', { cache: 'no-store' })
     .then(r=>r.json())
     .then(j=>{
+      // IMPORTANT (UI v0.4.16): Do NOT let the 5s WLCB status poll overwrite
+      // the fast (500ms) recording row.
+      //
+      // Symptom we are fixing:
+      //   11:19
+      //   11:20
+      //   11:19   <-- the 5s status poll re-applies an older value
+      //   11:21
+      //
+      // Recording is updated by /api/wlcb/recording at 500ms. If we also accept
+      // the (slower) recording row embedded in /api/wlcb/status, then every
+      // 5 seconds we can briefly "jump backwards" to the older payload.
+      //
+      // Solution:
+      // - Strip any 'recording' row from the 5s /status payload.
+      // - Re-append the most recent recording row we have cached locally.
+      const recCache = state.wlcbStatus.recordingCache || null;
       state.wlcbStatus.updatedAt = String(j.updatedAt || '');
       state.wlcbStatus.internetOk = (j.internetOk === undefined) ? true : !!j.internetOk;
-      state.wlcbStatus.checks = Array.isArray(j.checks) ? j.checks : [];
+      let checks = Array.isArray(j.checks) ? j.checks : [];
+      checks = checks.filter(c => String(c && c.key ? c.key : '') !== 'recording');
+      if(recCache) checks.push(recCache);
+      state.wlcbStatus.checks = checks;
       state.wlcbStatus.stale = !!j.stale;
       state.wlcbStatus.lastErr = String(j.error || '');
       renderWLCBStatus();
@@ -3420,6 +3440,10 @@ function upsertWLCBRecordingRow(label, ok, detail, updatedAt){
   }else{
     state.wlcbStatus.checks.push(rec);
   }
+
+  // Cache the freshest recording row so the 5s /api/wlcb/status poll cannot
+  // overwrite it with an older value (see fetchWLCBStatus()).
+  state.wlcbStatus.recordingCache = rec;
 
   renderWLCBStatus();
 }
