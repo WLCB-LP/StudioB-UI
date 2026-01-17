@@ -1,3 +1,8 @@
+## v0.4.15 (2026-01-16)
+
+### Engine
+- Recording UDP: smooth timecode to prevent tiny backwards jumps (e.g. 11:20 -> 11:19 -> 11:21) caused by slight UDP packet reordering. We still accept large backwards jumps as a real reset.
+
 ## v0.4.14 (2026-01-16)
 
 ### Engine + UI

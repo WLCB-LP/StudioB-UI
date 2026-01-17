@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.14
+# STUB Mixer UI (Studio B) — Release 0.4.15
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -27,7 +27,7 @@ Run:
 ## Notes
 
 - v0.4.13: Recording status can be polled at 500ms without increasing external WLCB probes (new /api/wlcb/recording).
-- v0.4.14: Decode HTML entities in RDS/Now Playing text (no more "&#8217;") and make WLCB Status indicators brighter; recording indicator pulses while recording.
+- v0.4.15: Smooth recording timecode to prevent tiny backwards jumps caused by out-of-order UDP packets.
 - v0.4.12: Recording UX + robustness:
   - Accept UDP payloads as either "<FILENAME>,<TIME>" (spec) OR "<FILENAME>(<TIME>)" (common Node-RED concatenation).
   - Treat missing/"undefined" filename as "Recording".

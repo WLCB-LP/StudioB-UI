@@ -315,6 +315,17 @@ type wlcbRecordingState struct {
 	lastSeen time.Time
 	filename string
 	timecode string
+	// lastTimeSec is a best-effort parsed representation of timecode.
+	//
+	// Why this exists:
+	// In real-world UDP telemetry, packets can arrive slightly out of order.
+	// If we blindly overwrite the displayed timecode with every packet, the UI
+	// can briefly jump backwards (e.g., 11:20 -> 11:19 -> 11:21).
+	// That looks like a bug even though telemetry is fine.
+	//
+	// We smooth ONLY small backwards steps for the same filename.
+	lastTimeSec int
+	hasTimeSec  bool
 	lastAddr string
 }
 
@@ -323,6 +334,46 @@ var wlcbRecording = &wlcbRecordingState{}
 // Accept fallback payloads shaped like "name(time)".
 // Compiled once so we don't recompile it on every UDP packet.
 var reRecordingParen = regexp.MustCompile(`^(.*)\(([^()]*)\)$`)
+
+// parseRecordingTimecodeSeconds attempts to parse a timecode string into
+// seconds.
+//
+// Supported shapes:
+//   - "MM:SS" (e.g., "04:50")
+//   - "H:MM:SS" or "HH:MM:SS" (e.g., "1:02:03", "00:12:34")
+//
+// If parsing fails, ok=false and callers should fall back to raw display.
+func parseRecordingTimecodeSeconds(tc string) (sec int, ok bool) {
+	tc = strings.TrimSpace(tc)
+	if tc == "" {
+		return 0, false
+	}
+	parts := strings.Split(tc, ":")
+	if len(parts) == 2 {
+		m, err1 := strconv.Atoi(parts[0])
+		s, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil {
+			return 0, false
+		}
+		if m < 0 || s < 0 || s >= 60 {
+			return 0, false
+		}
+		return (m * 60) + s, true
+	}
+	if len(parts) == 3 {
+		h, err1 := strconv.Atoi(parts[0])
+		m, err2 := strconv.Atoi(parts[1])
+		s, err3 := strconv.Atoi(parts[2])
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0, false
+		}
+		if h < 0 || m < 0 || s < 0 || m >= 60 || s >= 60 {
+			return 0, false
+		}
+		return (h * 3600) + (m * 60) + s, true
+	}
+	return 0, false
+}
 
 func startWLCBRecordingUDPListener(port int) {
 	addr := &net.UDPAddr{IP: net.IPv4zero, Port: port}
@@ -383,11 +434,72 @@ func startWLCBRecordingUDPListener(port int) {
 				continue
 			}
 
+			now := time.Now()
+			newSec, newOK := parseRecordingTimecodeSeconds(tc)
+
 			wlcbRecording.mu.Lock()
-			wlcbRecording.lastSeen = time.Now()
-			wlcbRecording.filename = fn
-			wlcbRecording.timecode = tc
+			// Always update lastSeen, even if we decide to ignore a slightly
+			// out-of-order timecode.
+			wlcbRecording.lastSeen = now
 			wlcbRecording.lastAddr = remote.String()
+
+			// If filename changes, treat it as a new session and reset smoothing.
+			if wlcbRecording.filename != fn {
+				wlcbRecording.filename = fn
+				wlcbRecording.timecode = tc
+				wlcbRecording.hasTimeSec = false
+				wlcbRecording.lastTimeSec = 0
+				if newOK {
+					wlcbRecording.hasTimeSec = true
+					wlcbRecording.lastTimeSec = newSec
+				}
+				wlcbRecording.mu.Unlock()
+				continue
+			}
+
+			// Same filename: smooth tiny backwards steps caused by UDP reordering.
+			// Example we want to suppress:
+			//   11:20 -> 11:19 -> 11:21
+			//
+			// Rules:
+			// - If we can't parse timecode, just display raw (no smoothing).
+			// - If the new timecode is slightly behind (<=2s), ignore it.
+			// - If it's a large jump backwards (>=30s), assume a real reset and accept it.
+			const smallBackMax = 2
+			const largeBackReset = 30
+
+			if newOK && wlcbRecording.hasTimeSec {
+				if newSec < wlcbRecording.lastTimeSec {
+					delta := wlcbRecording.lastTimeSec - newSec
+					if delta <= smallBackMax {
+						// Ignore this update; keep the newer displayed time.
+						wlcbRecording.mu.Unlock()
+						continue
+					}
+					// Large backwards jump: treat as a reset (accept).
+					if delta >= largeBackReset {
+						wlcbRecording.timecode = tc
+						wlcbRecording.lastTimeSec = newSec
+						wlcbRecording.hasTimeSec = true
+						wlcbRecording.mu.Unlock()
+						continue
+					}
+					// Medium backwards jump: accept (operator likely restarted/seeked).
+				}
+				// Forward or equal: accept.
+				wlcbRecording.timecode = tc
+				wlcbRecording.lastTimeSec = newSec
+				wlcbRecording.hasTimeSec = true
+				wlcbRecording.mu.Unlock()
+				continue
+			}
+
+			// If we can parse time but we didn't have a baseline yet, establish it.
+			wlcbRecording.timecode = tc
+			if newOK {
+				wlcbRecording.lastTimeSec = newSec
+				wlcbRecording.hasTimeSec = true
+			}
 			wlcbRecording.mu.Unlock()
 		}
 	}()
