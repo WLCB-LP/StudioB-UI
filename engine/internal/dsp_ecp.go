@@ -10,6 +10,53 @@ import (
 	"time"
 )
 
+// parseSymControllerPos extracts a numeric controller "position" from common
+// Symetrix ASCII protocol response shapes.
+//
+// Real devices and transports return a few variants:
+//   - GS  -> "<position>" (value only)
+//   - GS2 -> "<controller> <position>" (id + value)
+//   - Some UDP replies include a hash prefix and equals sign:
+//       "#00410=40491" (controller=410, position=40491)
+//
+// We treat the final numeric token as authoritative, and also support the
+// "...=<number>" form.
+func parseSymControllerPos(line string) (float64, error) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return 0, fmt.Errorf("empty response")
+	}
+
+	// Fast-path: "#00410=40491" or "00410=40491"
+	if eq := strings.LastIndex(line, "="); eq >= 0 && eq < len(line)-1 {
+		candidate := strings.TrimSpace(line[eq+1:])
+		// Occasionally devices tack on CR/LF; TrimSpace already handles this.
+		if v, err := strconv.ParseFloat(candidate, 64); err == nil {
+			return v, nil
+		}
+		// Fall through to token parsing for better error messages.
+	}
+
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return 0, fmt.Errorf("empty response")
+	}
+	posField := fields[len(fields)-1]
+	if v, err := strconv.ParseFloat(posField, 64); err == nil {
+		return v, nil
+	}
+
+	// Last attempt: if the last token itself is "...=<number>".
+	if eq := strings.LastIndex(posField, "="); eq >= 0 && eq < len(posField)-1 {
+		candidate := strings.TrimSpace(posField[eq+1:])
+		if v, err := strconv.ParseFloat(candidate, 64); err == nil {
+			return v, nil
+		}
+	}
+
+	return 0, fmt.Errorf("invalid position in %q", line)
+}
+
 // ---------------------------------------------------------------------------
 // Symetrix SymNet Composer Control Protocol helper (v0.3.74)
 //
@@ -276,22 +323,7 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 			return nil, fmt.Errorf("dsp returned NAK for controller %d", id)
 		}
 
-		fields := strings.Fields(line)
-		if len(fields) == 1 {
-			// Some systems might respond to GS2 like GS (position only) if GS2 is
-			// not supported. Accept that.
-			pos, err := strconv.ParseFloat(fields[0], 64)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
-			}
-			out[strings.TrimSpace(controlNames[i])] = pos
-			continue
-		}
-		if len(fields) < 2 {
-			return nil, fmt.Errorf("malformed GS2 response: %q", line)
-		}
-		// fields[0] may include leading zeros; ignore and trust the order.
-		pos, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+		pos, err := parseSymControllerPos(line)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}
@@ -345,13 +377,7 @@ func (e *Engine) ecpGetCGUDP(controlNames []string, timeout time.Duration) (map[
 			return nil, err
 		}
 		line = strings.TrimSpace(line)
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			return nil, fmt.Errorf("empty response")
-		}
-		// Accept both GS (value only) and GS2 (id value) shapes.
-		posField := fields[len(fields)-1]
-		pos, err := strconv.ParseFloat(posField, 64)
+		pos, err := parseSymControllerPos(line)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}

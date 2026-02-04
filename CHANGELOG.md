@@ -1,3 +1,8 @@
+## v0.4.21 (2026-02-03)
+
+### Engine
+- Meters: fix Symetrix GS/GS2 parsing to accept UDP response shape `#<id>=<value>` (e.g. `#00410=40491`). Previously this caused frequent meter poll failures and forced meters to zero/hold.
+
 ## v0.4.20 (2026-02-03)
 
 ### Engine
