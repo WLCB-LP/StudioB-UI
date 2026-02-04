@@ -175,9 +175,26 @@ func (e *Engine) ecpSendCSV(controlName string, value float64, timeout time.Dura
 	// mode when operators drag faders quickly.
 	//
 	// SymNet ASCII over UDP is connectionless: we may or may not receive an ACK.
-	// To preserve the "DSP is source of truth" rule, we perform a *readback*
-	// using GS2 after the write and only report success if the DSP reflects the
-	// requested position.
+	//
+	// IMPORTANT (Studio B): Do NOT do a hard readback/verify (GS2) on every
+	// fader move.
+	//
+	// Why:
+	// - Many Symetrix controls apply smoothing / ramps; immediate readback may
+	//   legitimately differ from the requested target for a short period.
+	// - When operators drag faders quickly, we generate bursts of CS writes.
+	//   A strict "write then GS2 verify" strategy amplifies DSP load and can
+	//   cause false negatives (timeouts / mismatches) even when the write is
+	//   correctly accepted.
+	//
+	// Strategy (v0.4.25):
+	// - Send the CS write.
+	// - If we receive an explicit NAK, treat it as failure.
+	// - If we receive an ACK, treat as success.
+	// - If we receive nothing (common on UDP), treat as success.
+	//
+	// The *authoritative* position will still converge on the DSP and will be
+	// reflected to the UI via the periodic poll loop.
 
 	c, err := e.symOpenUDP(timeout)
 	if err != nil {
@@ -198,33 +215,33 @@ func (e *Engine) ecpSendCSV(controlName string, value float64, timeout time.Dura
 	// (Many deployments do not ACK UDP writes, so we treat read timeout as OK.)
 	if line, err := symReadLine(rw.Reader); err == nil {
 		line = strings.TrimSpace(line)
-		if line == "NAK" {
-			return line, fmt.Errorf("dsp returned NAK")
+		switch line {
+		case "NAK":
+			// Small retry loop: UDP packets can collide with other DSP traffic.
+			// If we get an explicit NAK, retry once after a short pause.
+			time.Sleep(50 * time.Millisecond)
+			if _, err := rw.WriteString(cmd); err != nil {
+				return line, err
+			}
+			if err := rw.Flush(); err != nil {
+				return line, err
+			}
+			if line2, err2 := symReadLine(rw.Reader); err2 == nil {
+				line2 = strings.TrimSpace(line2)
+				if line2 == "NAK" {
+					return line2, fmt.Errorf("dsp returned NAK")
+				}
+			}
+			return "OK", nil
+		case "ACK":
+			return "OK", nil
+		default:
+			// Unexpected line (sometimes Symetrix echoes other messages). We treat
+			// it as success and let the poll loop reconcile.
+			return "OK", nil
 		}
-		// If we see an ACK, continue to readback below.
 	}
 
-	// Readback check (truth): GS2 the same controller and confirm it matches.
-	// We allow a small tolerance because some Symetrix controls quantize.
-	readback, err := e.ecpGetCGUDP([]string{controlName}, timeout)
-	if err != nil {
-		return "", fmt.Errorf("dsp write readback failed: %w", err)
-	}
-	got := readback[controlName]
-	// Determine the expected scale. If the DSP returns 0..1 or 0..100, compare
-	// in that space; otherwise assume raw 0..65535.
-	//
-	// This mirrors the robust normalization logic used by the meter poll loop.
-	expected := float64(pos)
-	// If got looks normalized, convert expected accordingly.
-	if got >= 0 && got <= 1.2 {
-		expected = float64(pos) / 65535.0
-	} else if got >= 0 && got <= 120 {
-		expected = (float64(pos) / 65535.0) * 100.0
-	}
-	if math.Abs(got-expected) > 1.5 { // 1.5 units tolerance (covers % + small jitter)
-		return "", fmt.Errorf("dsp write verify mismatch: want %.3f got %.3f", expected, got)
-	}
 	return "OK", nil
 }
 

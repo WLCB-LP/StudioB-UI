@@ -1,3 +1,8 @@
+## v0.4.25 (2026-02-03)
+
+### Engine
+- DSP control writes (faders/mutes): stop doing immediate "write then readback verify" over UDP. Verification via GS2 could fail spuriously due to DSP smoothing/ramping and concurrent meter polling, causing false "verify mismatch" and timeouts. We now treat ACK as success, retry briefly on NAK, and rely on normal meter/state polling for eventual consistency.
+
 ## v0.4.19 (2026-01-16)
 
 ### UI

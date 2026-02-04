@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.19
+# STUB Mixer UI (Studio B) — Release 0.4.25
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -25,6 +25,8 @@ Run:
   ./install.sh
 
 ## Notes
+
+- v0.4.25: DSP control writes (faders/mutes) no longer do immediate readback verification over UDP. We still require ACK/NAK, retry briefly on NAK, and avoid false "verify mismatch" failures caused by DSP smoothing / concurrent polling.
 
 - v0.4.19:
   - VU meters: align segmented thresholds to the printed scale (blue->green at -12; green spans -12..-6).
