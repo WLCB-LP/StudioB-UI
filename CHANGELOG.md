@@ -1,3 +1,12 @@
+## v0.4.20 (2026-02-03)
+
+### Engine
+- Meters: expand the high-rate meter publish set to include *all* Studio B stereo source VUs (CD1/CD2/AUX/BT/PC/Zoom L+R). This fixes missing right-channel meters.
+
+### UI
+- Meters: consume the engine's high-rate `{type:"meters"}` WebSocket frames using a meter-only fast path (no full fader/mute reconciliation). This makes the fader-row meters update as quickly as the DSP/engine publishes.
+- Meters: render bottom-row strip meters as true stereo L/R fills (mono sources are mirrored) so stereo channels can be shown independently.
+
 ## v0.4.19 (2026-01-16)
 
 ### UI

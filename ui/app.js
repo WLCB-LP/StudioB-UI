@@ -538,27 +538,31 @@ function applyPILMetersFromRC(){
 //   Guest 1 VU      -> 402
 //   Guest 2 VU      -> 403
 //   Guest 3 VU      -> 404
-//   CD1 VU          -> 405
-//   CD2 VU          -> 406
-//   AUX VU          -> 407
-//   Bluetooth VU    -> 408
-//   PC VU           -> 409
-//   Zoom VU         -> 410
+// Stereo sources (L/R):
+//   CD1 VU          -> 405 / 406
+//   CD2 VU          -> 407 / 408
+//   AUX VU          -> 409 / 410
+//   Bluetooth VU    -> 413 / 414
+//   PC Audio VU     -> 415 / 416
+//   Zoom VU         -> 417 / 418
 //
 // Contract: engine publishes normalized 0.0–1.0 values over /ws as RC meters.
 // The UI never synthesizes meter motion; if the DSP goes dead, meters go dead.
 // ---------------------------------------------------------------------------
 const STRIP_VU_RC = {
-  host: "401",
-  g1:   "402",
-  g2:   "403",
-  g3:   "404",
-  cd1:  "405",
-  cd2:  "406",
-  aux:  "407",
-  bt:   "408",
-  pc:   "409",
-  zoom: "410",
+  // Mics (mono; mirrored)
+  host: { l: "401", r: "401" },
+  g1:   { l: "402", r: "402" },
+  g2:   { l: "403", r: "403" },
+  g3:   { l: "404", r: "404" },
+
+  // Stereo sources
+  cd1:  { l: "405", r: "406" },
+  cd2:  { l: "407", r: "408" },
+  aux:  { l: "409", r: "410" },
+  bt:   { l: "413", r: "414" },
+  pc:   { l: "415", r: "416" },
+  zoom: { l: "417", r: "418" },
 };
 
 // ---------------------------------------------------------------------------
@@ -716,7 +720,10 @@ function _meterApplySegmented(el, v){
 function _findFaderOwnerForMeterId(id){
   // Bottom row strips (have faders)
   if(id.startsWith('m_vu_')){
-    const strip = id.replace('m_vu_', '');
+    // v0.4.20: bottom-row meters are stereo-capable; ids look like:
+    //   m_vu_cd1_L / m_vu_cd1_R
+    // We want the owning strip to be "cd1".
+    const strip = id.replace('m_vu_', '').split('_')[0];
     return document.querySelector(`.studioBottomFaders .strip[data-strip="${strip}"]`);
   }
 
@@ -782,15 +789,26 @@ function ensureBottomRowVUMeterFills(){
       const meterLane = stripEl.querySelector(".fader__meter");
       if(!meterLane) return;
 
-      // One mono VU per strip in this design (we fill the single lane).
+      // v0.4.20: bottom-row strips are stereo-capable.
+      // - Stereo sources get independent L/R fills.
+      // - Mono sources (mics) are mirrored into both lanes.
+      //
+      // The lane is visually a "dual-bar" meter (two skinny bars inside the
+      // same glass capsule). We implement that by creating two 50% width fills.
       if(meterLane.querySelector(".fader__meterFill")) return;
 
-      const fill = document.createElement("div");
-      fill.className = "fader__meterFill";
-      fill.id = `m_vu_${id}`;
-      // v0.4.18: meters are segmented (threshold-based) to avoid color leakage.
-      _meterEnsureSegmented(fill);
-      meterLane.appendChild(fill);
+      const fillL = document.createElement("div");
+      fillL.className = "fader__meterFill fader__meterFill--L";
+      fillL.id = `m_vu_${id}_L`;
+      _meterEnsureSegmented(fillL);
+
+      const fillR = document.createElement("div");
+      fillR.className = "fader__meterFill fader__meterFill--R";
+      fillR.id = `m_vu_${id}_R`;
+      _meterEnsureSegmented(fillR);
+
+      meterLane.appendChild(fillL);
+      meterLane.appendChild(fillR);
     });
   }catch(e){
     // Never allow meter scaffolding to break UI boot.
@@ -805,8 +823,11 @@ function applyBottomRowVUMetersFromRC(){
   // purely as a visual post-process (no effect on truth).
   for(const strip of Object.keys(STRIP_VU_RC)) {
     const rc = STRIP_VU_RC[strip];
-    const v = clamp01(rcGet(rc));
-    setMeterFillV(`m_vu_${strip}`, vuDisplay(v));
+    // Each mapping entry is {l:"405", r:"406"}.
+    const vL = clamp01(rcGet(rc.l));
+    const vR = clamp01(rcGet(rc.r));
+    setMeterFillV(`m_vu_${strip}_L`, vuDisplay(vL));
+    setMeterFillV(`m_vu_${strip}_R`, vuDisplay(vR));
   }
 }
 
@@ -926,7 +947,31 @@ function connectRCWebSocket(){
         showMixerWhenReady();
       }
 
+      // Fast-path: meter bursts.
+      //
+      // The engine publishes high-rate meter frames as:
+      //   { type: "meters", data: { "401": 0.12, "402": 0.03, ... }, ts: 123 }
+      //
+      // We MUST NOT run full "faders/mutes" reconciliation for these frames,
+      // otherwise meter rendering will stutter under load.
+      function applyMetersObject(meterObj){
+        if(!meterObj || typeof meterObj !== 'object') return;
+        state.rc = state.rc || {};
+        for(const k of Object.keys(meterObj)){
+          state.rc[String(k)] = meterObj[k];
+        }
+        state.mixerHydrated = true;
+        applyPILMetersFromRC();
+        applyBottomRowVUMetersFromRC();
+        // Speakers/Program meters are currently sourced from /api/studio/status.
+        showMixerWhenReady();
+      }
+
       // Snapshot (preferred)
+      if(msg && msg.type === 'meters' && msg.data){
+        applyMetersObject(msg.data);
+        return;
+      }
       if(msg && msg.type === 'snapshot' && msg.data && msg.data.rc){
         applyRCObject(msg.data.rc, true);
         return;

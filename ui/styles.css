@@ -734,6 +734,7 @@ main{padding:18px}
    We keep it subtle until we have real per-channel levels. */
 .fader__meter{
   position:absolute;
+  /* Contains our two stereo meter fills (.fader__meterFill--L/--R). */
   left: 50%;
   transform: translateX(-50%);
   top: 14px;
@@ -743,8 +744,14 @@ main{padding:18px}
   background: linear-gradient(to top, rgba(70,160,255,.25), rgba(55,214,122,.25), rgba(255,176,32,.18));
   opacity: .35;
   filter: saturate(.9);
-  overflow: hidden; /* allows an inner fill element to be clipped cleanly */
+  overflow: hidden; /* allows inner fills to be clipped cleanly */
 }
+
+/* Bottom-row strips (and any other dual-lane meters) use two fills side-by-side. */
+.fader__meter{ position: relative; }
+
+.fader__meterFill--L{ left: 0; width: 50%; right: auto; }
+.fader__meterFill--R{ left: 50%; width: 50%; right: auto; }
 
 /*
   Meter fill (UI v0.3.65)
@@ -768,6 +775,17 @@ main{padding:18px}
   background: linear-gradient(to top, rgba(70,160,255,.85), rgba(55,214,122,.85), rgba(255,176,32,.75));
   opacity: .95;
 }
+
+/* Stereo meter fills (bottom row) — two skinny fills inside one glass lane.
+   Each fill is responsible for a single channel.
+
+   Notes:
+   - app.js creates two .fader__meterFill elements per strip:
+       ...--L and ...--R
+   - They are driven independently from L/R RCs.
+*/
+.fader__meterFill--L{ left: 0; right: auto; width: 50%; }
+.fader__meterFill--R{ left: 50%; right: auto; width: 50%; }
 
 /* -------------------------------------------------------------------------
    Segmented VU fill (UI v0.4.18)
