@@ -218,6 +218,9 @@ type StudioStatus struct {
 	Time    string `json:"ts"`
 	Version string `json:"version"`
 	Mode    string `json:"mode"`
+	// Normalized controller values (0.0..1.0), keyed by RC id as a string.
+	// Useful for debugging (e.g. curl | jq '.rc').
+	RC map[string]float64 `json:"rc,omitempty"`
 	Speaker struct {
 		Level    float64 `json:"level"`
 		Mute     bool    `json:"mute"`
@@ -622,6 +625,13 @@ func (e *Engine) StudioStatusSnapshot() StudioStatus {
 	s.Meters.RsrL = e.rc[rcNameToID["STUB_RSR_L"]]
 	s.Meters.RsrR = e.rc[rcNameToID["STUB_RSR_R"]]
 
+	// Debug / UI fallback: expose a copy of all known RC values.
+	// (Keys become strings in JSON.)
+	s.RC = make(map[string]float64, len(e.rc))
+	for id, v := range e.rc {
+		s.RC[strconv.Itoa(id)] = v
+	}
+
 	return s
 }
 
@@ -779,7 +789,7 @@ func (e *Engine) publishLoop() {
 		}
 
 		// ------------------------------------------------------------------
-		// 2) Dedicated meters stream (minimal MVP)
+		// 2) Dedicated meters stream
 		// ------------------------------------------------------------------
 		// IMPORTANT (v0.3.71): Meters are different from control state.
 		//
@@ -790,7 +800,10 @@ func (e *Engine) publishLoop() {
 		// Therefore we broadcast meters every tick.
 		// Dedicated meters stream: always publish a batched payload at publish_hz.
 		// These are normalized 0.0–1.0 values (UI-friendly).
-		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
+		//
+		// NOTE: The DSP uses non-contiguous RC IDs for some stereo meters (e.g. 410/450).
+		// Keep this list in-sync with internal/dsp_meters.go.
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 445, 446, 447, 448, 449, 450, 460, 461, 462, 463}
 		meterVals = make(map[string]float64, len(meterIDs))
 		for _, id := range meterIDs {
 			meterVals[strconv.Itoa(id)] = e.rc[id]
@@ -805,10 +818,11 @@ func (e *Engine) publishLoop() {
 		// Minimal contract: batched meters payload, normalized 0.0–1.0.
 		// The UI binds specific RC IDs to specific meter surfaces.
 		if metersDirty {
+			// Historical UI contract expects `meters` (not `data`).
 			e.broadcast("meters", map[string]any{
-				"type": "meters",
-				"data": meterVals,
-				"ts":   time.Now().UnixMilli(),
+				"type":   "meters",
+				"meters": meterVals,
+				"ts":     time.Now().UnixMilli(),
 			})
 		}
 	}
@@ -819,8 +833,8 @@ func (e *Engine) mockLoop() {
 	rand.Seed(time.Now().UnixNano())
 	for {
 		e.mu.Lock()
-		// meters: 411/412 program, 460/461 speakers, 462/463 rs return
-		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
+		// meters: normalized 0.0–1.0 values for UI testing
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 445, 446, 447, 448, 449, 450, 460, 461, 462, 463}
 		for _, id := range meterIDs {
 			// random walk
 			cur := e.rc[id]

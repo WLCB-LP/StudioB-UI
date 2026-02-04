@@ -62,12 +62,12 @@ func (e *Engine) dspMetersPollLoop() {
 		//   Guest 3 VU : 404
 		//
 		// Stereo sources (L/R):
-		//   CD1      : 405 / 406
-		//   CD2      : 407 / 408
-		//   AUX      : 409 / 410
-		//   Bluetooth: 413 / 414
-		//   PC Audio : 415 / 416
-		//   Zoom     : 417 / 418
+		//   CD1      : 405 / 445
+		//   CD2      : 406 / 446
+		//   AUX      : 407 / 447
+		//   Bluetooth: 408 / 448
+		//   PC Audio : 409 / 449
+		//   Zoom     : 410 / 450
 		//
 		// NOTE:
 		// We intentionally carry these raw controller positions through the engine
@@ -75,7 +75,7 @@ func (e *Engine) dspMetersPollLoop() {
 		// display mapping, thresholds, and color segmentation.
 		"401", "402", "403", "404",
 		"405", "406", "407", "408", "409", "410",
-		"413", "414", "415", "416", "417", "418",
+		"445", "446", "447", "448", "449", "450",
 
 		// Program / speakers / remote return
 		"411", "412", "460", "461", "462", "463",

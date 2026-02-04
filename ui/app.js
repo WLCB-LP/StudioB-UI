@@ -485,6 +485,16 @@ function rcGet(id){
   }
 }
 
+// Prefer high-rate batched meter stream when available; fall back to rc.
+function meterGet(id){
+  try{
+    const k = String(id);
+    const m = state.meters ? state.meters[k] : undefined;
+    if (typeof m === 'number' && Number.isFinite(m)) return m;
+  }catch(_){/* ignore */}
+  return rcGet(id);
+}
+
 function applyMixerFadersFromRC(){
   for(const id of Object.keys(state.mixer.faders || {})){
     const rc = MIXER_FADER_RC_READ[id];
@@ -539,12 +549,12 @@ function applyPILMetersFromRC(){
 //   Guest 2 VU      -> 403
 //   Guest 3 VU      -> 404
 // Stereo sources are true L/R pairs (two meters per strip):
-//   CD1 VU          -> 405 / 406
-//   CD2 VU          -> 407 / 408
-//   AUX VU          -> 409 / 410
-//   Bluetooth VU    -> 413 / 414
-//   PC VU           -> 415 / 416
-//   Zoom VU         -> 417 / 418
+//   CD1 VU          -> 405 / 445
+//   CD2 VU          -> 406 / 446
+//   AUX VU          -> 407 / 447
+//   Bluetooth VU    -> 408 / 448
+//   PC VU           -> 409 / 449
+//   Zoom VU         -> 410 / 450
 //
 // Contract: engine publishes normalized 0.0–1.0 values over /ws as RC meters.
 // The UI never synthesizes meter motion; if the DSP goes dead, meters go dead.
@@ -559,12 +569,12 @@ const STRIP_VU_RC = {
   g3:   "404",
 
   // Stereo sources (L/R)
-  cd1:  { L: "405", R: "406" },
-  cd2:  { L: "407", R: "408" },
-  aux:  { L: "409", R: "410" },
-  bt:   { L: "413", R: "414" },
-  pc:   { L: "415", R: "416" },
-  zoom: { L: "417", R: "418" },
+  cd1:  { L: "405", R: "445" },
+  cd2:  { L: "406", R: "446" },
+  aux:  { L: "407", R: "447" },
+  bt:   { L: "408", R: "448" },
+  pc:   { L: "409", R: "449" },
+  zoom: { L: "410", R: "450" },
 };
 
 // ---------------------------------------------------------------------------
