@@ -363,24 +363,95 @@ func (e *Engine) ecpGetCGUDP(controlNames []string, timeout time.Duration) (map[
 		return nil, err
 	}
 
+	// Symetrix can return extra lines (e.g. "ACK") before the numeric payload,
+	// and UDP can deliver controller responses out-of-order. So we collect by
+	// controller id instead of assuming one line per requested id.
+	wantByID := make(map[int]string, len(ids))
+	for i, id := range ids {
+		wantByID[id] = strings.TrimSpace(controlNames[i])
+	}
+
 	out := make(map[string]float64, len(controlNames))
-	for i := range ids {
+	got := make(map[int]struct{}, len(ids))
+	for len(got) < len(ids) {
 		line, err := symReadLine(rw.Reader)
 		if err != nil {
 			return nil, err
 		}
 		line = strings.TrimSpace(line)
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			return nil, fmt.Errorf("empty response")
+		if line == "" {
+			continue
 		}
-		// Accept both GS (value only) and GS2 (id value) shapes.
-		posField := fields[len(fields)-1]
-		pos, err := parseSymPositionToken(posField)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
+		// Ignore benign acknowledgements.
+		if strings.EqualFold(line, "ACK") {
+			continue
 		}
-		out[strings.TrimSpace(controlNames[i])] = pos
+		if strings.EqualFold(line, "NAK") {
+			return nil, fmt.Errorf("dsp returned NAK")
+		}
+
+		// Parse either "#00410=40491" or "410 40491".
+		id, pos, ok := parseSymControllerLine(line)
+		if !ok {
+			// Unrecognized line; ignore so we don't break polling.
+			continue
+		}
+		name, wanted := wantByID[id]
+		if !wanted {
+			// Response for a controller we didn't ask for; ignore.
+			continue
+		}
+		out[name] = pos
+		got[id] = struct{}{}
 	}
 	return out, nil
+}
+
+// parseSymControllerLine parses a single Symetrix controller response line.
+// Supported forms:
+//   "#00410=40491" (or float)
+//   "410 40491"    (or with extra tokens)
+// It returns (id, position, ok).
+func parseSymControllerLine(line string) (int, float64, bool) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return 0, 0, false
+	}
+
+	// #00410=40491
+	if strings.HasPrefix(line, "#") && strings.Contains(line, "=") {
+		parts := strings.SplitN(line[1:], "=", 2)
+		if len(parts) != 2 {
+			return 0, 0, false
+		}
+		id, err := strconv.Atoi(strings.TrimLeft(parts[0], "0"))
+		if err != nil {
+			// if id is all zeros, TrimLeft returns ""; handle that.
+			if strings.TrimLeft(parts[0], "0") == "" {
+				id = 0
+			} else {
+				return 0, 0, false
+			}
+		}
+		pos, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if err != nil {
+			return 0, 0, false
+		}
+		return id, pos, true
+	}
+
+	// "410 40491" or "410 ... 40491" (take first as id, last as value)
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return 0, 0, false
+	}
+	id, err := strconv.Atoi(fields[0])
+	if err != nil {
+		return 0, 0, false
+	}
+	pos, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+	if err != nil {
+		return 0, 0, false
+	}
+	return id, pos, true
 }
