@@ -1,3 +1,8 @@
+## v0.4.26 (2026-02-04)
+
+### Engine
+- Build fix only: remove an unused Go import that caused `go test` to fail during `install.sh`/admin update.
+
 ## v0.4.25 (2026-02-03)
 
 ### Engine

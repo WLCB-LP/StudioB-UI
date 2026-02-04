@@ -3,7 +3,6 @@ package app
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"strings"
