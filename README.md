@@ -1,4 +1,4 @@
-# STUB Mixer UI (Studio B) — Release 0.4.21
+# STUB Mixer UI (Studio B) — Release 0.4.19
 
 This release contains:
 - A minimal v1 web UI (Studio + Engineering pages)
@@ -26,7 +26,7 @@ Run:
 
 ## Notes
 
-- v0.4.21:
+- v0.4.19:
   - VU meters: align segmented thresholds to the printed scale (blue->green at -12; green spans -12..-6).
   - Header: replace the top-right pill stack with date/time.
 

@@ -54,7 +54,29 @@ func (e *Engine) dspMetersPollLoop() {
 	// transient poll hiccup, otherwise the UI will flicker into a false state.
 	meters := []string{
 		// Bottom-row channel VU meters
-		"401", "402", "403", "404", "405", "406", "407", "408", "409", "410",
+		//
+		// Studio B DSP truth (operator-provided):
+		//   Host Mic VU: 401
+		//   Guest 1 VU : 402
+		//   Guest 2 VU : 403
+		//   Guest 3 VU : 404
+		//
+		// Stereo sources (L/R):
+		//   CD1      : 405 / 406
+		//   CD2      : 407 / 408
+		//   AUX      : 409 / 410
+		//   Bluetooth: 413 / 414
+		//   PC Audio : 415 / 416
+		//   Zoom     : 417 / 418
+		//
+		// NOTE:
+		// We intentionally carry these raw controller positions through the engine
+		// as normalized 0.0–1.0 values (rc cache). The UI is responsible for any
+		// display mapping, thresholds, and color segmentation.
+		"401", "402", "403", "404",
+		"405", "406", "407", "408", "409", "410",
+		"413", "414", "415", "416", "417", "418",
+
 		// Program / speakers / remote return
 		"411", "412", "460", "461", "462", "463",
 	}

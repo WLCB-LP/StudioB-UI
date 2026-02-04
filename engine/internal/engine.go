@@ -790,7 +790,7 @@ func (e *Engine) publishLoop() {
 		// Therefore we broadcast meters every tick.
 		// Dedicated meters stream: always publish a batched payload at publish_hz.
 		// These are normalized 0.0–1.0 values (UI-friendly).
-		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 413, 414, 415, 416, 417, 418, 411, 412, 460, 461, 462, 463}
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
 		meterVals = make(map[string]float64, len(meterIDs))
 		for _, id := range meterIDs {
 			meterVals[strconv.Itoa(id)] = e.rc[id]
@@ -820,7 +820,7 @@ func (e *Engine) mockLoop() {
 	for {
 		e.mu.Lock()
 		// meters: 411/412 program, 460/461 speakers, 462/463 rs return
-		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 413, 414, 415, 416, 417, 418, 411, 412, 460, 461, 462, 463}
+		meterIDs := []int{401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 460, 461, 462, 463}
 		for _, id := range meterIDs {
 			// random walk
 			cur := e.rc[id]

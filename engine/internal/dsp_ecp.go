@@ -10,53 +10,6 @@ import (
 	"time"
 )
 
-// parseSymControllerPos extracts a numeric controller "position" from common
-// Symetrix ASCII protocol response shapes.
-//
-// Real devices and transports return a few variants:
-//   - GS  -> "<position>" (value only)
-//   - GS2 -> "<controller> <position>" (id + value)
-//   - Some UDP replies include a hash prefix and equals sign:
-//       "#00410=40491" (controller=410, position=40491)
-//
-// We treat the final numeric token as authoritative, and also support the
-// "...=<number>" form.
-func parseSymControllerPos(line string) (float64, error) {
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return 0, fmt.Errorf("empty response")
-	}
-
-	// Fast-path: "#00410=40491" or "00410=40491"
-	if eq := strings.LastIndex(line, "="); eq >= 0 && eq < len(line)-1 {
-		candidate := strings.TrimSpace(line[eq+1:])
-		// Occasionally devices tack on CR/LF; TrimSpace already handles this.
-		if v, err := strconv.ParseFloat(candidate, 64); err == nil {
-			return v, nil
-		}
-		// Fall through to token parsing for better error messages.
-	}
-
-	fields := strings.Fields(line)
-	if len(fields) == 0 {
-		return 0, fmt.Errorf("empty response")
-	}
-	posField := fields[len(fields)-1]
-	if v, err := strconv.ParseFloat(posField, 64); err == nil {
-		return v, nil
-	}
-
-	// Last attempt: if the last token itself is "...=<number>".
-	if eq := strings.LastIndex(posField, "="); eq >= 0 && eq < len(posField)-1 {
-		candidate := strings.TrimSpace(posField[eq+1:])
-		if v, err := strconv.ParseFloat(candidate, 64); err == nil {
-			return v, nil
-		}
-	}
-
-	return 0, fmt.Errorf("invalid position in %q", line)
-}
-
 // ---------------------------------------------------------------------------
 // Symetrix SymNet Composer Control Protocol helper (v0.3.74)
 //
@@ -323,13 +276,53 @@ func (e *Engine) ecpGetCG(controlNames []string, timeout time.Duration) (map[str
 			return nil, fmt.Errorf("dsp returned NAK for controller %d", id)
 		}
 
-		pos, err := parseSymControllerPos(line)
+		fields := strings.Fields(line)
+		if len(fields) == 1 {
+			// Some Symetrix stacks respond with a single token (no spaces). We support:
+			//   "12345"          (position-only)
+			//   "00410=12345"    (id=value)
+			//   "#00410=12345"   (quiet-prefixed id=value)
+			pos, err := parseSymPositionToken(fields[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
+			}
+			out[strings.TrimSpace(controlNames[i])] = pos
+			continue
+		}
+		if len(fields) < 2 {
+			return nil, fmt.Errorf("malformed GS2 response: %q", line)
+		}
+		// fields[0] may include leading zeros; ignore and trust the order.
+		pos, err := parseSymPositionToken(fields[len(fields)-1])
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}
 		out[strings.TrimSpace(controlNames[i])] = pos
 	}
 	return out, nil
+}
+
+// parseSymPositionToken extracts a numeric position from a Symetrix response token.
+//
+// We've observed at least three real-world formats:
+//   - "12345"         (position-only)
+//   - "00410=12345"   (id=value)
+//   - "#00410=12345"  (quiet-prefixed id=value)
+//
+// The engine only cares about the *value*.
+func parseSymPositionToken(tok string) (float64, error) {
+	// Trim whitespace and common terminators.
+	s := strings.TrimSpace(tok)
+
+	// If an '=' exists, trust the last segment as the value.
+	// Example: "#00410=40491" -> "40491"
+	if idx := strings.LastIndex(s, "="); idx >= 0 && idx < len(s)-1 {
+		s = s[idx+1:]
+	}
+
+	// Final trim (in case of weird padding).
+	s = strings.TrimSpace(s)
+	return strconv.ParseFloat(s, 64)
 }
 
 // ecpGetCGUDP reads controller positions using Symetrix GS2 over UDP.
@@ -377,7 +370,13 @@ func (e *Engine) ecpGetCGUDP(controlNames []string, timeout time.Duration) (map[
 			return nil, err
 		}
 		line = strings.TrimSpace(line)
-		pos, err := parseSymControllerPos(line)
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			return nil, fmt.Errorf("empty response")
+		}
+		// Accept both GS (value only) and GS2 (id value) shapes.
+		posField := fields[len(fields)-1]
+		pos, err := parseSymPositionToken(posField)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse controller position from %q: %w", line, err)
 		}
